@@ -185,26 +185,19 @@ export function CoachAvatar({ size = 34, name = 'Jud' }: { size?: number; name?:
 }
 
 /** Quote-style block for the coach's note on a session or week. */
+/**
+ * Jud's instruction on part of the plan — a week's emphasis, a session note, a
+ * cue on an exercise.
+ *
+ * Deliberately unlike a message: prescription and correspondence both carry his
+ * voice, and when a real note from him sits on the same screen, two identical
+ * avatar blocks read as two messages and neither gets the weight it deserves.
+ */
 export function CoachNote({ children, name = 'Jud' }: { children: ReactNode; name?: string }) {
   return (
-    <div
-      style={{
-        display: 'flex',
-        gap: 10,
-        padding: 13,
-        borderRadius: 12,
-        background: 'var(--accent-soft)',
-      }}
-    >
-      <CoachAvatar size={28} name={name} />
-      <div style={{ minWidth: 0 }}>
-        <div className="t-caption1 semibold" style={{ color: 'var(--accent)', marginBottom: 1 }}>
-          {name}
-        </div>
-        <div className="t-subhead" style={{ lineHeight: '19px' }}>
-          {children}
-        </div>
-      </div>
+    <div className="coach-quote">
+      <div className="coach-quote-label">{name}&rsquo;s note</div>
+      <div className="coach-quote-body">{children}</div>
     </div>
   )
 }

@@ -195,7 +195,14 @@ export const useStore = create<AppState>()(
         })),
 
       /* ------------------------------ profile --------------------------- */
-      updateProfile: (patch) => set((s) => ({ profile: { ...s.profile, ...patch } })),
+      updateProfile: (patch) =>
+        set((s) => {
+          // Units are the one field that cannot be patched: changing the label
+          // without converting the history silently reads every weight in the
+          // app as the wrong unit. `setUnits` is the only way in.
+          const { units: _ignored, ...rest } = patch
+          return { profile: { ...s.profile, ...rest } }
+        }),
       updateSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
 
       /**

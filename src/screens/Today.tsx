@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Screen } from '../components/ios/Screen'
-import { Card, CoachAvatar, CoachNote, SectionHeader, StatTile } from '../components/Bits'
+import { Card, CoachNote, SectionHeader, StatTile } from '../components/Bits'
 import { Icon } from '../components/Icon'
 import { Pill } from '../components/ios/Controls'
 import { RingStack, MACRO_COLORS } from '../components/Rings'
 import { Sparkline } from '../components/Charts'
 import { useStore, emptyDay } from '../store/useStore'
+import { useCoach } from '../store/coach'
+import { CoachCard } from '../components/CoachCard'
 import {
   blockSummary, currentWeekIndex, getWeek, isBlockComplete, missedSessions, nextSession,
   sessionsThisWeek, trainingStreak, useProgram, weekSchedule,
@@ -23,9 +25,9 @@ import { compact, fixed, num, signed } from '../lib/format'
 import { navPresent, navPush, navSwitchTab, useNav } from '../nav/nav'
 import { NumberPad } from '../components/NumberPad'
 import { toast } from '../components/ios/Toast'
-import { COACH } from '../data/seed'
 
 export function TodayScreen() {
+  const coachSeat = useCoach((s) => s.viewAs === 'coach')
   const today = todayISO()
   const program = useProgram()
   const logs = useStore((s) => s.logs)
@@ -301,17 +303,13 @@ export function TodayScreen() {
 
         {/* ------------------------------- coach --------------------------- */}
         <div>
-          <SectionHeader title="Your coach" />
-          <Card onPress={() => navPush('coach')}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <CoachAvatar size={44} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="t-headline">{COACH.fullName}</div>
-                <div className="t-footnote dim truncate">{COACH.title} · {COACH.credentials}</div>
-              </div>
-              <Icon name="chevron.right" size={15} weight={2.6} color="var(--label-3)" />
-            </div>
-          </Card>
+          <SectionHeader
+            title={coachSeat ? 'From your client' : 'From Jud'}
+            action={{ label: 'Profile', onPress: () => navPush('coach') }}
+          />
+          <div className="gutter">
+            <CoachCard />
+          </div>
         </div>
       </div>
 
@@ -624,15 +622,23 @@ function WeekStrip() {
               padding: '8px 2px 7px',
               background: done ? 'var(--accent)' : entry ? 'var(--grouped-2)' : 'transparent',
               border: isToday ? '1.5px solid var(--accent)' : '1.5px solid transparent',
-              color: done ? '#fff' : entry ? 'var(--label)' : 'var(--label-3)',
+              // A rest day is information, not decoration. Dimming it three ways
+              // over — tertiary label, then 0.55 on the cell, then 0.7 on the
+              // letter — put the weekday at 1.7:1, well under anything iOS ships.
+              // The fill and the dot already say which days carry a session.
+              color: done ? '#fff' : entry ? 'var(--label)' : 'var(--label-2)',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               gap: 3,
-              opacity: entry ? 1 : 0.55,
             }}
           >
-            <span className="t-caption2 semibold" style={{ opacity: 0.7 }}>{letter}</span>
+            <span
+              className="t-caption2 semibold"
+              style={{ opacity: done || entry ? 0.72 : 1 }}
+            >
+              {letter}
+            </span>
             {done ? (
               <Icon name="check" size={13} weight={3} color="#fff" />
             ) : entry ? (

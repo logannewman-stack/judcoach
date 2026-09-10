@@ -4,14 +4,13 @@ import { Screen } from '../../components/ios/Screen'
 import { CoachAvatar } from '../../components/Bits'
 import { ActionSheet } from '../../components/ios/Sheet'
 import { Icon } from '../../components/Icon'
-import type { IconName } from '../../components/Icon'
 import { useCoach } from '../../store/coach'
 import { useStore } from '../../store/useStore'
-import { ANCHOR_LABEL, anchorKey, byTime, groupNotes, unreadFrom } from '../../domain/coach'
-import type { AnchorKind, CoachAuthor, CoachNote, NoteAnchor, NoteGroup } from '../../domain/coach'
+import { anchorKey, byTime, groupNotes, unreadFrom } from '../../domain/coach'
+import type { CoachAuthor, CoachNote, NoteGroup } from '../../domain/coach'
 import { COACH } from '../../data/seed'
-import { getExercise } from '../../data/exercises'
 import { formatMediumDate, relativeDay, todayISO } from '../../lib/date'
+import { AnchorCard } from './anchor'
 import { haptic } from '../../lib/haptics'
 import { useNav } from '../../nav/nav'
 import { Composer } from './Composer'
@@ -23,15 +22,6 @@ import { Composer } from './Composer'
    one carries a card naming what it is about, which opens the record — so "you
    had one more rep in that" is one tap from the set it is talking about.
    ========================================================================== */
-
-const ANCHOR_ICON: Record<AnchorKind, IconName> = {
-  thread: 'message',
-  workout: 'dumbbell',
-  weighIn: 'scale',
-  checkIn: 'note',
-  photo: 'photo',
-  exercise: 'book',
-}
 
 const time = (iso: string) =>
   new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
@@ -245,61 +235,6 @@ function Bubble({ note, tail, onHold }: { note: CoachNote; tail: boolean; onHold
         </div>
       )}
     </motion.div>
-  )
-}
-
-/** The record a message is about, as a card that opens it. */
-export function AnchorCard({ anchor }: { anchor: NoteAnchor }) {
-  const push = useNav((s) => s.push)
-  const switchTab = useNav((s) => s.switchTab)
-  const logs = useStore((s) => s.logs)
-  const weighIns = useStore((s) => s.weighIns)
-  const units = useStore((s) => s.profile.units)
-
-  if (anchor.kind === 'thread') return null
-
-  let title = ANCHOR_LABEL[anchor.kind]
-  let open: (() => void) | undefined
-
-  if (anchor.kind === 'workout') {
-    const log = logs.find((l) => l.id === anchor.id)
-    title = log ? `${log.sessionName} · ${formatMediumDate(log.date)}` : 'No longer in your history'
-    if (log) open = () => { switchTab('train'); push('logDetail', { logId: log.id }) }
-  } else if (anchor.kind === 'weighIn') {
-    const entry = weighIns.find((w) => w.date === anchor.id)
-    title = entry
-      ? `${entry.weight} ${units} · ${formatMediumDate(entry.date)}`
-      : formatMediumDate(anchor.id)
-    open = () => switchTab('weigh')
-  } else if (anchor.kind === 'checkIn') {
-    title = 'Weekly check-in'
-    open = () => { switchTab('weigh'); push('checkIns') }
-  } else if (anchor.kind === 'photo') {
-    title = 'Progress photo'
-    open = () => { switchTab('weigh'); push('photos') }
-  } else if (anchor.kind === 'exercise') {
-    title = getExercise(anchor.id)?.name ?? 'Movement'
-    open = () => { switchTab('train'); push('exerciseDetail', { exerciseId: anchor.id }) }
-  }
-
-  const inner = (
-    <>
-      <span className="msg-card-icon">
-        <Icon name={ANCHOR_ICON[anchor.kind]} size={17} weight={2} color="var(--accent)" />
-      </span>
-      <span className="msg-card-body">
-        <span className="msg-card-kind">{ANCHOR_LABEL[anchor.kind]}</span>
-        <span className="msg-card-title truncate">{title}</span>
-      </span>
-      {open && <Icon name="chevron.right" size={13} weight={2.6} color="var(--label-3)" />}
-    </>
-  )
-
-  if (!open) return <div className="msg-card">{inner}</div>
-  return (
-    <button type="button" className="msg-card" onClick={open} aria-label={`Open ${title}`}>
-      {inner}
-    </button>
   )
 }
 
