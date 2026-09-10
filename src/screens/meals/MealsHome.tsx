@@ -96,9 +96,9 @@ export function MealsHome() {
             </RingStack>
 
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <MacroReadout label="Protein" value={totals.protein} target={targets.protein} color={MACRO_COLORS.protein} />
-              <MacroReadout label="Carbs" value={totals.carbs} target={targets.carbs} color={MACRO_COLORS.carbs} />
-              <MacroReadout label="Fat" value={totals.fat} target={targets.fat} color={MACRO_COLORS.fat} />
+              <MacroReadout label="Protein" value={totals.protein} target={targets.protein} color={MACRO_COLORS.protein} labelColor="var(--red-text)" />
+              <MacroReadout label="Carbs" value={totals.carbs} target={targets.carbs} color={MACRO_COLORS.carbs} labelColor="var(--orange-text)" />
+              <MacroReadout label="Fat" value={totals.fat} target={targets.fat} color={MACRO_COLORS.fat} labelColor="var(--yellow-text)" />
             </div>
           </div>
 
@@ -308,18 +308,20 @@ function DayStrip({
 }
 
 function MacroReadout({
-  label, value, target, color,
+  label, value, target, color, labelColor,
 }: {
   label: string
   value: number
   target: number
   color: string
+  /** systemYellow reads at 1.5:1 as type — the bar keeps it, the label doesn't. */
+  labelColor: string
 }) {
   const pct = target > 0 ? Math.min((value / target) * 100, 100) : 0
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-        <span className="t-footnote semibold" style={{ color }}>{label}</span>
+        <span className="t-footnote semibold" style={{ color: labelColor }}>{label}</span>
         <span className="t-footnote mono-nums semibold">
           {Math.round(value)}
           <span className="dim" style={{ fontWeight: 400 }}>/{Math.round(target)}g</span>
@@ -456,7 +458,7 @@ export function FoodLine({
         }}
       >
         {item.name}
-        <span className="dim3"> · {num(scaled.qty, 1)} {unitFor(scaled.qty, item.unit)}</span>
+        <span className="dim"> · {num(scaled.qty, 1)} {unitFor(scaled.qty, item.unit)}</span>
       </span>
       {onPortion && (
         <button

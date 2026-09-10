@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useStore } from '../store/useStore'
 import { Icon } from './Icon'
@@ -15,7 +15,6 @@ export function RestTimerBar({ bottomOffset }: { bottomOffset: number | string }
   const stopRest = useStore((s) => s.stopRest)
   const adjustRest = useStore((s) => s.adjustRest)
   const [now, setNow] = useState(() => Date.now())
-  const [finished, setFinished] = useState(false)
 
   useEffect(() => {
     if (!timer) return
@@ -25,17 +24,17 @@ export function RestTimerBar({ bottomOffset }: { bottomOffset: number | string }
 
   const remaining = timer ? Math.max(0, (timer.endsAt - now) / 1000) : 0
   const progress = timer ? 1 - remaining / timer.totalSec : 0
+  // Derived, not held: adding time to a finished timer has to take the label,
+  // the ring and the skip button back to counting down with it.
+  const finished = timer != null && remaining <= 0
 
+  // Buzz on the crossing into zero, so an extended rest buzzes again when it
+  // runs out, and neither a re-render nor a second +15 buzzes twice for one.
+  const wasFinished = useRef(false)
   useEffect(() => {
-    if (!timer) {
-      setFinished(false)
-      return
-    }
-    if (remaining <= 0 && !finished) {
-      setFinished(true)
-      haptic('success')
-    }
-  }, [remaining, timer, finished])
+    if (finished && !wasFinished.current) haptic('success')
+    wasFinished.current = finished
+  }, [finished])
 
   const size = 34
   const r = (size - 4) / 2

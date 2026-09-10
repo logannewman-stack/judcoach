@@ -300,7 +300,9 @@ export function guardPersistedShape(persisted: unknown): unknown {
   for (const key of ['weighIns', 'measurements', 'photos', 'logs', 'checkIns'] as const) {
     if (key in out && !Array.isArray(out[key])) out[key] = []
   }
-  if ('nutrition' in out && !isObject(out.nutrition)) out.nutrition = {}
+  for (const key of ['nutrition', 'dayModes'] as const) {
+    if (key in out && !isObject(out[key])) out[key] = {}
+  }
   for (const key of ['profile', 'settings'] as const) {
     if (key in out && !isObject(out[key])) delete out[key]
   }

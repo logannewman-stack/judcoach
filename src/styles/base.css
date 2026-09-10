@@ -86,7 +86,6 @@ img { max-width: 100%; display: block; }
 .semibold { font-weight: 600; }
 .bold { font-weight: 700; }
 .dim { color: var(--label-2); }
-.dim3 { color: var(--label-3); }
 .tint { color: var(--accent); }
 .mono-nums { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1; }
 .rounded-font { font-family: var(--font-rounded); }
@@ -321,13 +320,16 @@ img { max-width: 100%; display: block; }
 
 .scroll-pad-bottom { height: calc(var(--tab-h) + var(--sa-bottom) + 24px); }
 
+/* saturate(180%) blur(20px) is the figure Apple uses on its own desktop web
+   chrome; UIKit's bar material is heavier and pulls more colour out of what
+   passes under it. */
 .screen-footer {
   flex: none;
   z-index: 20;
   padding: 10px var(--gutter) calc(var(--sa-bottom) + 10px);
   background: var(--chrome);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(200%) blur(30px);
+  backdrop-filter: saturate(200%) blur(30px);
   box-shadow: 0 calc(var(--hairline) * -1) 0 var(--sep);
 }
 
@@ -348,8 +350,8 @@ img { max-width: 100%; display: block; }
 
 .navbar[data-scrolled='true'] {
   background: var(--chrome);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(200%) blur(30px);
+  backdrop-filter: saturate(200%) blur(30px);
   box-shadow: 0 var(--hairline) 0 var(--sep);
 }
 
@@ -387,10 +389,13 @@ img { max-width: 100%; display: block; }
   letter-spacing: -0.43px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 3px;
   padding: 6px 8px;
   border-radius: 8px;
+  /* A bar button item is 44 × 44 even when it's a single glyph. */
   min-height: 44px;
+  min-width: 44px;
   transition: opacity 120ms ease;
 }
 .nav-btn:active { opacity: 0.4; }
@@ -413,8 +418,8 @@ img { max-width: 100%; display: block; }
   flex: none;
   padding-bottom: var(--sa-bottom);
   background: var(--chrome);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(200%) blur(30px);
+  backdrop-filter: saturate(200%) blur(30px);
   box-shadow: 0 calc(var(--hairline) * -1) 0 var(--sep);
 }
 
@@ -481,25 +486,37 @@ img { max-width: 100%; display: block; }
 
 .list {
   background: var(--grouped-2);
-  border-radius: var(--r-card);
+  border-radius: var(--r-inset);
   margin: 0 var(--gutter);
   overflow: hidden;
 }
 
+/* A UIKit cell has a fixed pitch and centres whatever it holds: 44pt for one
+   line, 58pt once there's a subtitle. The padding is only a floor for content
+   that outgrows both — it has to stay under 6.5px so a 31pt switch and a 29pt
+   icon still sit in a 44pt row. */
 .row {
   position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
   min-height: var(--row-h);
-  padding: 11px var(--gutter);
+  padding: 6px var(--gutter);
   width: 100%;
   text-align: left;
   background: var(--grouped-2);
   color: var(--label);
   transition: background 90ms ease;
 }
-.row + .row::before {
+.row:has(.row-sub) { min-height: var(--row-h-2); }
+
+/* The separator belongs to the row below the join, so a group paints n-1 of
+   them. SwipeRow's drag wrapper stands in for the row it holds, which is what
+   `.row + .row` alone could not see. */
+.row + .row::before,
+.row + .swipe-row .row::before,
+.swipe-row + .row::before,
+.swipe-row + .swipe-row .row::before {
   content: '';
   position: absolute;
   top: 0;
@@ -507,7 +524,6 @@ img { max-width: 100%; display: block; }
   right: 0;
   height: var(--hairline);
   background: var(--sep);
-  transform: scaleY(0.6);
 }
 button.row:active, a.row:active, .row[data-pressable='true']:active { background: var(--fill-4); }
 
@@ -536,6 +552,29 @@ button.row:active, a.row:active, .row[data-pressable='true']:active { background
   white-space: nowrap;
 }
 .chev { flex: none; color: var(--label-3); margin-left: -2px; }
+
+/* ---- swipe-to-reveal row ---- */
+
+.swipe-row { position: relative; overflow: hidden; }
+.swipe-row-tray {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: flex-end;
+}
+.swipe-row-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: var(--gray);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+}
+.swipe-row-action.destructive { background: var(--red); }
+.swipe-row-sled { position: relative; background: var(--grouped-2); }
 
 /* ================================ cards ================================= */
 
@@ -590,21 +629,31 @@ a.card:active,
 
 /* ========================== segmented control =========================== */
 
+/* UIKit draws a 32pt track with 28pt segments, but every segment still has to
+   be a 44pt target — so the control occupies 44pt of layout and the track it
+   paints is a pseudo-element centred inside that. */
 .segmented {
   position: relative;
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
-  background: var(--fill-3);
-  border-radius: 9px;
-  padding: 2px;
+  height: 44px;
+  padding: 0 2px;
   isolation: isolate;
+}
+.segmented::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 6px 0;
+  border-radius: 9px;
+  background: var(--fill-3);
 }
 .segmented-thumb {
   position: absolute;
   z-index: 0;
-  top: 2px;
-  bottom: 2px;
+  top: 8px;
+  bottom: 8px;
   border-radius: 7px;
   background: var(--bg);
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12), 0 3px 1px rgba(0, 0, 0, 0.04);
@@ -616,11 +665,10 @@ a.card:active,
 .segment {
   position: relative;
   z-index: 1;
-  min-height: 28px;
   display: grid;
   place-items: center;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 400;
   letter-spacing: -0.08px;
   color: var(--label);
   padding: 0 8px;
@@ -722,7 +770,7 @@ a.card:active,
   gap: 8px;
 }
 .action-group {
-  border-radius: var(--r-lg);
+  border-radius: var(--r-alert);
   overflow: hidden;
   background: var(--chrome-solid);
   -webkit-backdrop-filter: blur(24px);
@@ -763,14 +811,26 @@ a.card:active,
 
 /* ================================ alert ================================= */
 
-.alert {
+/* Centring lives on a host that never animates: framer-motion writes the
+   alert's own `transform` on every frame, which wiped a centring translate and
+   left the panel low and to the right of where it belonged. The host is laid
+   over the whole screen, so it has to stay transparent to taps meant for the
+   scrim underneath — which means overriding `.sheet-layer > *`. */
+.alert-host {
   position: absolute;
+  inset: 0;
   z-index: 101;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  padding: 0 var(--gutter);
+  pointer-events: none;
+}
+
+.alert {
+  pointer-events: auto;
   width: 270px;
-  border-radius: var(--r-lg);
+  max-width: 100%;
+  border-radius: var(--r-alert);
   background: var(--chrome-solid);
   -webkit-backdrop-filter: blur(24px);
   backdrop-filter: blur(24px);
@@ -809,6 +869,10 @@ a.card:active,
 .alert-action.strong { font-weight: 600; }
 .alert-action.destructive { color: var(--red); }
 .alert-action:active { background: var(--fill-4); }
+
+/* A presented overlay freezes what's behind it. The app's scrolling lives in
+   `.scroll`, never on `body`, so hiding the body's overflow locked nothing. */
+.app-content[data-overlay='true'] .scroll { overflow: hidden; }
 
 /* ================================ toast ================================= */
 
@@ -890,9 +954,11 @@ a.card:active,
   white-space: nowrap;
 }
 .pill.tinted { background: var(--accent-soft); color: var(--accent); }
-.pill.good { background: rgba(52, 199, 89, 0.16); color: var(--green); }
-.pill.warn { background: rgba(255, 149, 0, 0.16); color: var(--orange); }
-.pill.bad { background: rgba(255, 59, 48, 0.16); color: var(--red); }
+/* The fill stays the bright system colour; the label on it is the text-safe
+   twin, which is the pairing iOS uses. */
+.pill.good { background: rgba(52, 199, 89, 0.16); color: var(--green-text); }
+.pill.warn { background: rgba(255, 149, 0, 0.16); color: var(--orange-text); }
+.pill.bad { background: rgba(255, 59, 48, 0.16); color: var(--red-text); }
 
 .track {
   height: 6px;
@@ -1131,7 +1197,6 @@ a.card:active,
   right: 0;
   height: var(--hairline);
   background: var(--sep);
-  transform: scaleY(0.6);
 }
 .onboarding-list-icon {
   width: 32px;

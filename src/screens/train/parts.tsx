@@ -92,7 +92,7 @@ export function LastTimeLine({
       />
       Last {num(best.weight, 1)} {units} × {best.reps}
       {best.rpe != null ? ` @ ${formatRpe(best.rpe)}` : ''}
-      <span className="dim3"> · {relativeDay(performance.date)}</span>
+      <span className="dim"> · {relativeDay(performance.date)}</span>
     </span>
   )
 }

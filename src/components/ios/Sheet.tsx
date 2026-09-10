@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
-import type { ReactNode } from 'react'
+import { useEffect, useId, useRef } from 'react'
+import type { ReactNode, RefObject } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { haptic } from '../../lib/haptics'
 import { SheetPortal } from './SheetLayer'
@@ -8,15 +8,103 @@ import { useKeyboardInset } from '../../lib/useKeyboardInset'
 /** iOS sheet spring: settles fast, no visible bounce. */
 export const SHEET_SPRING = { type: 'spring' as const, stiffness: 420, damping: 40, mass: 0.9 }
 
-function useLockedScroll(open: boolean) {
+/* ============================================================================
+   Presentation plumbing.
+
+   UIKit gives a presented view controller four things for free that a portalled
+   div does not: what's behind it stops scrolling, stops taking taps and stops
+   existing for VoiceOver; focus moves in and comes back out; Tab cannot walk
+   out of it; and Escape (a hardware keyboard's swipe-down) dismisses it.
+   ========================================================================== */
+
+/* Counted, because a sheet can present another one over it. */
+let overlays = 0
+
+function applyOverlayLock() {
+  const el = document.querySelector<HTMLElement>('.app-content')
+  if (!el) return
+  if (overlays > 0) {
+    el.dataset.overlay = 'true'
+    el.setAttribute('inert', '')
+    el.setAttribute('aria-hidden', 'true')
+  } else {
+    delete el.dataset.overlay
+    el.removeAttribute('inert')
+    el.removeAttribute('aria-hidden')
+  }
+}
+
+function useOverlayLock(open: boolean) {
   useEffect(() => {
     if (!open) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    overlays += 1
+    applyOverlayLock()
     return () => {
-      document.body.style.overflow = prev
+      overlays -= 1
+      applyOverlayLock()
     }
   }, [open])
+}
+
+const FOCUSABLE =
+  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
+function useModalFocus(open: boolean, ref: RefObject<HTMLElement>) {
+  useEffect(() => {
+    if (!open) return
+    const opener = document.activeElement as HTMLElement | null
+    // The container takes focus rather than its first control: VoiceOver reads
+    // the overlay from the top, and focusing a field here would raise the
+    // keyboard over a sheet that is still sliding up.
+    const frame = requestAnimationFrame(() => ref.current?.focus({ preventScroll: true }))
+
+    const onKey = (e: KeyboardEvent) => {
+      const node = ref.current
+      if (e.key !== 'Tab' || !node) return
+      const items = [...node.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
+        (el) => el.offsetWidth > 0 || el.offsetHeight > 0,
+      )
+      if (items.length === 0) {
+        e.preventDefault()
+        return
+      }
+      const edge = e.shiftKey ? items[0] : items[items.length - 1]
+      if (document.activeElement === edge || !node.contains(document.activeElement)) {
+        e.preventDefault()
+        ;(e.shiftKey ? items[items.length - 1] : items[0]).focus()
+      }
+    }
+    document.addEventListener('keydown', onKey, true)
+
+    return () => {
+      cancelAnimationFrame(frame)
+      document.removeEventListener('keydown', onKey, true)
+      // Skipped when the opener has gone with the screen that held it.
+      if (opener && opener !== document.body && opener.isConnected) {
+        opener.focus({ preventScroll: true })
+      }
+    }
+  }, [open, ref])
+}
+
+function useEscape(open: boolean, onDismiss: () => void) {
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onDismiss()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, onDismiss])
+}
+
+/** The whole presentation contract, keyed to the overlay's own element. */
+function usePresentation(open: boolean, onDismiss: () => void) {
+  const ref = useRef<HTMLDivElement>(null)
+  useOverlayLock(open)
+  useModalFocus(open, ref)
+  useEscape(open, onDismiss)
+  return ref
 }
 
 export interface SheetAction {
@@ -46,17 +134,9 @@ export function Sheet({
   detent?: number
   grabber?: boolean
 }) {
-  useLockedScroll(open)
   const keyboard = useKeyboardInset()
-
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  const ref = usePresentation(open, onClose)
+  const titleId = useId()
 
   return (
     <SheetPortal active={open}>
@@ -72,6 +152,7 @@ export function Sheet({
             onClick={onClose}
           />
           <motion.div
+            ref={ref}
             className="sheet"
             style={{
               // Sit on top of the keyboard rather than behind it.
@@ -93,6 +174,8 @@ export function Sheet({
             }}
             role="dialog"
             aria-modal="true"
+            aria-labelledby={title ? titleId : undefined}
+            tabIndex={-1}
           >
             {grabber && <div className="grabber" />}
             {(title || left || right) && (
@@ -104,7 +187,7 @@ export function Sheet({
                     </button>
                   )}
                 </div>
-                <div className="t-headline">{title}</div>
+                <div className="t-headline" id={titleId}>{title}</div>
                 <div style={{ justifySelf: 'end' }}>
                   {right && (
                     <button
@@ -154,7 +237,9 @@ export function ActionSheet({
   items: ActionItem[]
   cancelLabel?: string
 }) {
-  useLockedScroll(open)
+  const ref = usePresentation(open, onClose)
+  const titleId = useId()
+
   return (
     <SheetPortal active={open}>
     <AnimatePresence>
@@ -169,6 +254,7 @@ export function ActionSheet({
             onClick={onClose}
           />
           <motion.div
+            ref={ref}
             className="action-sheet"
             initial={{ y: '110%' }}
             animate={{ y: 0 }}
@@ -176,10 +262,12 @@ export function ActionSheet({
             transition={SHEET_SPRING}
             role="dialog"
             aria-modal="true"
+            aria-labelledby={title ? titleId : undefined}
+            tabIndex={-1}
           >
             <div className="action-group">
               {(title || message) && (
-                <div className="action-title">
+                <div className="action-title" id={titleId}>
                   {title && <div className="semibold" style={{ color: 'var(--label)' }}>{title}</div>}
                   {message && <div>{message}</div>}
                 </div>
@@ -227,7 +315,10 @@ export function Alert({
   actions: { label: string; onPress: () => void; strong?: boolean; destructive?: boolean }[]
   onDismiss: () => void
 }) {
-  useLockedScroll(open)
+  const ref = usePresentation(open, onDismiss)
+  const titleId = useId()
+  const messageId = useId()
+
   return (
     <SheetPortal active={open} recede={false}>
     <AnimatePresence>
@@ -241,39 +332,47 @@ export function Alert({
             transition={{ duration: 0.18 }}
             onClick={onDismiss}
           />
-          <motion.div
-            className="alert"
-            initial={{ opacity: 0, scale: 1.14 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 1 }}
-            transition={{ duration: 0.2, ease: [0.2, 0.8, 0.3, 1] }}
-            role="alertdialog"
-            aria-modal="true"
-          >
-            <div className="alert-body">
-              <div className="t-headline">{title}</div>
-              {message && (
-                <div className="t-footnote" style={{ marginTop: 3, lineHeight: '17px' }}>
-                  {message}
-                </div>
-              )}
-            </div>
-            <div className="alert-actions" style={{ flexDirection: actions.length > 2 ? 'column' : 'row' }}>
-              {actions.map((a, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  className={`alert-action${a.strong ? ' strong' : ''}${a.destructive ? ' destructive' : ''}`}
-                  onClick={() => {
-                    haptic('light')
-                    a.onPress()
-                  }}
-                >
-                  {a.label}
-                </button>
-              ))}
-            </div>
-          </motion.div>
+          {/* The host centres; the alert animates. Keeping those on separate
+              elements is the whole point — see `.alert-host`. */}
+          <div className="alert-host">
+            <motion.div
+              ref={ref}
+              className="alert"
+              initial={{ opacity: 0, scale: 1.14 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1 }}
+              transition={{ duration: 0.2, ease: [0.2, 0.8, 0.3, 1] }}
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby={titleId}
+              aria-describedby={message ? messageId : undefined}
+              tabIndex={-1}
+            >
+              <div className="alert-body">
+                <div className="t-headline" id={titleId}>{title}</div>
+                {message && (
+                  <div className="t-footnote" id={messageId} style={{ marginTop: 3, lineHeight: '17px' }}>
+                    {message}
+                  </div>
+                )}
+              </div>
+              <div className="alert-actions" style={{ flexDirection: actions.length > 2 ? 'column' : 'row' }}>
+                {actions.map((a, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    className={`alert-action${a.strong ? ' strong' : ''}${a.destructive ? ' destructive' : ''}`}
+                    onClick={() => {
+                      haptic('light')
+                      a.onPress()
+                    }}
+                  >
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </div>
         </>
       )}
     </AnimatePresence>

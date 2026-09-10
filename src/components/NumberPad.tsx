@@ -42,46 +42,50 @@ export function NumberPad({
   hint?: string
   submitLabel?: string
 }) {
-  const [text, setText] = useState('')
-  const [dirty, setDirty] = useState(false)
+  // Text and "has this been touched" are one piece of state because every key
+  // needs both to decide what to do. Held apart, a press read the flag from the
+  // render it was queued in, which is how a single backspace used to submit 0.
+  const [entry, setEntry] = useState({ text: '', touched: false })
+  const { text, touched } = entry
 
   useEffect(() => {
-    if (open) {
-      setText(initial > 0 ? num(initial, 2) : '')
-      setDirty(false)
-    }
+    if (open) setEntry({ text: initial > 0 ? num(initial, 2) : '', touched: false })
   }, [open, initial])
 
   const value = Number(text || '0')
-  const display = text === '' ? num(initial, 2) : text
+  const display = !touched && text === '' ? num(initial, 2) : text
 
   const press = (key: string) => {
     haptic('selection')
-    setDirty(true)
-    setText((prev) => {
-      const base = dirty ? prev : ''
-      if (key === 'del') return base.slice(0, -1)
+    setEntry((prev) => {
+      // The first digit replaces what the pad opened with — that is what typing
+      // a fresh weight means. Backspace edits it instead: deleting is the one
+      // key that can only mean what is on the screen.
+      const base = prev.touched || key === 'del' ? prev.text : ''
+      const keep = (next: string) => ({ text: next, touched: true })
+      if (key === 'del') return keep(base.slice(0, -1))
       if (key === '.') {
-        if (!allowDecimal || base.includes('.')) return base
-        return base === '' ? '0.' : `${base}.`
+        if (!allowDecimal || base.includes('.')) return keep(base)
+        return keep(base === '' ? '0.' : `${base}.`)
       }
       const next = base + key
-      if (next.replace('.', '').length > 6) return base
-      if (max != null && Number(next) > max) return base
-      return next
+      if (next.replace('.', '').length > 6) return keep(base)
+      if (max != null && Number(next) > max) return keep(base)
+      return keep(next)
     })
   }
 
   const bump = (delta: number) => {
     haptic('light')
-    const base = dirty ? value : initial
-    const next = Math.max(0, Math.round((base + delta) * 100) / 100)
-    setDirty(true)
-    setText(num(next, 2))
+    setEntry((prev) => {
+      const base = prev.touched ? Number(prev.text || '0') : initial
+      const next = Math.max(0, Math.round((base + delta) * 100) / 100)
+      return { text: num(next, 2), touched: true }
+    })
   }
 
   const submit = () => {
-    onSubmit(dirty ? value : initial)
+    onSubmit(touched ? value : initial)
     onClose()
   }
 

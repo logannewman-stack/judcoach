@@ -29,6 +29,19 @@
   --mint: #00c7be;
   --cyan: #32ade6;
 
+  /* ---- system colours, as text -------------------------------------------
+     The bright values above are fills, symbols and strokes: systemYellow is
+     1.5:1 on white and systemGreen 2.2:1, which Apple never sets type in. iOS
+     ships a second, darker set for exactly this, and these are those values.
+     On a dark ground the bright ones are already legible, so the two sets
+     converge there.
+     --------------------------------------------------------------------- */
+  --red-text: #d70015;
+  --orange-text: #c93400;
+  --yellow-text: #b25000;
+  --green-text: #248a3d;
+  --cyan-text: #0071a4;
+
   /* ---- greys ---- */
   --gray: #8e8e93;
   --gray2: #aeaeb2;
@@ -76,7 +89,9 @@
   /* ---- radii (iOS continuous-ish corners) ---- */
   --r-inset: 10px;
   --r-card: 14px;
-  --r-lg: 18px;
+  /* UIAlertController's corner, shared by an alert and an action sheet's
+     groups. Both were 18px, which reads as a web card rather than a panel. */
+  --r-alert: 14px;
   --r-sheet: 14px;
   --r-btn: 12px;
   --r-pill: 999px;
@@ -86,7 +101,12 @@
   --tab-h: 49px;
   --gutter: 16px;
   --row-h: 44px;
-  --hairline: 0.5px;
+  /* A UIKit cell with a subtitle is 58pt: 17pt title over a 13pt detail, with
+     9pt of air above and below. */
+  --row-h-2: 58px;
+  /* A separator is one device pixel on iOS, so the right CSS length depends on
+     the ratio. The 1x value is the default because a media query can only add. */
+  --hairline: 1px;
 
   /* ---- safe areas (fall back to 0 off-device) ---- */
   --sa-top: env(safe-area-inset-top, 0px);
@@ -101,6 +121,13 @@
     'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
 
   color-scheme: light;
+}
+
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 2dppx) {
+  :root { --hairline: 0.5px; }
+}
+@media (-webkit-min-device-pixel-ratio: 3), (min-resolution: 3dppx) {
+  :root { --hairline: 0.33px; }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -124,6 +151,12 @@
     --yellow: #ffd60a;
     --mint: #63e6e2;
     --cyan: #64d2ff;
+
+    --red-text: #ff453a;
+    --orange-text: #ff9f0a;
+    --yellow-text: #ffd60a;
+    --green-text: #30d158;
+    --cyan-text: #64d2ff;
 
     --gray: #8e8e93;
     --gray2: #636366;
@@ -187,6 +220,12 @@
   --yellow: #ffd60a;
   --mint: #63e6e2;
   --cyan: #64d2ff;
+
+  --red-text: #ff453a;
+  --orange-text: #ff9f0a;
+  --yellow-text: #ffd60a;
+  --green-text: #30d158;
+  --cyan-text: #64d2ff;
 
   --gray: #8e8e93;
   --gray2: #636366;

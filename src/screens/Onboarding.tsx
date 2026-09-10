@@ -10,7 +10,7 @@ import { useStore } from '../store/useStore'
 import { MAIN_LIFTS } from '../data/exercises'
 import { COACH } from '../data/seed'
 import {
-  DEFAULT_PLATES_KG, DEFAULT_PLATES_LB, e1RM, formatRpe, kgToLb, lbToKg, roundToIncrement,
+  DEFAULT_PLATES_KG, DEFAULT_PLATES_LB, e1RM, formatRpe, roundToIncrement,
 } from '../domain/strength'
 import type { Units } from '../domain/types'
 import { todayISO } from '../lib/date'
@@ -259,25 +259,9 @@ function NameStep({
 
 function UnitsStep({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
   const profile = useStore((s) => s.profile)
-  const updateProfile = useStore((s) => s.updateProfile)
-
-  const setUnits = (next: Units) => {
-    if (next === profile.units) return
-    const convert = next === 'kg' ? lbToKg : kgToLb
-    const round = (v: number) => Math.round(v * 10) / 10
-    updateProfile({
-      units: next,
-      startWeight: round(convert(profile.startWeight)),
-      goalWeight: round(convert(profile.goalWeight)),
-      weeklyRateTarget: round(convert(profile.weeklyRateTarget)),
-      barWeight: next === 'kg' ? 20 : 45,
-      availablePlates: next === 'kg' ? DEFAULT_PLATES_KG : DEFAULT_PLATES_LB,
-      roundingIncrement: next === 'kg' ? 2.5 : 5,
-      trainingMaxes: Object.fromEntries(
-        Object.entries(profile.trainingMaxes).map(([k, v]) => [k, round(convert(v))]),
-      ),
-    })
-  }
+  // Setup runs on an empty history, so there is nothing here to confirm — but it
+  // still goes through the store, so there is only one conversion in the app.
+  const setUnits = useStore((s) => s.setUnits)
 
   return (
     <StepShell

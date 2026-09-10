@@ -3,11 +3,11 @@ import { Screen } from '../../components/ios/Screen'
 import { ListSection, Row } from '../../components/ios/List'
 import { Segmented } from '../../components/ios/Controls'
 import { NumberPad } from '../../components/NumberPad'
-import { Sheet } from '../../components/ios/Sheet'
+import { Alert, Sheet } from '../../components/ios/Sheet'
 import { useStore } from '../../store/useStore'
-import { kgToLb, lbToKg, DEFAULT_PLATES_KG, DEFAULT_PLATES_LB } from '../../domain/strength'
+import { lengthUnit } from '../../domain/units'
 import type { Units } from '../../domain/types'
-import { fixed, num } from '../../lib/format'
+import { fixed, num, pluralize } from '../../lib/format'
 import { useNav } from '../../nav/nav'
 import { toast } from '../../components/ios/Toast'
 
@@ -17,28 +17,45 @@ export function ProfileSettings() {
   const pop = useNav((s) => s.pop)
   const profile = useStore((s) => s.profile)
   const updateProfile = useStore((s) => s.updateProfile)
+  const setUnits = useStore((s) => s.setUnits)
   const [field, setField] = useState<Field>(null)
   const [naming, setNaming] = useState(false)
   const [nameDraft, setNameDraft] = useState(profile.name)
+  const [switchingTo, setSwitchingTo] = useState<Units | null>(null)
+  // Select primitives, not a fresh object — zustand v5 snapshots must be stable.
+  const weighInCount = useStore((s) => s.weighIns.length)
+  const logCount = useStore((s) => s.logs.length)
+  const checkInCount = useStore((s) => s.checkIns.length)
+  const measurementCount = useStore((s) => s.measurements.length)
+  const hasActive = useStore((s) => s.active != null)
 
-  /** Switching units converts every stored number so nothing silently changes meaning. */
-  const changeUnits = (next: Units) => {
-    if (next === profile.units) return
-    const convert = next === 'kg' ? lbToKg : kgToLb
-    const round = (v: number) => Math.round(v * 10) / 10
-    updateProfile({
-      units: next,
-      startWeight: round(convert(profile.startWeight)),
-      goalWeight: round(convert(profile.goalWeight)),
-      weeklyRateTarget: round(convert(profile.weeklyRateTarget)),
-      barWeight: next === 'kg' ? 20 : 45,
-      availablePlates: next === 'kg' ? DEFAULT_PLATES_KG : DEFAULT_PLATES_LB,
-      roundingIncrement: next === 'kg' ? 2.5 : 5,
-      trainingMaxes: Object.fromEntries(
-        Object.entries(profile.trainingMaxes).map(([k, v]) => [k, round(convert(v))]),
-      ),
+  /**
+   * Switching units rewrites the client's whole history, so it is spelled out in
+   * their own numbers first. Nothing with a count of zero is listed: a client on
+   * day one should not be warned about no weigh-ins.
+   */
+  const affected = (
+    [
+      [weighInCount, 'weigh-in'],
+      [logCount, 'workout'],
+      [checkInCount, 'check-in'],
+      [measurementCount, 'tape entry', 'tape entries'],
+    ] as [number, string, string?][]
+  )
+    .filter(([n]) => n > 0)
+    .map(([n, one, many]) => pluralize(n, one, many))
+
+  const applySwitch = (next: Units) => {
+    setSwitchingTo(null)
+    if (setUnits(next)) {
+      toast(`Switched to ${next}`, { icon: 'swap' })
+      return
+    }
+    // Refused rather than half-applied — see domain/units.ts.
+    toast("Couldn't convert every number, so nothing changed", {
+      icon: 'xmark.circle.fill',
+      tone: 'bad',
     })
-    toast(`Switched to ${next}`, { icon: 'swap' })
   }
 
   const heightText = `${Math.floor(profile.heightIn / 12)}′ ${Math.round(profile.heightIn % 12)}″`
@@ -68,7 +85,10 @@ export function ProfileSettings() {
         />
       </ListSection>
 
-      <ListSection header="Units" footer="Changing units converts every weight in the app, including your working maxes and plate inventory.">
+      <ListSection
+        header="Units"
+        footer={`Changing units converts everything GRIT has recorded — weigh-ins, logged sets, the tape, your working maxes and your plate rack — not just the label on it. The tape is in ${lengthUnit(profile.units) === 'cm' ? 'centimetres' : 'inches'}.`}
+      >
         <div style={{ padding: '10px var(--gutter)' }}>
           <Segmented
             options={[
@@ -76,7 +96,7 @@ export function ProfileSettings() {
               { value: 'kg', label: 'Kilograms' },
             ]}
             value={profile.units}
-            onChange={(v) => changeUnits(v as Units)}
+            onChange={(v) => setSwitchingTo(v as Units)}
           />
         </div>
       </ListSection>
@@ -183,6 +203,32 @@ export function ProfileSettings() {
           />
         </div>
       </Sheet>
+
+      <Alert
+        open={switchingTo != null}
+        title={`Switch to ${switchingTo === 'kg' ? 'kilograms' : 'pounds'}?`}
+        message={
+          switchingTo && (
+            <>
+              Every number GRIT holds gets converted, not relabelled
+              {affected.length > 0 ? `: ${affected.join(', ')}` : ''}, plus your working maxes. The
+              tape moves to {switchingTo === 'kg' ? 'centimetres' : 'inches'} and your bar and plates
+              become a {switchingTo === 'kg' ? 'kilo' : 'pound'} rack.
+              {hasActive && ' The workout you have in progress comes with it.'} Rounding means a
+              switch back can land a tenth either side of where you started.
+            </>
+          )
+        }
+        onDismiss={() => setSwitchingTo(null)}
+        actions={[
+          { label: 'Cancel', onPress: () => setSwitchingTo(null) },
+          {
+            label: `Convert to ${switchingTo ?? ''}`,
+            strong: true,
+            onPress: () => switchingTo && applySwitch(switchingTo),
+          },
+        ]}
+      />
     </Screen>
   )
 }

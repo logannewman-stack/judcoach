@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState } from 'react'
 import { Screen } from '../../components/ios/Screen'
-import { ListSection, Row } from '../../components/ios/List'
+import { ListSection, Row, rowSepInset } from '../../components/ios/List'
 import { Card, CoachNote } from '../../components/Bits'
 import { Icon } from '../../components/Icon'
 import { Pill } from '../../components/ios/Controls'
@@ -14,6 +14,10 @@ import { resolveSet } from '../../domain/strength'
 import { formatShortDate, relativeDay, todayISO, weekdayShortFromDow } from '../../lib/date'
 import { num, pluralize } from '../../lib/format'
 import { navPresent, useNav } from '../../nav/nav'
+
+/* Wide enough for a three-letter weekday over a two-digit date. The row's
+   separator has to start from the same column, which is what `sepInset` says. */
+const DATE_BADGE_W = 34
 
 export function TrainHome() {
   const today = todayISO()
@@ -123,14 +127,15 @@ export function TrainHome() {
             return (
               <Fragment key={session.id}>
                 <Row
+                  sepInset={rowSepInset(DATE_BADGE_W)}
                   leading={
                     <span
                       aria-hidden="true"
                       style={{
-                        width: 29,
+                        width: DATE_BADGE_W,
                         flex: 'none',
                         textAlign: 'center',
-                        color: log ? 'var(--green)' : isToday ? 'var(--accent)' : 'var(--label-2)',
+                        color: log ? 'var(--green-text)' : isToday ? 'var(--accent)' : 'var(--label-2)',
                       }}
                     >
                       <span
@@ -151,7 +156,7 @@ export function TrainHome() {
                   subtitle={
                     <>
                       <span className="truncate" style={{ display: 'block' }}>{session.focus}</span>
-                      <span className="truncate dim3 mono-nums" style={{ display: 'block' }}>
+                      <span className="truncate dim mono-nums" style={{ display: 'block' }}>
                         {detail}
                       </span>
                     </>
@@ -173,6 +178,7 @@ export function TrainHome() {
                 {isToday && !log && (
                   <Row
                     title="Start workout"
+                    ariaLabel={`Start workout — ${session.name}`}
                     icon="play.fill"
                     iconColor="var(--accent)"
                     tinted

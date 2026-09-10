@@ -8,7 +8,8 @@ import { NumberPad } from '../../components/NumberPad'
 import { LineChart } from '../../components/Charts'
 import { toast } from '../../components/ios/Toast'
 import { useStore } from '../../store/useStore'
-import type { MeasurementEntry } from '../../domain/types'
+import type { MeasurementEntry, Units } from '../../domain/types'
+import { formatLength, lengthUnit, tapeSteps } from '../../domain/units'
 import { formatMediumDate, formatShortDate, relativeDay, todayISO } from '../../lib/date'
 import { num, signed } from '../../lib/format'
 import { useNav } from '../../nav/nav'
@@ -28,6 +29,9 @@ export function Measurements() {
   const pop = useNav((s) => s.pop)
   const measurements = useStore((s) => s.measurements)
   const saveMeasurement = useStore((s) => s.saveMeasurement)
+  // The tape follows the weight unit, so the numbers and the label can never
+  // disagree about which one they are in.
+  const units = useStore((s) => s.profile.units)
   const [site, setSite] = useState<SiteKey>('waist')
   const [adding, setAdding] = useState(false)
 
@@ -84,7 +88,7 @@ export function Measurements() {
                     <span className="mono-nums" style={{ fontSize: 32, fontWeight: 700, letterSpacing: -0.8 }}>
                       {latest ? num(latest.y, 1) : '—'}
                     </span>
-                    <span className="t-callout dim">in</span>
+                    <span className="t-callout dim">{lengthUnit(units)}</span>
                   </div>
                 </div>
                 {first && latest && first !== latest && (
@@ -94,7 +98,7 @@ export function Measurements() {
                       className="t-title3 mono-nums"
                       style={{ color: latest.y >= first.y ? 'var(--green)' : 'var(--orange)' }}
                     >
-                      {signed(latest.y - first.y, 1)}″
+                      {signed(latest.y - first.y, 1)}{units === 'kg' ? ' cm' : '″'}
                     </div>
                   </div>
                 )}
@@ -105,7 +109,7 @@ export function Measurements() {
                     data={series}
                     height={160}
                     showDots
-                    formatValue={(v) => `${num(v, 1)}″`}
+                    formatValue={(v) => formatLength(v, units)}
                     formatLabel={(x) => formatShortDate(x)}
                     ariaLabel={`${meta.label} over time`}
                   />
@@ -143,6 +147,7 @@ export function Measurements() {
       <AddMeasurementSheet
         open={adding}
         onClose={() => setAdding(false)}
+        units={units}
         latest={measurements[measurements.length - 1]}
         onSave={(entry) => {
           saveMeasurement(entry)
@@ -154,10 +159,11 @@ export function Measurements() {
 }
 
 function AddMeasurementSheet({
-  open, onClose, latest, onSave,
+  open, onClose, units, latest, onSave,
 }: {
   open: boolean
   onClose: () => void
+  units: Units
   latest?: MeasurementEntry
   onSave: (entry: MeasurementEntry) => void
 }) {
@@ -184,7 +190,7 @@ function AddMeasurementSheet({
       >
         <div style={{ padding: '4px 16px 16px' }}>
           <div className="t-footnote dim" style={{ marginBottom: 12 }}>
-            Inches. Leave anything blank that you didn't take.
+            {units === 'kg' ? 'Centimetres' : 'Inches'}. Leave anything blank that you didn't take.
           </div>
           <div className="card" style={{ margin: 0 }}>
             {SITES.map((s) => (
@@ -192,9 +198,11 @@ function AddMeasurementSheet({
                 key={s.key}
                 title={s.label}
                 subtitle={
-                  latest?.[s.key] != null ? `Last: ${num(latest[s.key] as number, 1)}″` : undefined
+                  latest?.[s.key] != null
+                    ? `Last: ${formatLength(latest[s.key] as number, units)}`
+                    : undefined
                 }
-                value={draft[s.key] != null ? `${num(draft[s.key] as number, 1)}″` : 'Add'}
+                value={draft[s.key] != null ? formatLength(draft[s.key] as number, units) : 'Add'}
                 chevron
                 onPress={() => setEditing(s.key)}
               />
@@ -210,8 +218,8 @@ function AddMeasurementSheet({
           onSubmit={(v) => setDraft((d) => ({ ...d, [editing]: v }))}
           title={SITES.find((s) => s.key === editing)!.label}
           initial={draft[editing] ?? latest?.[editing] ?? 0}
-          unit="in"
-          steps={[-0.5, -0.1, 0.1, 0.5]}
+          unit={lengthUnit(units)}
+          steps={tapeSteps(units)}
           hint={SITES.find((s) => s.key === editing)!.hint}
         />
       )}

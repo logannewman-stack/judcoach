@@ -147,37 +147,41 @@ export function Stepper({
           {format(value)}
         </span>
       )}
+      {/* No `overflow: hidden` here: it would clip the pseudo-element that
+          grows each half to a 44pt target, so the halves round their own outer
+          corners instead. */}
       <div
         style={{
           display: 'grid',
           gridAutoFlow: 'column',
           background: 'var(--fill-3)',
           borderRadius: 8,
-          overflow: 'hidden',
         }}
       >
         <button
           type="button"
+          className="hit-expand"
           aria-label="Decrease"
           disabled={value <= min}
           onClick={() => bump(-step)}
           onPointerDown={() => startRepeat(-step)}
           onPointerUp={stopRepeat}
           onPointerLeave={stopRepeat}
-          style={stepperBtn}
+          style={{ ...stepperBtn, borderRadius: '8px 0 0 8px' }}
         >
           <Icon name="minus" size={17} weight={2.4} />
         </button>
-        <span style={{ width: 0.5, background: 'var(--sep)' }} />
+        <span style={{ width: 'var(--hairline)', background: 'var(--sep)' }} />
         <button
           type="button"
+          className="hit-expand"
           aria-label="Increase"
           disabled={value >= max}
           onClick={() => bump(step)}
           onPointerDown={() => startRepeat(step)}
           onPointerUp={stopRepeat}
           onPointerLeave={stopRepeat}
-          style={stepperBtn}
+          style={{ ...stepperBtn, borderRadius: '0 8px 8px 0' }}
         >
           <Icon name="plus" size={17} weight={2.4} />
         </button>

@@ -1,5 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
-import type { CSSProperties, ReactNode } from 'react'
+import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Screen } from '../../components/ios/Screen'
 import { ListSection, Row } from '../../components/ios/List'
@@ -19,17 +18,6 @@ import { fixed, num, signed } from '../../lib/format'
 import { useNav } from '../../nav/nav'
 
 type Range = '30' | '90' | 'all'
-
-/**
- * SwipeRow's wrapper element breaks the stylesheet's `.row + .row` hairline, so
- * rows inside one paint their own — at the same inset the sheet would use.
- */
-const ROW_SEPARATOR: CSSProperties = {
-  backgroundImage: 'linear-gradient(var(--sep), var(--sep))',
-  backgroundRepeat: 'no-repeat',
-  backgroundPosition: 'right top',
-  backgroundSize: 'calc(100% - var(--row-sep-inset, var(--gutter))) var(--hairline)',
-}
 
 export function WeighInHome() {
   const today = todayISO()
@@ -217,7 +205,7 @@ export function WeighInHome() {
               rawAsDots
               color="var(--label-2)"
               secondaryColor="var(--accent)"
-              goal={{ value: profile.goalWeight, label: 'Goal' }}
+              goal={profile.goalWeight > 0 ? { value: profile.goalWeight, label: 'Goal' } : undefined}
               formatValue={(v) => `${fixed(v, decimals)} ${profile.units}`}
               formatLabel={(x) => formatShortDate(x)}
               ariaLabel="Bodyweight trend"
@@ -289,29 +277,26 @@ export function WeighInHome() {
                     },
                   ]}
                 >
-                  <TapGuard>
-                    <Row
-                      title={relativeDay(entry.date, today)}
-                      subtitle={formatMediumDate(entry.date)}
-                      onPress={() => setActing(entry.date)}
-                      style={i > 0 ? ROW_SEPARATOR : undefined}
-                      value={
-                        <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 8 }}>
-                          {prev && (
-                            <span
-                              className="t-footnote mono-nums"
-                              style={{ color: delta > 0 ? 'var(--orange)' : delta < 0 ? 'var(--green)' : 'var(--label-3)' }}
-                            >
-                              {signed(delta, 1)}
-                            </span>
-                          )}
-                          <span className="mono-nums" style={{ color: 'var(--label)' }}>
-                            {fixed(entry.weight, decimals)} {profile.units}
+                  <Row
+                    title={relativeDay(entry.date, today)}
+                    subtitle={formatMediumDate(entry.date)}
+                    onPress={() => setActing(entry.date)}
+                    value={
+                      <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 8 }}>
+                        {prev && (
+                          <span
+                            className="t-footnote mono-nums"
+                            style={{ color: delta > 0 ? 'var(--orange-text)' : delta < 0 ? 'var(--green-text)' : 'var(--label-2)' }}
+                          >
+                            {signed(delta, 1)}
                           </span>
+                        )}
+                        <span className="mono-nums" style={{ color: 'var(--label)' }}>
+                          {fixed(entry.weight, decimals)} {profile.units}
                         </span>
-                      }
-                    />
-                  </TapGuard>
+                      </span>
+                    }
+                  />
                 </SwipeRow>
               )
             })}
@@ -350,32 +335,6 @@ export function WeighInHome() {
       />
 
     </Screen>
-  )
-}
-
-/**
- * A press that turned into a swipe must not also fire the row's own action:
- * the gesture and the tap ride the same pointer sequence. Keyboard activation
- * (`detail === 0`) is never suppressed.
- */
-function TapGuard({ children }: { children: ReactNode }) {
-  const from = useRef<{ x: number; y: number } | null>(null)
-  return (
-    <div
-      onPointerDownCapture={(e) => {
-        from.current = { x: e.clientX, y: e.clientY }
-      }}
-      onClickCapture={(e) => {
-        const start = from.current
-        if (!start || e.detail === 0) return
-        if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > 8) {
-          e.preventDefault()
-          e.stopPropagation()
-        }
-      }}
-    >
-      {children}
-    </div>
   )
 }
 

@@ -38,6 +38,19 @@ export function SectionHeader({
   )
 }
 
+/**
+ * A tile's tone is type, not a fill: systemGreen is 2.2:1 on white and
+ * systemYellow 1.5:1. Callers still name the colour they mean, and it resolves
+ * to the darker twin iOS ships for text.
+ */
+const TEXT_TONE: Record<string, string> = {
+  'var(--red)': 'var(--red-text)',
+  'var(--orange)': 'var(--orange-text)',
+  'var(--yellow)': 'var(--yellow-text)',
+  'var(--green)': 'var(--green-text)',
+  'var(--cyan)': 'var(--cyan-text)',
+}
+
 export function StatTile({
   label,
   value,
@@ -54,6 +67,7 @@ export function StatTile({
   onPress?: () => void
 }) {
   const Tag = onPress ? 'button' : 'div'
+  const toneColor = tone ? TEXT_TONE[tone] ?? tone : undefined
   return (
     <Tag
       onClick={onPress}
@@ -71,16 +85,28 @@ export function StatTile({
         width: '100%',
       }}
     >
+      {/* The label wraps rather than truncating — three tiles across a 393px
+          screen leaves about 88px, which clips anything longer than one short
+          word. Tiles stretch to the tallest in their row, so the value is
+          pushed to the bottom and stays aligned across all of them. */}
       <span
-        className="t-caption1 dim truncate"
-        style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 600 }}
+        className="t-caption1 dim"
+        style={{ display: 'flex', alignItems: 'flex-start', gap: 4, fontWeight: 600 }}
       >
-        {icon && <Icon name={icon} size={12} weight={2.4} color={tone ?? 'var(--label-2)'} />}
+        {icon && (
+          <Icon
+            name={icon}
+            size={12}
+            weight={2.4}
+            color={toneColor ?? 'var(--label-2)'}
+            style={{ flex: 'none', marginTop: 2 }}
+          />
+        )}
         {label}
       </span>
       <span
         className="t-title3 mono-nums truncate"
-        style={{ color: tone, fontWeight: 700, letterSpacing: -0.3 }}
+        style={{ color: toneColor, fontWeight: 700, letterSpacing: -0.3, marginTop: 'auto' }}
       >
         {value}
       </span>

@@ -12,7 +12,8 @@ import {
   sessionsThisWeek, trainingStreak, useProgram, weekSchedule,
 } from '../store/selectors'
 import { MEAL_PLAN } from '../data/mealPlan'
-import type { ExercisePrescription, Profile, WorkoutLog } from '../domain/types'
+import { useDayMode } from './meals/dayMode'
+import type { ExercisePrescription, Profile, Units, WorkoutLog } from '../domain/types'
 import { getExercise } from '../data/exercises'
 import { consumedTotals } from '../domain/nutrition'
 import { describeReps, formatRpe, resolveSet } from '../domain/strength'
@@ -50,8 +51,13 @@ export function TodayScreen() {
   const streak = trainingStreak(program, logs, today)
 
   const day = nutrition[today] ?? emptyDay(today)
-  const totals = consumedTotals(MEAL_PLAN, day)
-  const targets = MEAL_PLAN.targets
+  // The rest-day flag has to reach the totals as well as the targets: the plan
+  // serves smaller portions on a rest day, so counting training-day portions
+  // against a rest-day target puts a client 330 kcal in the red for eating
+  // exactly what the plan told them to.
+  const restDay = useDayMode(today) === 'rest'
+  const totals = consumedTotals(MEAL_PLAN, day, restDay)
+  const targets = restDay && MEAL_PLAN.restDayTargets ? MEAL_PLAN.restDayTargets : MEAL_PLAN.targets
   const over = totals.kcal - targets.kcal
 
   const trend = useMemo(() => summarizeTrend(weighIns, 28), [weighIns])
@@ -72,7 +78,9 @@ export function TodayScreen() {
       }
       right={{ icon: 'person', onPress: () => push('coach'), ariaLabel: 'Your coach' }}
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
+      {/* One 32px rhythm between groups — the same figure `.list-section`
+          carries, so lists and cards space identically. */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
         {/* ------------------------------ hero ----------------------------- */}
         <div>
           <div className="gutter" style={{ marginBottom: 10 }}>
@@ -84,6 +92,7 @@ export function TodayScreen() {
             <BlockCompleteCard
               program={program}
               logs={logs}
+              units={profile.units}
               onStart={() => {
                 startNextBlock()
                 toast('New block started', { icon: 'check.circle.fill', tone: 'good' })
@@ -113,7 +122,21 @@ export function TodayScreen() {
 
         {/* ---------------------------- nutrition -------------------------- */}
         <div>
-          <SectionHeader title="Fuel" action={{ label: 'Log meals', onPress: () => navSwitchTab('meals') }} />
+          {/* A rest day quietly serves different targets and different portions;
+              say which plan these numbers came from rather than letting 330 kcal
+              move on its own. */}
+          <SectionHeader
+            title={
+              restDay ? (
+                <>
+                  Fuel <span className="t-subhead dim" style={{ fontWeight: 400 }}>· Rest day</span>
+                </>
+              ) : (
+                'Fuel'
+              )
+            }
+            action={{ label: 'Log meals', onPress: () => navSwitchTab('meals') }}
+          />
           <Card onPress={() => navSwitchTab('meals')}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
               <RingStack
@@ -345,10 +368,11 @@ function MacroLine({ label, value, target, color }: { label: string; value: numb
 /** Shown once the block's last week is behind them, so the app doesn't simply
     run out and pin every client on week eight forever. */
 function BlockCompleteCard({
-  program, logs, onStart,
+  program, logs, units, onStart,
 }: {
   program: ReturnType<typeof useProgram>
   logs: WorkoutLog[]
+  units: Units
   onStart: () => void
 }) {
   const summary = blockSummary(program, logs)
@@ -369,7 +393,7 @@ function BlockCompleteCard({
       </div>
       <div className="t-subhead" style={{ opacity: 0.88, marginTop: 3 }}>
         {summary.sessions} of {summary.scheduled} sessions · {summary.sets} working sets ·{' '}
-        {compact(summary.tonnage)} lb moved
+        {compact(summary.tonnage)} {units} moved
       </div>
       <button
         type="button"

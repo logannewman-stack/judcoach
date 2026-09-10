@@ -35,6 +35,26 @@ function smoothPath(pts: { x: number; y: number }[], tension = 0.5): string {
   return d
 }
 
+/**
+ * Share of the vertical space the data itself is guaranteed, whatever the goal.
+ * Letting a far-off goal into the scale unbounded squashes the trend into a
+ * band; dropping it hides the one number the client is working towards. So the
+ * scale stretches towards it this far and no further.
+ */
+const MIN_DATA_SHARE = 0.66
+
+/**
+ * Content key for a series, for use as a memo dependency. Callers build `data`
+ * and `secondary` inline on every render, so keying on the array itself never
+ * hits — the numbers in it are what decide the geometry.
+ */
+function seriesKey(pts: Point[] | undefined): string {
+  if (!pts || pts.length === 0) return ''
+  let key = String(pts.length)
+  for (const p of pts) key += `|${p.x}:${p.y}`
+  return key
+}
+
 export interface LineChartProps {
   data: Point[]
   /** Drawn under the main line — the rolling average, usually. */
@@ -79,20 +99,37 @@ export function LineChart({
   const PAD_T = 14
   const PAD_B = 22
 
+  // Keys, not the props themselves, so a parent re-render with unchanged numbers
+  // reuses the geometry instead of rebuilding it.
+  const dataKey = seriesKey(data)
+  const trendKey = seriesKey(secondary)
+  const goalValue = goal?.value ?? null
+
   const geom = useMemo(() => {
     if (!width || data.length === 0) return null
     const all = [...data.map((d) => d.y), ...(secondary?.map((d) => d.y) ?? [])]
     let min = Math.min(...all)
     let max = Math.max(...all)
-    const dataSpan = max - min || Math.max(1, Math.abs(max) * 0.05)
+    // A flat or single-point series has no extent of its own to scale against.
+    const extent = max - min || Math.max(1, Math.abs(max) * 0.05)
 
-    // A goal far outside the data would squash the whole trend into a corner,
-    // so it only joins the scale when it is close enough to be worth showing.
-    const goalInScale =
-      goal != null && goal.value >= min - dataSpan * 0.6 && goal.value <= max + dataSpan * 0.6
-    if (goalInScale) {
-      min = Math.min(min, goal!.value)
-      max = Math.max(max, goal!.value)
+    // Either the goal fits in the room MIN_DATA_SHARE leaves it, or the scale
+    // takes all of that room and the line is drawn on the frame instead. The
+    // room is discounted by padFraction, which is added to the stretched span
+    // below, so the share holds of the plot the client actually sees.
+    const room = Math.max(0, extent / (MIN_DATA_SHARE * (1 + padFraction * 2)) - extent)
+    let beyond: 'above' | 'below' | null = null
+    if (goalValue != null) {
+      if (goalValue > max + room) {
+        max += room
+        beyond = 'above'
+      } else if (goalValue < min - room) {
+        min -= room
+        beyond = 'below'
+      } else {
+        min = Math.min(min, goalValue)
+        max = Math.max(max, goalValue)
+      }
     }
 
     const span = max - min || Math.max(1, Math.abs(max) * 0.05)
@@ -111,11 +148,130 @@ export function LineChart({
       .filter((d) => indexOf.has(d.x))
       .map((d) => ({ x: sx(indexOf.get(d.x)!, data.length), y: sy(d.y), raw: d }))
 
-    return { primary, trend, sy, min, max, innerH, goalInScale }
-  }, [width, data, secondary, goal, height, padFraction])
+    const goalY =
+      goalValue == null
+        ? null
+        : beyond === 'above'
+          ? PAD_T
+          : beyond === 'below'
+            ? height - PAD_B
+            : sy(goalValue)
+
+    return { primary, trend, goal: goalY == null ? null : { y: goalY, beyond } }
+  }, [width, height, padFraction, dataKey, trendKey, goalValue])
 
   const active = hover != null && geom ? geom.primary[hover] : null
   const activeTrend = hover != null && geom ? geom.trend[hover] : null
+
+  const goalColor = goal?.color ?? 'var(--label-3)'
+
+  // On the frame the line's own position can no longer carry the number, so the
+  // label takes it, with an arrow for the direction it lies in.
+  const goalText =
+    goal?.label == null
+      ? null
+      : geom?.goal?.beyond
+        ? `${goal.label} ${formatValue(goal.value)} ${geom.goal.beyond === 'above' ? '↑' : '↓'}`
+        : goal.label
+
+  // x labels: first and last only, iOS-sparse. Resolved here so the body below
+  // keys on the two strings rather than on a formatter rebuilt every render.
+  const spanLabels =
+    formatLabel && data.length > 1
+      ? { first: formatLabel(data[0]!.x), last: formatLabel(data[data.length - 1]!.x) }
+      : null
+
+  // Only the scrubber follows the finger, so the series, its fill and the goal
+  // line are built once per geometry change: a pointermove then reconciles a
+  // couple of nodes instead of every dot in the chart.
+  const body = useMemo(() => {
+    if (!geom) return null
+    const line = rawAsDots ? null : smoothPath(geom.primary)
+    return (
+      <>
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.26" />
+            <stop offset="100%" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+
+        {geom.goal && (
+          <>
+            <line
+              x1={PAD_L} x2={width - PAD_R}
+              y1={geom.goal.y} y2={geom.goal.y}
+              stroke={goalColor}
+              strokeWidth={1}
+              strokeDasharray="3 4"
+            />
+            {goalText && (
+              <text
+                x={width - PAD_R}
+                y={geom.goal.y - 5 < PAD_T + 8 ? geom.goal.y + 12 : geom.goal.y - 5}
+                textAnchor="end" fontSize="10" fontWeight="600"
+                fill={goalColor}
+              >
+                {goalText}
+              </text>
+            )}
+          </>
+        )}
+
+        {/* raw series */}
+        {rawAsDots ? (
+          geom.primary.map((p, i) => (
+            <circle key={i} cx={p.x} cy={p.y} r={1.9} fill={color} opacity={0.32} />
+          ))
+        ) : (
+          <>
+            <path
+              d={`${line}L${geom.primary[geom.primary.length - 1]!.x},${height - PAD_B}L${geom.primary[0]!.x},${height - PAD_B}Z`}
+              fill={`url(#${gradientId})`}
+            />
+            <path
+              d={line!}
+              fill="none"
+              stroke={color}
+              strokeWidth={2.4}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </>
+        )}
+
+        {/* trend series */}
+        {geom.trend.length > 1 && (
+          <path
+            d={smoothPath(geom.trend)}
+            fill="none"
+            stroke={secondaryColor ?? color}
+            strokeWidth={2.8}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        )}
+
+        {showDots &&
+          !rawAsDots &&
+          geom.primary.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r={2.6} fill={color} />)}
+
+        {spanLabels && (
+          <>
+            <text x={PAD_L} y={height - 6} fontSize="11" fill="var(--label-3)">
+              {spanLabels.first}
+            </text>
+            <text x={width - PAD_R} y={height - 6} fontSize="11" textAnchor="end" fill="var(--label-3)">
+              {spanLabels.last}
+            </text>
+          </>
+        )}
+      </>
+    )
+  }, [
+    geom, width, height, color, secondaryColor, gradientId, rawAsDots, showDots,
+    goalColor, goalText, spanLabels?.first, spanLabels?.last,
+  ])
 
   const onMove = (e: React.PointerEvent<SVGSVGElement>) => {
     if (!geom || geom.primary.length === 0) return
@@ -146,71 +302,7 @@ export function LineChart({
           role="img"
           aria-label={ariaLabel}
         >
-          <defs>
-            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity="0.26" />
-              <stop offset="100%" stopColor={color} stopOpacity="0" />
-            </linearGradient>
-          </defs>
-
-          {goal && geom.goalInScale && (
-            <>
-              <line
-                x1={PAD_L} x2={width - PAD_R}
-                y1={geom.sy(goal.value)} y2={geom.sy(goal.value)}
-                stroke={goal.color ?? 'var(--label-3)'}
-                strokeWidth={1}
-                strokeDasharray="3 4"
-              />
-              {goal.label && (
-                <text
-                  x={width - PAD_R} y={geom.sy(goal.value) - 5}
-                  textAnchor="end" fontSize="10" fontWeight="600"
-                  fill={goal.color ?? 'var(--label-3)'}
-                >
-                  {goal.label}
-                </text>
-              )}
-            </>
-          )}
-
-          {/* raw series */}
-          {rawAsDots ? (
-            geom.primary.map((p, i) => (
-              <circle key={i} cx={p.x} cy={p.y} r={1.9} fill={color} opacity={0.32} />
-            ))
-          ) : (
-            <>
-              <path
-                d={`${smoothPath(geom.primary)}L${geom.primary[geom.primary.length - 1]!.x},${height - PAD_B}L${geom.primary[0]!.x},${height - PAD_B}Z`}
-                fill={`url(#${gradientId})`}
-              />
-              <path
-                d={smoothPath(geom.primary)}
-                fill="none"
-                stroke={color}
-                strokeWidth={2.4}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </>
-          )}
-
-          {/* trend series */}
-          {geom.trend.length > 1 && (
-            <path
-              d={smoothPath(geom.trend)}
-              fill="none"
-              stroke={secondaryColor ?? color}
-              strokeWidth={2.8}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          )}
-
-          {showDots &&
-            !rawAsDots &&
-            geom.primary.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r={2.6} fill={color} />)}
+          {body}
 
           {/* scrubber */}
           {active && (
@@ -230,18 +322,6 @@ export function LineChart({
                 fill="var(--label)"
               >
                 {formatValue((activeTrend ?? active).raw.y)}
-              </text>
-            </>
-          )}
-
-          {/* x labels: first and last only, iOS-sparse */}
-          {formatLabel && geom.primary.length > 1 && (
-            <>
-              <text x={PAD_L} y={height - 6} fontSize="11" fill="var(--label-3)">
-                {formatLabel(data[0]!.x)}
-              </text>
-              <text x={width - PAD_R} y={height - 6} fontSize="11" textAnchor="end" fill="var(--label-3)">
-                {formatLabel(data[data.length - 1]!.x)}
               </text>
             </>
           )}

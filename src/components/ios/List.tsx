@@ -36,6 +36,17 @@ export function ListSection({
   )
 }
 
+/** The row's own left padding and the gap it puts between leading and text. */
+const ROW_GUTTER = 16
+const ROW_GAP = 12
+
+/**
+ * Where a row's separator starts when something leads the text. Callers pass
+ * the width of their own leading element; 29 is the iOS Settings icon, which is
+ * what `icon` renders.
+ */
+export const rowSepInset = (leadingWidth: number) => ROW_GUTTER + leadingWidth + ROW_GAP
+
 export interface RowProps {
   title: ReactNode
   subtitle?: ReactNode
@@ -52,23 +63,32 @@ export interface RowProps {
   disabled?: boolean
   /** Aligns the separator under the text when there's a leading icon. */
   inset?: boolean
+  /**
+   * Where the separator starts, in px, for a `leading` element that isn't the
+   * 29px width `icon` uses. `rowSepInset` works it out from that width.
+   */
+  sepInset?: number
+  /** Names the row when its title alone doesn't say what it acts on. */
+  ariaLabel?: string
   style?: CSSProperties
 }
 
 export function Row({
   title, subtitle, value, icon, iconColor = 'var(--gray)', leading, trailing,
-  chevron, onPress, destructive, tinted, disabled, inset, style,
+  chevron, onPress, destructive, tinted, disabled, inset, sepInset, ariaLabel, style,
 }: RowProps) {
   const Tag = onPress ? 'button' : 'div'
   const color = destructive ? 'var(--red)' : tinted ? 'var(--accent)' : undefined
+  const separatorInset = sepInset ?? (inset || icon || leading ? rowSepInset(29) : undefined)
   return (
     <Tag
       className="row"
       onClick={onPress}
       disabled={onPress ? disabled : undefined}
       type={onPress ? 'button' : undefined}
+      aria-label={ariaLabel}
       style={{
-        ...(inset || icon || leading ? { ['--row-sep-inset' as string]: '57px' } : null),
+        ...(separatorInset != null ? { ['--row-sep-inset' as string]: `${separatorInset}px` } : null),
         ...(disabled ? { opacity: 0.45 } : null),
         ...style,
       }}

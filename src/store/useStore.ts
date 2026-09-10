@@ -2,8 +2,9 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type {
   ActiveSession, CheckIn, DayNutrition, FoodItem, LoggedSet, MeasurementEntry,
-  Profile, ProgressPhoto, RestTimer, Settings, WeighIn, WorkoutLog,
+  Profile, ProgressPhoto, RestTimer, Settings, Units, WeighIn, WorkoutLog,
 } from '../domain/types'
+import { convertUnits } from '../domain/units'
 import {
   SEED_PROFILE, SEED_SETTINGS, seedCheckIns, seedMeasurements, seedStartDate,
   seedWeighIns, seedWorkoutLogs,
@@ -36,6 +37,12 @@ export interface AppState {
   checkIns: CheckIn[]
   /** Keyed by ISO date; only days the client has touched are stored. */
   nutrition: Record<string, DayNutrition>
+  /**
+   * Days the client has overridden the programme on. Keyed by date, because the
+   * choice belongs to the day it was made on: marking today a rest day must not
+   * follow them into tomorrow.
+   */
+  dayModes: Record<string, 'training' | 'rest'>
   active: ActiveSession | null
   restTimer: RestTimer | null
   /** Bumped whenever demo data is regenerated, to force chart remounts. */
@@ -49,6 +56,8 @@ export interface AppState {
   startNextBlock: () => void
   updateProfile: (patch: Partial<Profile>) => void
   updateSettings: (patch: Partial<Settings>) => void
+  /** Converts every stored weight and length. False when nothing was changed. */
+  setUnits: (next: Units) => boolean
   setTrainingMax: (exerciseId: string, value: number) => void
 
   /* ----------------------------- weigh-ins ---------------------------- */
@@ -80,6 +89,7 @@ export interface AppState {
 
   /* ----------------------------- nutrition ---------------------------- */
   toggleFood: (date: string, foodId: string) => void
+  setDayMode: (date: string, mode: 'training' | 'rest') => void
   setMealSkipped: (date: string, mealId: string, skipped: boolean) => void
   setWater: (date: string, oz: number) => void
   setPortion: (date: string, foodId: string, multiplier: number) => void
@@ -115,6 +125,7 @@ function seedState() {
     logs: seedWorkoutLogs(today, startDate),
     checkIns: seedCheckIns(today),
     nutrition: {} as Record<string, DayNutrition>,
+    dayModes: {} as Record<string, 'training' | 'rest'>,
     active: null,
     restTimer: null,
     seededAt: new Date().toISOString(),
@@ -153,6 +164,7 @@ export const useStore = create<AppState>()(
           logs: [],
           checkIns: [],
           nutrition: {},
+          dayModes: {},
           active: null,
           restTimer: null,
           programStartDate: startOfWeek(todayISO(), 1),
@@ -185,6 +197,20 @@ export const useStore = create<AppState>()(
       /* ------------------------------ profile --------------------------- */
       updateProfile: (patch) => set((s) => ({ profile: { ...s.profile, ...patch } })),
       updateSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
+
+      /**
+       * Units are not a label on the data, so this cannot go through
+       * `updateProfile`: the whole history converts with the profile, in one
+       * write, or not at all. See domain/units.ts for what converts how.
+       */
+      setUnits: (next) => {
+        const state = get()
+        if (next === state.profile.units) return true
+        const converted = convertUnits(state, next)
+        if (!converted) return false
+        set(() => converted)
+        return true
+      },
       setTrainingMax: (exerciseId, value) =>
         set((s) => ({
           profile: {
@@ -377,6 +403,9 @@ export const useStore = create<AppState>()(
           })),
         ),
 
+      setDayMode: (date, mode) =>
+        set((s) => ({ dayModes: { ...s.dayModes, [date]: mode } })),
+
       checkAllInMeal: (date, foodIds, checked) =>
         set((s) =>
           withDay(s, date, (day) => {
@@ -434,6 +463,7 @@ export const useStore = create<AppState>()(
           logs: [],
           checkIns: [],
           nutrition: {},
+          dayModes: {},
           active: null,
           restTimer: null,
           onboarded: true,
@@ -465,6 +495,8 @@ export const useStore = create<AppState>()(
           logs: next.logs,
           checkIns: next.checkIns,
           nutrition: next.nutrition,
+          // An imported file's days are not the ones already overridden here.
+          dayModes: {},
           // Never carry an in-flight workout or a running timer across an
           // import: their ids belong to the session that was interrupted.
           active: null,
@@ -499,6 +531,7 @@ export const useStore = create<AppState>()(
         logs: s.logs,
         checkIns: s.checkIns,
         nutrition: s.nutrition,
+        dayModes: s.dayModes,
         active: s.active,
         restTimer: s.restTimer,
         seededAt: s.seededAt,
