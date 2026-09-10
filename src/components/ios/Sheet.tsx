@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { haptic } from '../../lib/haptics'
+import { SheetPortal } from './SheetLayer'
 import { useKeyboardInset } from '../../lib/useKeyboardInset'
 
 /** iOS sheet spring: settles fast, no visible bounce. */
@@ -58,6 +59,7 @@ export function Sheet({
   }, [open, onClose])
 
   return (
+    <SheetPortal active={open}>
     <AnimatePresence>
       {open && (
         <>
@@ -125,6 +127,7 @@ export function Sheet({
         </>
       )}
     </AnimatePresence>
+    </SheetPortal>
   )
 }
 
@@ -153,6 +156,7 @@ export function ActionSheet({
 }) {
   useLockedScroll(open)
   return (
+    <SheetPortal active={open}>
     <AnimatePresence>
       {open && (
         <>
@@ -204,6 +208,7 @@ export function ActionSheet({
         </>
       )}
     </AnimatePresence>
+    </SheetPortal>
   )
 }
 
@@ -224,6 +229,7 @@ export function Alert({
 }) {
   useLockedScroll(open)
   return (
+    <SheetPortal active={open} recede={false}>
     <AnimatePresence>
       {open && (
         <>
@@ -271,5 +277,6 @@ export function Alert({
         </>
       )}
     </AnimatePresence>
+    </SheetPortal>
   )
 }

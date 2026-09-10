@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion'
 import { useNav, TABS } from './nav'
 import type { TabKey } from './nav'
 import { Icon } from '../components/Icon'
@@ -33,7 +34,17 @@ export function TabBar({ badges }: { badges?: Partial<Record<TabKey, number>> })
               data-active={isActive}
               onClick={() => switchTab(key)}
             >
-              <Icon name={isActive ? meta.active : meta.icon} size={26} weight={1.7} />
+              {/* Remounting on selection replays the spring, so the icon pops
+                  when you pick the tab and stays still otherwise. */}
+              <motion.span
+                key={isActive ? 'on' : 'off'}
+                initial={isActive ? { scale: 0.78 } : false}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', stiffness: 520, damping: 17, mass: 0.6 }}
+                style={{ display: 'block' }}
+              >
+                <Icon name={isActive ? meta.active : meta.icon} size={26} weight={1.7} />
+              </motion.span>
               <span className="tab-label">{meta.label}</span>
               {badge ? <span className="tab-badge">{badge > 9 ? '9+' : badge}</span> : null}
             </button>

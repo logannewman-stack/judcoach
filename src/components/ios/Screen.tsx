@@ -20,6 +20,11 @@ interface ScreenProps {
   title: string
   /** Renders the iOS large title inside the scroll view. */
   largeTitle?: boolean
+  /**
+   * Pins the small title in the bar instead of fading it in on scroll. Only for
+   * screens that render no large title of their own.
+   */
+  inlineTitle?: boolean
   /** Sits under the large title — a subtitle, segmented control, etc. */
   titleAccessory?: ReactNode
   back?: { label?: string; onPress: () => void }
@@ -51,6 +56,7 @@ function NavButton({ action }: { action: NavAction }) {
 export function Screen({
   title,
   largeTitle = true,
+  inlineTitle = false,
   titleAccessory,
   back,
   left,
@@ -82,7 +88,7 @@ export function Screen({
 
   return (
     <div className="screen">
-      <div className="navbar" data-scrolled={scrolled} data-inline={!largeTitle}>
+      <div className="navbar" data-scrolled={scrolled} data-inline={inlineTitle}>
         <div className="navbar-inner">
           <div className="navbar-side">
             {back ? (

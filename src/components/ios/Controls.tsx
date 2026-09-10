@@ -220,7 +220,7 @@ export function Button({
   type?: 'button' | 'submit'
 }) {
   return (
-    <button
+    <motion.button
       type={type}
       className={`btn btn-${variant}${small ? ' btn-sm' : ''}${pill ? ' btn-pill' : ''}`}
       onClick={
@@ -232,13 +232,20 @@ export function Button({
           : undefined
       }
       disabled={disabled}
+      // A spring settles on release instead of snapping, which is most of what
+      // makes a native button feel alive under the thumb.
+      whileTap={disabled ? undefined : { scale: 0.965 }}
+      transition={PRESS_SPRING}
       style={style}
     >
       {icon && <Icon name={icon} size={small ? 16 : 19} weight={2.1} />}
       {children}
-    </button>
+    </motion.button>
   )
 }
+
+/** Firm and quick — an iOS control should feel like it has no mass. */
+export const PRESS_SPRING = { type: 'spring' as const, stiffness: 640, damping: 34, mass: 0.5 }
 
 /* --------------------------------- pill --------------------------------- */
 

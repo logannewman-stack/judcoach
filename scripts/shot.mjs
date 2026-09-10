@@ -21,6 +21,12 @@ page.on('pageerror', (e) => errors.push(String(e)))
 await page.goto(url, { waitUntil: 'networkidle' })
 await page.waitForTimeout(900)
 
+// A fresh context lands on onboarding; skip it unless we're shooting that.
+if (process.env.KEEP_ONBOARDING !== '1') {
+  await page.evaluate(() => window.__store?.getState().completeOnboarding())
+  await page.waitForTimeout(500)
+}
+
 for (const step of steps) {
   if (step.click) await page.click(step.click, { timeout: 5000 }).catch((e) => errors.push(`click ${step.click}: ${e.message}`))
   if (step.text) await page.getByText(step.text, { exact: false }).first().click({ timeout: 5000 }).catch((e) => errors.push(`text ${step.text}: ${e.message}`))

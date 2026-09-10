@@ -18,7 +18,7 @@ export function Coach() {
   const lastCheckIn = [...checkIns].sort((a, b) => b.date.localeCompare(a.date))[0]
 
   return (
-    <Screen title="Your coach" back={{ onPress: pop }} largeTitle={false}>
+    <Screen title="Your coach" back={{ onPress: pop }} largeTitle={false} inlineTitle>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 22, paddingTop: 12 }}>
         <div className="gutter" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <CoachAvatar size={64} />

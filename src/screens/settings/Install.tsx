@@ -18,7 +18,7 @@ export function Install() {
       || (window.navigator as Navigator & { standalone?: boolean }).standalone === true)
 
   return (
-    <Screen title="Home Screen" back={{ label: 'Settings', onPress: pop }} largeTitle={false}>
+    <Screen title="Home Screen" back={{ label: 'Settings', onPress: pop }} largeTitle={false} inlineTitle>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 22, paddingTop: 12 }}>
         <div
           className="gutter"
