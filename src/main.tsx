@@ -2,15 +2,21 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles/base.css'
 import { App } from './App'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { useNav } from './nav/nav'
-import { useStore } from './store/useStore'
+import { useStore, exportSnapshot } from './store/useStore'
 
 // Dev-only handle so the screen walkthrough can drive navigation directly.
 // Stripped from production builds by the DEV guard.
 if (import.meta.env.DEV) {
-  const w = window as unknown as { __nav: typeof useNav; __store: typeof useStore }
+  const w = window as unknown as {
+    __nav: typeof useNav
+    __store: typeof useStore
+    __exportSnapshot: typeof exportSnapshot
+  }
   w.__nav = useNav
   w.__store = useStore
+  w.__exportSnapshot = exportSnapshot
 }
 
 // Offline support for the real PWA build. The single-file preview ships as one
@@ -24,6 +30,8 @@ if (import.meta.env.PROD && !SINGLE_FILE && 'serviceWorker' in navigator) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 )

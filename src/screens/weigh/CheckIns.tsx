@@ -45,68 +45,77 @@ export function CheckIns() {
       {/* One 32px rhythm between groups — the same figure `.list-section`
           carries, so lists and cards space identically. */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-        <div className="gutter">
-          <Button icon="pencil" onPress={() => setComposing(true)}>
-            Write this week's check-in
-          </Button>
-        </div>
-
         {sorted.length === 0 ? (
+          // One call to action, not two: the empty state carries it until
+          // there's a history for the button to sit above.
           <EmptyState
             icon="note"
             title="No check-ins yet"
             message="Two minutes on a Sunday buys you a programme that actually adapts."
+            action={
+              <Button small icon="pencil" onPress={() => setComposing(true)}>
+                Write your first check-in
+              </Button>
+            }
           />
         ) : (
-          <div>
-            <SectionHeader title="History" />
-            <div className="gutter" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {sorted.map((entry) => (
-                <div key={entry.id} className="card" style={{ margin: 0, padding: 14 }}>
-                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
-                    <span className="t-headline">{relativeDay(entry.date)}</span>
-                    {/* Older entries already read as a date — don't print it twice. */}
-                    {!formatMediumDate(entry.date).endsWith(relativeDay(entry.date)) && (
-                      <span className="t-footnote dim">{formatMediumDate(entry.date)}</span>
-                    )}
-                  </div>
+          <>
+            <div className="gutter">
+              <Button icon="pencil" onPress={() => setComposing(true)}>
+                Write this week's check-in
+              </Button>
+            </div>
 
-                  <div style={{ display: 'flex', gap: 7, marginTop: 9, flexWrap: 'wrap' }}>
-                    <Pill tone="tinted">{num(entry.weight, 1)} {profile.units}</Pill>
-                    <Pill>Sleep {entry.sleepQuality}/5</Pill>
-                    <Pill>Energy {entry.energy}/5</Pill>
-                    <Pill>Soreness {entry.soreness}/5</Pill>
-                    <Pill tone={entry.adherence >= 90 ? 'good' : entry.adherence >= 75 ? 'warn' : 'bad'}>
-                      {entry.adherence}% adherence
-                    </Pill>
-                  </div>
-
-                  {entry.note && (
-                    <div className="t-subhead" style={{ marginTop: 11, lineHeight: '21px' }}>
-                      {entry.note}
+            <div>
+              <SectionHeader title="History" />
+              <div className="gutter" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {sorted.map((entry) => (
+                  <div key={entry.id} className="card" style={{ margin: 0, padding: 14 }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
+                      <span className="t-headline">{relativeDay(entry.date)}</span>
+                      {/* Older entries already read as a date — don't print it twice. */}
+                      {!formatMediumDate(entry.date).endsWith(relativeDay(entry.date)) && (
+                        <span className="t-footnote dim">{formatMediumDate(entry.date)}</span>
+                      )}
                     </div>
-                  )}
 
-                  {entry.coachReply && (
-                    <div
-                      style={{
-                        display: 'flex', gap: 10, marginTop: 12, padding: 12,
-                        borderRadius: 12, background: 'var(--accent-soft)',
-                      }}
-                    >
-                      <CoachAvatar size={26} />
-                      <div style={{ minWidth: 0 }}>
-                        <div className="t-caption1 semibold" style={{ color: 'var(--accent)' }}>Jud replied</div>
-                        <div className="t-subhead" style={{ lineHeight: '20px', marginTop: 1 }}>
-                          {entry.coachReply}
+                    <div style={{ display: 'flex', gap: 7, marginTop: 9, flexWrap: 'wrap' }}>
+                      <Pill tone="tinted">{num(entry.weight, 1)} {profile.units}</Pill>
+                      <Pill>Sleep {entry.sleepQuality}/5</Pill>
+                      <Pill>Energy {entry.energy}/5</Pill>
+                      <Pill>Soreness {entry.soreness}/5</Pill>
+                      <Pill tone={entry.adherence >= 90 ? 'good' : entry.adherence >= 75 ? 'warn' : 'bad'}>
+                        {entry.adherence}% adherence
+                      </Pill>
+                    </div>
+
+                    {entry.note && (
+                      <div className="t-subhead" style={{ marginTop: 11, lineHeight: '21px' }}>
+                        {entry.note}
+                      </div>
+                    )}
+
+                    {entry.coachReply && (
+                      <div
+                        style={{
+                          display: 'flex', gap: 10, marginTop: 12, padding: 12,
+                          borderRadius: 12, background: 'var(--accent-soft)',
+                        }}
+                      >
+                        <CoachAvatar size={26} />
+                        <div style={{ minWidth: 0 }}>
+                          <div className="t-caption1 semibold" style={{ color: 'var(--accent)' }}>Jud replied</div>
+                          <div className="t-subhead" style={{ lineHeight: '20px', marginTop: 1 }}>
+                            {entry.coachReply}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          </>
         )}
       </div>
 

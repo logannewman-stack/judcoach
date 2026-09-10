@@ -66,11 +66,13 @@ export function Measurements() {
           />
         ) : (
           <>
+            {/* Every site you can record is a site you can read back. */}
             <div className="gutter">
               <Segmented
-                options={SITES.slice(0, 4).map((s) => ({ value: s.key, label: s.label }))}
-                value={SITES.slice(0, 4).some((s) => s.key === site) ? site : 'waist'}
+                options={SITES.map((s) => ({ value: s.key, label: s.label }))}
+                value={site}
                 onChange={(v) => setSite(v as SiteKey)}
+                label="Measurement site"
               />
             </div>
 
@@ -97,17 +99,24 @@ export function Measurements() {
                   </div>
                 )}
               </div>
-              <div style={{ marginTop: 10 }}>
-                <LineChart
-                  data={series}
-                  height={160}
-                  showDots
-                  formatValue={(v) => `${num(v, 1)}″`}
-                  formatLabel={(x) => formatShortDate(x)}
-                  ariaLabel={`${meta.label} over time`}
-                />
-              </div>
-              <div className="t-caption1 dim" style={{ marginTop: 4 }}>{meta.hint}</div>
+              {series.length > 0 ? (
+                <div style={{ marginTop: 10 }}>
+                  <LineChart
+                    data={series}
+                    height={160}
+                    showDots
+                    formatValue={(v) => `${num(v, 1)}″`}
+                    formatLabel={(x) => formatShortDate(x)}
+                    ariaLabel={`${meta.label} over time`}
+                  />
+                </div>
+              ) : (
+                // An empty chart says nothing; say what's missing instead.
+                <div className="t-subhead dim" style={{ marginTop: 8 }}>
+                  Nothing recorded here yet — add it next time you take the tape out.
+                </div>
+              )}
+              <div className="t-caption1 dim" style={{ marginTop: 8 }}>{meta.hint}</div>
             </Card>
 
             <ListSection header="History" style={{ marginBottom: 0 }}>

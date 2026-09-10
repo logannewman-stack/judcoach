@@ -14,6 +14,8 @@ import { uid } from '../lib/id'
 import {
   createResilientStorage, mergePersisted, readPhotos, schedulePhotoWrite, writePhotos,
 } from './persist'
+import { guardPersistedShape, validateImport } from './importState'
+import type { ImportResult } from './importState'
 
 export interface AppState {
   /* ------------------------------- data ------------------------------- */
@@ -88,7 +90,7 @@ export interface AppState {
   /* -------------------------------- data ------------------------------ */
   resetToSeed: () => void
   clearAllData: () => void
-  importState: (raw: unknown) => boolean
+  importState: (raw: unknown) => ImportResult
 }
 
 export const emptyDay = (date: string): DayNutrition => ({
@@ -442,26 +444,34 @@ export const useStore = create<AppState>()(
           profile: { ...s.profile, name: s.profile.name },
         })),
 
+      /**
+       * Replace everything from an exported file. Each record is validated and
+       * repaired or dropped — a damaged one used to import cleanly and then
+       * throw inside render on every launch, with the reset button unreachable
+       * behind the blank screen.
+       */
       importState: (raw) => {
-        if (!raw || typeof raw !== 'object') return false
-        const candidate = raw as Partial<AppState>
-        if (!candidate.profile || !Array.isArray(candidate.weighIns)) return false
+        const result = validateImport(raw)
+        if (!result.ok || !result.state) return result
+        const next = result.state
         set(() => ({
-          profile: { ...get().profile, ...candidate.profile },
-          settings: { ...get().settings, ...(candidate.settings ?? {}) },
-          programStartDate: candidate.programStartDate ?? get().programStartDate,
-          blockStartedOn: candidate.blockStartedOn ?? get().blockStartedOn,
-          weighIns: candidate.weighIns ?? [],
-          measurements: candidate.measurements ?? [],
-          photos: candidate.photos ?? [],
-          logs: candidate.logs ?? [],
-          checkIns: candidate.checkIns ?? [],
-          nutrition: candidate.nutrition ?? {},
+          profile: { ...get().profile, ...next.profile },
+          settings: { ...get().settings, ...next.settings },
+          programStartDate: next.programStartDate ?? get().programStartDate,
+          blockStartedOn: next.blockStartedOn ?? get().blockStartedOn,
+          weighIns: next.weighIns,
+          measurements: next.measurements,
+          photos: next.photos,
+          logs: next.logs,
+          checkIns: next.checkIns,
+          nutrition: next.nutrition,
+          // Never carry an in-flight workout or a running timer across an
+          // import: their ids belong to the session that was interrupted.
           active: null,
           restTimer: null,
           onboarded: true,
         }))
-        return true
+        return result
       },
     }),
     {
@@ -470,7 +480,7 @@ export const useStore = create<AppState>()(
       storage: createJSONStorage(createResilientStorage),
       /* A top-level spread would drop any `profile` or `settings` field added
          after a client's first launch, rehydrating it as undefined. */
-      merge: mergePersisted,
+      merge: (persisted, current) => mergePersisted(guardPersistedShape(persisted), current),
       migrate: (persisted, version) => {
         const state = { ...(persisted as Record<string, unknown> | null) }
         if (version < 2 && Array.isArray(state.photos)) {

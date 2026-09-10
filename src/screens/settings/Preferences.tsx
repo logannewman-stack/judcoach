@@ -6,6 +6,7 @@ import { Button, Segmented, Switch } from '../../components/ios/Controls'
 import { Alert, Sheet } from '../../components/ios/Sheet'
 import { toast } from '../../components/ios/Toast'
 import { GritTile } from '../../components/Logo'
+import { describeDropped } from '../../store/importState'
 import { useStore, exportSnapshot } from '../../store/useStore'
 import type { AccentKey, ThemeMode } from '../../domain/types'
 import { haptic } from '../../lib/haptics'
@@ -278,10 +279,17 @@ export function DataSettings() {
       const file = input.files?.[0]
       if (!file) return
       try {
-        const ok = importState(JSON.parse(await file.text()))
-        toast(ok ? 'Data restored' : 'That file is not a GRIT export', {
-          icon: ok ? 'check.circle.fill' : 'xmark.circle.fill',
-          tone: ok ? 'good' : 'bad',
+        const result = importState(JSON.parse(await file.text()))
+        if (!result.ok) {
+          toast(result.reason ?? "That file isn't a GRIT backup", {
+            icon: 'xmark.circle.fill', tone: 'bad',
+          })
+          return
+        }
+        const skipped = describeDropped(result.dropped)
+        toast(skipped ? `Restored — skipped ${skipped}` : 'Data restored', {
+          icon: 'check.circle.fill',
+          tone: skipped ? 'default' : 'good',
         })
       } catch {
         toast("Couldn't read that file", { icon: 'xmark.circle.fill', tone: 'bad' })

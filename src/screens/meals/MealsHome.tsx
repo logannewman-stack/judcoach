@@ -498,22 +498,29 @@ export function FoodLine({
           {num(portion, 2)}×
         </button>
       )}
-      {onSwap && item.swaps && item.swaps.length > 0 && (
-        <button
-          type="button"
-          aria-label={`Swap ${item.name}`}
-          onClick={onSwap}
-          style={{
-            flex: 'none',
-            width: 44,
-            height: 44,
-            display: 'grid',
-            placeItems: 'center',
-          }}
-        >
-          <Icon name="swap" size={16} weight={2.2} color="var(--accent)" />
-        </button>
-      )}
+      {onSwap &&
+        (item.swaps && item.swaps.length > 0 ? (
+          // A real 44×44 box rather than `hit-expand`: an expanded rectangle
+          // would reach back over the portion chip's own expanded one.
+          <button
+            type="button"
+            aria-label={`Swap ${item.name}`}
+            onClick={onSwap}
+            style={{
+              flex: 'none',
+              width: 44,
+              height: 44,
+              display: 'grid',
+              placeItems: 'center',
+            }}
+          >
+            <Icon name="swap" size={16} weight={2.2} color="var(--accent)" />
+          </button>
+        ) : (
+          // Foods with no alternatives still hold the column, so the chips and
+          // calories line up down the card.
+          <span aria-hidden="true" style={{ flex: 'none', width: 44 }} />
+        ))}
       {/* Fixed width so the kcal column — and everything left of it — lines up
           down the card instead of ragging with the digit count. */}
       <span
