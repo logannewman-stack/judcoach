@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
+import { AnimatePresence, MotionConfig, motion, useDragControls } from 'framer-motion'
 import { Stack } from './nav/Stack'
 import { TabBar } from './nav/TabBar'
 import { TABS, useNav } from './nav/nav'
@@ -7,7 +7,9 @@ import { SCREENS } from './screens/registry'
 import { ToastHost } from './components/ios/Toast'
 import { registerSheetLayer, useSheetLayer } from './components/ios/SheetLayer'
 import { RestTimerBar } from './components/RestTimer'
+import { ActiveWorkoutBar } from './components/ActiveWorkoutBar'
 import { DeviceFrame } from './components/DeviceFrame'
+import { FullScreenDragContext } from './nav/FullScreenDrag'
 import { Onboarding } from './screens/Onboarding'
 import { useTheme, useWakeLock } from './lib/useTheme'
 import { useStore } from './store/useStore'
@@ -22,6 +24,8 @@ export function App() {
   const scrollTopTick = useNav((s) => s.scrollTopTick)
   const sheetDepth = useSheetLayer((s) => s.depth)
   const sheetLayer = useRef<HTMLDivElement>(null)
+  const dragControls = useDragControls()
+  const dismiss = useNav((s) => s.dismiss)
   useWakeLock(keepAwake && !!active)
 
   // Overlays portal here, so the app itself can be pushed back behind them.
@@ -49,8 +53,9 @@ export function App() {
               {TABS.map((key) => (
                 <Stack key={key} tab={key} registry={SCREENS} active={tab === key} />
               ))}
-              {/* Above the tab bar, so it survives a wander between tabs. */}
+              {/* Above the tab bar, so they survive a wander between tabs. */}
               <RestTimerBar bottomOffset={10} />
+              <ActiveWorkoutBar bottomOffset={10} />
             </div>
 
             <TabBar />
@@ -63,9 +68,21 @@ export function App() {
                   animate={{ y: 0 }}
                   exit={{ y: '100%' }}
                   transition={{ duration: 0.42, ease: [0.32, 0.72, 0, 1] }}
+                  // The gesture is started by the presented screen's own
+                  // toolbar, so the scroll view never fights it.
+                  drag="y"
+                  dragListener={false}
+                  dragControls={dragControls}
+                  dragConstraints={{ top: 0, bottom: 0 }}
+                  dragElastic={{ top: 0, bottom: 0.75 }}
+                  onDragEnd={(_, info) => {
+                    if (info.offset.y > 130 || info.velocity.y > 700) dismiss()
+                  }}
                   style={{ position: 'absolute', inset: 0, zIndex: 60, background: 'var(--grouped)' }}
                 >
-                  <FullScreenComponent {...(fullScreen.params ?? {})} />
+                  <FullScreenDragContext.Provider value={dragControls}>
+                    <FullScreenComponent {...(fullScreen.params ?? {})} />
+                  </FullScreenDragContext.Provider>
                 </motion.div>
               )}
             </AnimatePresence>

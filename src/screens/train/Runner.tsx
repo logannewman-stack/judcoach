@@ -22,6 +22,7 @@ import { formatDuration } from '../../lib/date'
 import { num } from '../../lib/format'
 import { haptic } from '../../lib/haptics'
 import { useNav } from '../../nav/nav'
+import { useFullScreenDrag } from '../../nav/FullScreenDrag'
 
 export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId: string }) {
   const program = useProgram()
@@ -65,6 +66,7 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
   const [showNote, setShowNote] = useState(false)
   const [editing, setEditing] = useState<LoggedSet | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const dragControls = useFullScreenDrag()
 
   if (!found || !active) return null
   const { session, week } = found
@@ -126,7 +128,15 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
           zIndex: 10,
         }}
       >
-        <div className="navbar-inner">
+        <div
+          className="navbar-inner"
+          onPointerDown={(e) => {
+            // Pull down on the toolbar to minimise, as iOS full-screen covers do.
+            if (e.target instanceof Element && e.target.closest('button')) return
+            dragControls?.start(e)
+          }}
+          style={{ touchAction: 'pan-x' }}
+        >
           <div className="navbar-side">
             <button className="nav-btn" type="button" onClick={dismiss} aria-label="Minimise workout">
               <Icon name="chevron.down" size={20} weight={2.6} />
