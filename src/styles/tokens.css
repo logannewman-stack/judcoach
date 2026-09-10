@@ -1,20 +1,24 @@
 /* ============================================================================
-   GRIT — iOS design tokens
-   Colours mirror Apple's system palette (light + dark), so the app reads as
-   native on an iPhone home screen. Every colour is defined on bare :root first;
-   dark overrides only redefine values.
+   GRIT — design tokens.  See DESIGN.md for what any of this is for.
+
+   The structure is Apple's — the same roles, the same three-state theme, so the
+   app behaves like a native one. The values are not: the ground is chalk rather
+   than Apple's blue-cast grey, the dark is iron rather than navy-black, and the
+   accent is GRIT's blue rather than systemBlue. Intensity has a ramp of its own.
+
+   Every colour is defined on bare :root first; dark overrides only redefine.
    ========================================================================== */
 
 :root {
   /* ---- accent (user-selectable in Settings; --accent is the live value) ---- */
-  --accent-blue: #007aff;
+  --accent-blue: #0b57f0;
   --accent-indigo: #5856d6;
   --accent-green: #34c759;
   --accent-orange: #ff9500;
   --accent-pink: #ff2d55;
   --accent-purple: #af52de;
   --accent: var(--accent-blue);
-  --accent-soft: rgba(0, 122, 255, 0.12);
+  --accent-soft: rgba(11, 87, 240, 0.11);
 
   /* ---- system colours ---- */
   --blue: #007aff;
@@ -51,18 +55,20 @@
   --gray6: #f2f2f7;
 
   /* ---- labels ---- */
-  --label: #000000;
-  --label-2: rgba(60, 60, 67, 0.6);
-  --label-3: rgba(60, 60, 67, 0.3);
-  --label-4: rgba(60, 60, 67, 0.18);
+  --label: #0e0e10;
+  --label-2: rgba(58, 58, 62, 0.62);
+  --label-3: rgba(58, 58, 62, 0.32);
+  --label-4: rgba(58, 58, 62, 0.18);
 
   /* ---- backgrounds ---- */
   --bg: #ffffff;
-  --bg-2: #f2f2f7;
+  --bg-2: #f1f1ef;
   --bg-3: #ffffff;
-  --grouped: #f2f2f7;
+  /* Apple's #f2f2f7 carries a blue cast that reads as stock iOS. This is the
+     same value with the blue taken out and a hair of warmth left in. */
+  --grouped: #f1f1ef;
   --grouped-2: #ffffff;
-  --grouped-3: #f2f2f7;
+  --grouped-3: #f1f1ef;
 
   /* ---- fills ---- */
   --fill: rgba(120, 120, 128, 0.2);
@@ -88,13 +94,30 @@
 
   /* ---- radii (iOS continuous-ish corners) ---- */
   --r-inset: 10px;
-  --r-card: 14px;
+  --r-card: 12px;
   /* UIAlertController's corner, shared by an alert and an action sheet's
      groups. Both were 18px, which reads as a web card rather than a panel. */
   --r-alert: 14px;
   --r-sheet: 14px;
   --r-btn: 12px;
   --r-pill: 999px;
+
+  /* ---- intensity ---------------------------------------------------------
+     RPE is a scale from 6 to 10, so it reads as one: cool where a set is easy,
+     hot where it is a grind. Anywhere intensity appears — a set chip, a target,
+     the guide, a session average — it takes its colour from here. These are the
+     fill values; the -text set below is what type is set in on a light ground.
+     --------------------------------------------------------------------- */
+  --rpe-6: #3aa3d8;
+  --rpe-7: #35b58b;
+  --rpe-8: #d8a11f;
+  --rpe-9: #e2701c;
+  --rpe-10: #d63a2a;
+  --rpe-6-text: #17708f;
+  --rpe-7-text: #17795a;
+  --rpe-8-text: #8a6100;
+  --rpe-9-text: #a54604;
+  --rpe-10-text: #b02418;
 
   /* ---- metrics ---- */
   --nav-h: 44px;
@@ -132,6 +155,15 @@
   --font-rounded: ui-rounded, -apple-system, BlinkMacSystemFont, 'SF Pro Rounded',
     'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
 
+  /* ---- the data face ------------------------------------------------------
+     Archivo, self-hosted, weight and width axes. It sets numerals, the units
+     attached to them, and uppercase data eyebrows — never a sentence. See
+     DESIGN.md: the app's content is its numbers, so the numbers get a face
+     chosen for them while SF keeps the chrome native.
+     --------------------------------------------------------------------- */
+  --font-data: 'Archivo', 'SF Pro Text', -apple-system, BlinkMacSystemFont,
+    'Helvetica Neue', Arial, sans-serif;
+
   color-scheme: light;
 }
 
@@ -144,13 +176,13 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --accent-blue: #0a84ff;
+    --accent-blue: #4c8dff;
     --accent-indigo: #5e5ce6;
     --accent-green: #30d158;
     --accent-orange: #ff9f0a;
     --accent-pink: #ff375f;
     --accent-purple: #bf5af2;
-    --accent-soft: rgba(10, 132, 255, 0.18);
+    --accent-soft: rgba(76, 141, 255, 0.20);
 
     --blue: #0a84ff;
     --green: #30d158;
@@ -170,6 +202,17 @@
     --green-text: #30d158;
     --cyan-text: #64d2ff;
 
+    --rpe-6: #58bde8;
+    --rpe-7: #45cf9f;
+    --rpe-8: #efc04a;
+    --rpe-9: #ff9145;
+    --rpe-10: #ff6250;
+    --rpe-6-text: #58bde8;
+    --rpe-7-text: #45cf9f;
+    --rpe-8-text: #efc04a;
+    --rpe-9-text: #ff9145;
+    --rpe-10-text: #ff6250;
+
     --gray: #8e8e93;
     --gray2: #636366;
     --gray3: #48484a;
@@ -177,17 +220,19 @@
     --gray5: #2c2c2e;
     --gray6: #1c1c1e;
 
-    --label: #ffffff;
-    --label-2: rgba(235, 235, 245, 0.6);
-    --label-3: rgba(235, 235, 245, 0.3);
-    --label-4: rgba(235, 235, 245, 0.16);
+    --label: #f5f5f3;
+    --label-2: rgba(232, 232, 226, 0.62);
+    --label-3: rgba(232, 232, 226, 0.34);
+    --label-4: rgba(232, 232, 226, 0.18);
 
-    --bg: #000000;
-    --bg-2: #1c1c1e;
-    --bg-3: #2c2c2e;
-    --grouped: #000000;
-    --grouped-2: #1c1c1e;
-    --grouped-3: #2c2c2e;
+    /* Iron, not Apple's navy-black. #1c1c1e is measurably blue; on an OLED
+       phone next to a chalk-ground light theme it reads as a different app. */
+    --bg: #0b0b0c;
+    --bg-2: #16161a;
+    --bg-3: #212126;
+    --grouped: #0b0b0c;
+    --grouped-2: #16161a;
+    --grouped-3: #212126;
 
     --fill: rgba(120, 120, 128, 0.36);
     --fill-2: rgba(120, 120, 128, 0.32);
@@ -200,7 +245,7 @@
     --chrome: rgba(22, 22, 24, 0.8);
     --chrome-solid: #161618;
     --sheet-scrim: rgba(0, 0, 0, 0.5);
-    --elevated: #1c1c1e;
+    --elevated: #16161a;
 
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
     --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
@@ -213,13 +258,13 @@
 
 /* Explicit dark choice wins in both directions. */
 :root[data-theme='dark'] {
-  --accent-blue: #0a84ff;
+  --accent-blue: #4c8dff;
   --accent-indigo: #5e5ce6;
   --accent-green: #30d158;
   --accent-orange: #ff9f0a;
   --accent-pink: #ff375f;
   --accent-purple: #bf5af2;
-  --accent-soft: rgba(10, 132, 255, 0.18);
+  --accent-soft: rgba(76, 141, 255, 0.20);
 
   --blue: #0a84ff;
   --green: #30d158;
@@ -239,6 +284,17 @@
   --green-text: #30d158;
   --cyan-text: #64d2ff;
 
+  --rpe-6: #58bde8;
+  --rpe-7: #45cf9f;
+  --rpe-8: #efc04a;
+  --rpe-9: #ff9145;
+  --rpe-10: #ff6250;
+  --rpe-6-text: #58bde8;
+  --rpe-7-text: #45cf9f;
+  --rpe-8-text: #efc04a;
+  --rpe-9-text: #ff9145;
+  --rpe-10-text: #ff6250;
+
   --gray: #8e8e93;
   --gray2: #636366;
   --gray3: #48484a;
@@ -246,17 +302,17 @@
   --gray5: #2c2c2e;
   --gray6: #1c1c1e;
 
-  --label: #ffffff;
-  --label-2: rgba(235, 235, 245, 0.6);
-  --label-3: rgba(235, 235, 245, 0.3);
-  --label-4: rgba(235, 235, 245, 0.16);
+  --label: #f5f5f3;
+  --label-2: rgba(232, 232, 226, 0.62);
+  --label-3: rgba(232, 232, 226, 0.34);
+  --label-4: rgba(232, 232, 226, 0.18);
 
-  --bg: #000000;
-  --bg-2: #1c1c1e;
-  --bg-3: #2c2c2e;
-  --grouped: #000000;
-  --grouped-2: #1c1c1e;
-  --grouped-3: #2c2c2e;
+  --bg: #0b0b0c;
+  --bg-2: #16161a;
+  --bg-3: #212126;
+  --grouped: #0b0b0c;
+  --grouped-2: #16161a;
+  --grouped-3: #212126;
 
   --fill: rgba(120, 120, 128, 0.36);
   --fill-2: rgba(120, 120, 128, 0.32);
@@ -269,7 +325,7 @@
   --chrome: rgba(22, 22, 24, 0.8);
   --chrome-solid: #161618;
   --sheet-scrim: rgba(0, 0, 0, 0.5);
-  --elevated: #1c1c1e;
+  --elevated: #16161a;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);

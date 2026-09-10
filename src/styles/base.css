@@ -1,5 +1,25 @@
 @import './tokens.css';
 
+/* The data face. One variable file carries 400-800 weight and 75-125 width, so
+   every numeric role in the app comes out of a single 90 kB download. `swap`
+   because a figure rendered in SF for one frame is better than no figure.
+
+   It lives in src/assets rather than public/ so Vite fingerprints it and
+   rewrites this URL — public/ is copied verbatim, which would hard-code an
+   absolute path the app cannot use under `base: './'`, and would leave the file
+   out of the service worker's precache list. */
+@font-face {
+  font-family: 'Archivo';
+  /* `woff2`, not the deprecated `woff2-variations`: modern engines reject
+     the latter outright and fall back to SF without a word. */
+  src: url('../assets/archivo-var.woff2') format('woff2');
+  font-weight: 400 800;
+  font-stretch: 75% 125%;
+  font-style: normal;
+  font-display: swap;
+}
+
+
 /* ============================ reset / shell ============================== */
 
 *,
@@ -103,6 +123,89 @@ img { max-width: 100%; display: block; }
 .dim { color: var(--label-2); }
 .tint { color: var(--accent); }
 .mono-nums { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1; }
+
+/* ---------------------------- the data roles -----------------------------
+   Three roles, all tabular. See DESIGN.md: the split between SF and the data
+   face is by *role*, not by size — anything read as language stays in SF, and
+   only what is read as data comes out of these.
+
+   .figure  a hero number: the runner's target, today's weight, a PR
+   .data    a number in a list or a table: set chips, stat tiles, logged loads
+   .eyebrow an uppercase data label: SET 1 OF 4, PER SIDE, WORKOUT
+   ------------------------------------------------------------------------ */
+.figure, .data, .eyebrow {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+.figure {
+  font-weight: 700;
+  font-stretch: 100%;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.data {
+  font-weight: 600;
+  font-stretch: 100%;
+  letter-spacing: -0.005em;
+}
+.eyebrow {
+  font-weight: 700;
+  /* Slightly wide, so a short uppercase string holds its line rather than
+     reading as four letters that happen to be near each other. */
+  font-stretch: 112%;
+  font-size: 11px;
+  line-height: 14px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--label-2);
+}
+/* ------------------------------ intensity --------------------------------
+   RPE is a scale, so it reads as one: cool where a set was easy, hot where it
+   was a grind. Set `data-rpe` to a whole or half step from 6 to 10 and the
+   element takes the ramp. Anything below 6 or unrecorded gets the neutral fill,
+   because an unrecorded effort is not a cool one.
+   ------------------------------------------------------------------------ */
+[data-rpe] {
+  --rpe: var(--label-2);
+  --rpe-fill: var(--fill-4);
+}
+[data-rpe='6'],   [data-rpe='6.5'] { --rpe: var(--rpe-6-text);  --rpe-fill: color-mix(in srgb, var(--rpe-6) 15%, transparent); }
+[data-rpe='7'],   [data-rpe='7.5'] { --rpe: var(--rpe-7-text);  --rpe-fill: color-mix(in srgb, var(--rpe-7) 16%, transparent); }
+[data-rpe='8'],   [data-rpe='8.5'] { --rpe: var(--rpe-8-text);  --rpe-fill: color-mix(in srgb, var(--rpe-8) 20%, transparent); }
+[data-rpe='9'],   [data-rpe='9.5'] { --rpe: var(--rpe-9-text);  --rpe-fill: color-mix(in srgb, var(--rpe-9) 18%, transparent); }
+[data-rpe='10']                    { --rpe: var(--rpe-10-text); --rpe-fill: color-mix(in srgb, var(--rpe-10) 18%, transparent); }
+
+/* A set as it was actually performed: load and reps in the data face, the
+   effort carried by the chip's own colour rather than by a word. */
+.set-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px;
+  border-radius: 8px;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 17px;
+  background: var(--rpe-fill);
+  color: var(--label);
+}
+.set-chip-rpe { color: var(--rpe); font-weight: 700; }
+.set-chip-unit { color: var(--label-2); font-weight: 500; }
+.set-chip[data-pr='true'] {
+  background: color-mix(in srgb, var(--rpe-10) 18%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rpe-10) 45%, transparent);
+}
+
+/* A figure's unit belongs to the figure: same face, quieter, never SF. */
+.figure-unit {
+  font-family: var(--font-data);
+  font-weight: 600;
+  font-stretch: 100%;
+  color: var(--label-2);
+}
 .rounded-font { font-family: var(--font-rounded); }
 .upper-label {
   font-size: 13px;

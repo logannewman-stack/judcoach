@@ -117,30 +117,23 @@ export function LoggedSetChip({
     <Tag
       onClick={onPress}
       type={onPress ? 'button' : undefined}
-      className="mono-nums"
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 4,
-        padding: '4px 9px',
-        borderRadius: 8,
-        fontSize: 13,
-        fontWeight: 600,
-        background: isPr ? 'rgba(255,149,0,0.16)' : 'var(--fill-4)',
-        color: isPr ? 'var(--orange)' : 'var(--label)',
-      }}
+      className="set-chip"
+      // The chip carries the effort in its own colour, so a session's shape is
+      // readable by glancing down the page rather than by reading every number.
+      data-rpe={set.rpe ?? undefined}
+      data-pr={isPr ? 'true' : undefined}
     >
-      {isPr && <Icon name="seal.fill" size={11} color="var(--orange)" />}
+      {isPr && <Icon name="seal.fill" size={11} color="var(--rpe-10-text)" />}
       {/* A bodyweight set carries no load, and "0 lb × 12" reads as a fault. */}
       {set.weight > 0 && (
         <>
           {num(set.weight, 1)}
-          <span className="dim" style={{ fontWeight: 400 }}>{units} ×</span>
+          <span className="set-chip-unit">{units} ×</span>
         </>
       )}
       {set.reps}
-      {set.weight <= 0 && <span className="dim" style={{ fontWeight: 400 }}>reps</span>}
-      {set.rpe != null && <span className="dim" style={{ fontWeight: 400 }}>@{num(set.rpe, 1)}</span>}
+      {set.weight <= 0 && <span className="set-chip-unit">reps</span>}
+      {set.rpe != null && <span className="set-chip-rpe">@{num(set.rpe, 1)}</span>}
     </Tag>
   )
 }
