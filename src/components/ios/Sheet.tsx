@@ -1,12 +1,22 @@
 import { useEffect, useId, useRef } from 'react'
 import type { ReactNode, RefObject } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { haptic } from '../../lib/haptics'
 import { SheetPortal } from './SheetLayer'
+import { cancelPress } from '../../lib/press'
 import { useKeyboardInset } from '../../lib/useKeyboardInset'
+import { IOS_PUSH } from '../../nav/Stack'
 
-/** iOS sheet spring: settles fast, no visible bounce. */
-export const SHEET_SPRING = { type: 'spring' as const, stiffness: 420, damping: 40, mass: 0.9 }
+/* A presentation is the same 0.35s on the same curve as a push, and the sheet,
+   its scrim and the screen receding behind it all use it — they were on three
+   different rates, so the dimming finished 160ms before the sheet landed. */
+const SHEET_TRANSITION = IOS_PUSH
+
+/* Released mid-drag the sheet settles rather than eases, so the return carries
+   whatever speed the finger had. Damped hard: iOS does not bounce a sheet. */
+const SHEET_SETTLE = { bounceStiffness: 500, bounceDamping: 46 }
+
+/** Distance, in points, the drag has to be heading past to dismiss. */
+const DISMISS_AT = 120
 
 /* ============================================================================
    Presentation plumbing.
@@ -148,7 +158,7 @@ export function Sheet({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.22 }}
+            transition={SHEET_TRANSITION}
             onClick={onClose}
           />
           <motion.div
@@ -162,15 +172,19 @@ export function Sheet({
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
-            transition={SHEET_SPRING}
+            transition={SHEET_TRANSITION}
             drag="y"
-            dragElastic={{ top: 0, bottom: 0.6 }}
+            // Down follows the finger exactly; up gives the little resistance
+            // iOS gives a sheet already at its detent. It used to track down at
+            // 0.6, which reads as the sheet lagging behind the thumb.
+            dragElastic={{ top: 0.06, bottom: 1 }}
             dragConstraints={{ top: 0, bottom: 0 }}
+            dragTransition={SHEET_SETTLE}
+            onDragStart={cancelPress}
             onDragEnd={(_, info) => {
-              if (info.offset.y > 110 || info.velocity.y > 620) {
-                haptic('light')
-                onClose()
-              }
+              // Where the drag was heading, not only where it stopped — the
+              // same projection a scroll view decelerates with.
+              if (info.offset.y + info.velocity.y * 0.2 > DISMISS_AT) onClose()
             }}
             role="dialog"
             aria-modal="true"
@@ -250,7 +264,7 @@ export function ActionSheet({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={SHEET_TRANSITION}
             onClick={onClose}
           />
           <motion.div
@@ -259,7 +273,7 @@ export function ActionSheet({
             initial={{ y: '110%' }}
             animate={{ y: 0 }}
             exit={{ y: '110%' }}
-            transition={SHEET_SPRING}
+            transition={SHEET_TRANSITION}
             role="dialog"
             aria-modal="true"
             aria-labelledby={title ? titleId : undefined}
@@ -278,7 +292,6 @@ export function ActionSheet({
                   type="button"
                   className={`action-item${item.destructive ? ' destructive' : ''}`}
                   onClick={() => {
-                    haptic('light')
                     item.onPress()
                     onClose()
                   }}
@@ -329,7 +342,7 @@ export function Alert({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
+            transition={SHEET_TRANSITION}
             onClick={onDismiss}
           />
           {/* The host centres; the alert animates. Keeping those on separate
@@ -341,7 +354,7 @@ export function Alert({
               initial={{ opacity: 0, scale: 1.14 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1 }}
-              transition={{ duration: 0.2, ease: [0.2, 0.8, 0.3, 1] }}
+              transition={SHEET_TRANSITION}
               role="alertdialog"
               aria-modal="true"
               aria-labelledby={titleId}
@@ -362,10 +375,7 @@ export function Alert({
                     key={i}
                     type="button"
                     className={`alert-action${a.strong ? ' strong' : ''}${a.destructive ? ' destructive' : ''}`}
-                    onClick={() => {
-                      haptic('light')
-                      a.onPress()
-                    }}
+                    onClick={() => a.onPress()}
                   >
                     {a.label}
                   </button>

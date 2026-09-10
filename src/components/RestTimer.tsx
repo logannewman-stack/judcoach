@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useStore } from '../store/useStore'
+import { useNav } from '../nav/nav'
 import { Icon } from './Icon'
 import { formatDuration } from '../lib/date'
 import { haptic } from '../lib/haptics'
@@ -12,8 +13,11 @@ import { haptic } from '../lib/haptics'
  */
 export function RestTimerBar({ bottomOffset }: { bottomOffset: number | string }) {
   const timer = useStore((s) => s.restTimer)
+  const active = useStore((s) => s.active)
   const stopRest = useStore((s) => s.stopRest)
   const adjustRest = useStore((s) => s.adjustRest)
+  const fullScreen = useNav((s) => s.fullScreen)
+  const present = useNav((s) => s.present)
   const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
@@ -39,6 +43,11 @@ export function RestTimerBar({ bottomOffset }: { bottomOffset: number | string }
   const size = 34
   const r = (size - 4) / 2
   const circumference = 2 * Math.PI * r
+
+  // This bar replaces the resume banner while it is counting, so on any other
+  // screen it has to be the way back into the workout too — otherwise resting
+  // strands the client outside the runner until the timer ends.
+  const resumable = !!active && !fullScreen
 
   return (
     <AnimatePresence>
@@ -79,7 +88,18 @@ export function RestTimerBar({ bottomOffset }: { bottomOffset: number | string }
             />
           </svg>
 
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <button
+            type="button"
+            className="hit-expand"
+            disabled={!resumable}
+            aria-label={resumable ? 'Back to the workout' : undefined}
+            onClick={() => {
+              if (!active) return
+              haptic('light')
+              present('runner', { weekIndex: active.weekIndex, sessionId: active.sessionId })
+            }}
+            style={{ flex: 1, minWidth: 0, textAlign: 'left', alignSelf: 'stretch' }}
+          >
             <div
               className="mono-nums"
               style={{
@@ -93,10 +113,11 @@ export function RestTimerBar({ bottomOffset }: { bottomOffset: number | string }
               {finished ? 'Rest complete' : formatDuration(remaining)}
             </div>
             <div className="t-caption1 dim truncate">{timer.label}</div>
-          </div>
+          </button>
 
           <button
             type="button"
+            className="hit-expand"
             aria-label="Subtract 15 seconds"
             onClick={() => adjustRest(-15)}
             style={pillBtn}
@@ -105,6 +126,7 @@ export function RestTimerBar({ bottomOffset }: { bottomOffset: number | string }
           </button>
           <button
             type="button"
+            className="hit-expand"
             aria-label="Add 15 seconds"
             onClick={() => adjustRest(15)}
             style={pillBtn}
@@ -113,6 +135,7 @@ export function RestTimerBar({ bottomOffset }: { bottomOffset: number | string }
           </button>
           <button
             type="button"
+            className="hit-expand"
             aria-label="Skip rest"
             onClick={() => {
               haptic('light')

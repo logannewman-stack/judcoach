@@ -1,0 +1,95 @@
+/* ============================================================================
+   Chart furniture — the legend keys and photo comparison strips that sit around
+   the hand-drawn SVG. Nothing here paints inside a chart: the drawing takes its
+   colours from the same tokens the rest of the app does.
+   ========================================================================== */
+
+:root {
+  /* Type over a photograph answers to the photograph, not to the theme, so this
+     pair is deliberately the same in light and dark. */
+  --shot-scrim: rgba(0, 0, 0, 0.55);
+  --shot-label: #ffffff;
+}
+
+.chart-legend {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.chart-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.chart-key-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--label-3);
+}
+
+/* The pace line's key: the same 5-on/4-off rhythm its stroke is drawn with, so
+   the legend and the line cannot drift apart. */
+.chart-key-dash {
+  width: 16px;
+  height: 2px;
+  flex: none;
+  background: repeating-linear-gradient(
+    to right,
+    var(--label-2) 0 5px,
+    transparent 5px 9px
+  );
+}
+
+/* ------------------------------ photo compare ---------------------------- */
+
+.compare-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.compare-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  width: 100%;
+  text-align: left;
+}
+
+.compare-frame {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--r-inset);
+  overflow: hidden;
+  background: var(--fill-4);
+}
+
+.compare-frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.compare-tag {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 2px 7px;
+  border-radius: var(--r-pill);
+  background: var(--shot-scrim);
+  color: var(--shot-label);
+  font-size: 11px;
+  line-height: 15px;
+  font-weight: 600;
+  letter-spacing: 0.06px;
+}

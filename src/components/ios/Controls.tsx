@@ -118,12 +118,19 @@ export function Stepper({
   format?: (v: number) => string
 }) {
   const held = useRef<number | null>(null)
+  const repeated = useRef(false)
+  // The ramp has to count from where it has got to, not from the value it was
+  // started on — a held button used to fire the same step over and over.
+  const latest = useRef(value)
+  latest.current = value
 
   // Press-and-hold ramps up, like the UIKit stepper.
   const startRepeat = (delta: number) => {
     let speed = 420
     const tick = () => {
-      onChange(clamp(value + delta, min, max))
+      repeated.current = true
+      latest.current = clamp(latest.current + delta, min, max)
+      onChange(latest.current)
       speed = Math.max(60, speed * 0.82)
       held.current = window.setTimeout(tick, speed)
     }
@@ -136,6 +143,12 @@ export function Stepper({
   useEffect(() => stopRepeat, [])
 
   const bump = (delta: number) => {
+    // The click that ends a hold is the release of a gesture that has already
+    // counted, not another step.
+    if (repeated.current) {
+      repeated.current = false
+      return
+    }
     haptic('selection')
     onChange(clamp(value + delta, min, max))
   }
@@ -226,32 +239,21 @@ export function Button({
   type?: 'button' | 'submit'
 }) {
   return (
-    <motion.button
+    // No haptic here. iOS does not buzz for a tap, only for what the tap turned
+    // out to mean, and the commits in this app already fire their own — this
+    // rang a second time under every one of them.
+    <button
       type={type}
       className={`btn btn-${variant}${small ? ' btn-sm' : ''}${pill ? ' btn-pill' : ''}`}
-      onClick={
-        onPress
-          ? () => {
-              haptic('medium')
-              onPress()
-            }
-          : undefined
-      }
+      onClick={onPress}
       disabled={disabled}
-      // A spring settles on release instead of snapping, which is most of what
-      // makes a native button feel alive under the thumb.
-      whileTap={disabled ? undefined : { scale: 0.965 }}
-      transition={PRESS_SPRING}
       style={style}
     >
       {icon && <Icon name={icon} size={small ? 16 : 19} weight={2.1} />}
       {children}
-    </motion.button>
+    </button>
   )
 }
-
-/** Firm and quick — an iOS control should feel like it has no mass. */
-export const PRESS_SPRING = { type: 'spring' as const, stiffness: 640, damping: 34, mass: 0.5 }
 
 /* --------------------------------- pill --------------------------------- */
 

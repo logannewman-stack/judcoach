@@ -62,7 +62,7 @@ export function WarmupRamp({
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 5,
-                padding: '7px 11px',
+                padding: '11px 11px',
                 borderRadius: 10,
                 background: isDone ? 'rgba(52,199,89,0.14)' : 'var(--fill-4)',
                 color: isDone ? 'var(--green)' : 'var(--label-2)',

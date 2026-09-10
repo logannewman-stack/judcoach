@@ -1,3 +1,4 @@
+import { useLayoutEffect, useState } from 'react'
 import { create } from 'zustand'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Icon } from '../Icon'
@@ -44,9 +45,27 @@ const TONE_COLOR = {
 
 export function ToastHost() {
   const { message, icon, tone, token } = useToast()
+  const [top, setTop] = useState<number | null>(null)
+
+  /* The host hangs off the top of the window, but the app does not always start
+     there — the coach seat bar takes the notch and pushes everything down, and a
+     toast pinned to the window landed on top of it. When something is above the
+     screen it has already paid for the safe area, so hang off its bottom edge;
+     otherwise leave the CSS, which pads for the notch itself, alone. */
+  useLayoutEffect(() => {
+    if (!message) return
+    const screen = document.querySelector<HTMLElement>('[data-stack-active="true"]')
+    const app = document.querySelector<HTMLElement>('.app')
+    if (!screen || !app) return
+    const offset = screen.getBoundingClientRect().top - app.getBoundingClientRect().top
+    setTop(offset > 0 ? offset + 6 : null)
+  }, [message, token])
+
   return (
-    <div className="toast-host">
-      <AnimatePresence>
+    <div className="toast-host" style={top == null ? undefined : { top }}>
+      {/* popLayout, so a toast arriving while one is leaving takes its place
+          rather than being shouldered sideways by it. */}
+      <AnimatePresence mode="popLayout">
         {message && (
           <motion.div
             key={token}

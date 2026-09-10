@@ -19,7 +19,7 @@ import type { ExercisePrescription, Profile, Units, WorkoutLog } from '../domain
 import { getExercise } from '../data/exercises'
 import { consumedTotals } from '../domain/nutrition'
 import { describeReps, formatRpe, resolveSet } from '../domain/strength'
-import { rollingSeries, summarizeTrend, weighInStreak } from '../domain/weight'
+import { rateVerdict, rollingSeries, summarizeTrend, weighInsInLast } from '../domain/weight'
 import { formatLongDate, relativeDay, timeOfDayGreeting, todayISO, addDays } from '../lib/date'
 import { compact, fixed, num, signed } from '../lib/format'
 import { navPresent, navPush, navSwitchTab, useNav } from '../nav/nav'
@@ -64,7 +64,7 @@ export function TodayScreen() {
 
   const trend = useMemo(() => summarizeTrend(weighIns, 28), [weighIns])
   const series = useMemo(() => rollingSeries(weighIns, 7).slice(-21), [weighIns])
-  const weighStreak = weighInStreak(weighIns, today)
+  const weighDays = weighInsInLast(weighIns, today, 7)
   const loggedToday = weighIns.some((w) => w.date === today)
 
   const todaysLog = logs.find((l) => l.date === today)
@@ -194,7 +194,7 @@ export function TodayScreen() {
                 {trend && (
                   <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
                     {trend.reliable ? (
-                      <Pill tone={rateTone(trend.perWeek, profile.weeklyRateTarget)}>
+                      <Pill tone={rateTone(trend, profile.weeklyRateTarget)}>
                         {signed(trend.perWeek, 2)} {profile.units}/wk
                       </Pill>
                     ) : (
@@ -249,10 +249,10 @@ export function TodayScreen() {
             />
             <StatTile
               label="Weigh-ins"
-              value={weighStreak}
-              caption={weighStreak === 1 ? 'day' : 'days'}
+              value={`${weighDays}/7`}
+              caption="this week"
               icon="scale"
-              tone={weighStreak >= 5 ? 'var(--green)' : undefined}
+              tone={weighDays >= 5 ? 'var(--green)' : undefined}
             />
           </div>
           <div className="gutter" style={{ marginTop: 10 }}>
@@ -658,10 +658,18 @@ function WeekStrip() {
   )
 }
 
-function rateTone(perWeek: number, target: number): 'good' | 'warn' | 'bad' | 'default' {
-  if (Math.abs(target) < 0.05) return Math.abs(perWeek) <= 0.35 ? 'good' : 'warn'
-  if (Math.sign(perWeek) !== Math.sign(target) && Math.abs(perWeek) > 0.1) return 'bad'
-  const ratio = Math.abs(perWeek) / Math.abs(target)
-  if (ratio < 0.5 || ratio > 1.6) return 'warn'
-  return 'good'
+/**
+ * The same verdict the Weigh-In screen reaches, so the pill here and the words
+ * there cannot disagree. A second copy of the bands drifted out of step the
+ * moment one of them was tuned: this pill read green while the screen it links
+ * to said "Slower than target".
+ */
+function rateTone(
+  trend: { perWeek: number; marginPerWeek: number; current: number },
+  target: number,
+): 'good' | 'warn' | 'bad' | 'default' {
+  const { status } = rateVerdict(trend.perWeek, target, trend.marginPerWeek, trend.current)
+  if (status === 'on-track') return 'good'
+  if (status === 'wrong-way') return 'bad'
+  return 'warn'
 }

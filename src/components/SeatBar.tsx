@@ -3,7 +3,6 @@ import { useCoach } from '../store/coach'
 import { useNav } from '../nav/nav'
 import { useStore } from '../store/useStore'
 import { COACH } from '../data/seed'
-import { haptic } from '../lib/haptics'
 
 /* ============================================================================
    There is no second device in a demo, so the app switches seats instead.
@@ -41,7 +40,6 @@ export function SeatBar() {
               type="button"
               className="seat-bar-exit"
               onClick={() => {
-                haptic('light')
                 setViewAs('client')
                 // You are a different person now; start where they start,
                 // rather than part-way into a screen Jud had opened.

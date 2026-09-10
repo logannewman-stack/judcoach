@@ -80,9 +80,10 @@ export function LastTimeLine({
   }
   const best = performance.sets.reduce((b, s) => (s.weight > b.weight ? s : b))
   // One continuous text run — as flex items the date used to wrap onto its own
-  // line with a gap in front of it.
+  // line with a gap in front of it. It truncates rather than wraps because the
+  // one thing worse than a long line here is a line whose second row is "ago".
   return (
-    <span className="t-footnote dim mono-nums">
+    <span className="t-footnote dim mono-nums truncate" style={{ display: 'block' }}>
       <Icon
         name="clock"
         size={12}
@@ -90,7 +91,9 @@ export function LastTimeLine({
         color="var(--label-3)"
         style={{ display: 'inline-block', verticalAlign: -1, marginRight: 5 }}
       />
-      Last {num(best.weight, 1)} {units} × {best.reps}
+      {/* A bodyweight lift logs a load of zero, and "Last 0 lb × 12" reads like
+          a bug rather than like twelve hanging leg raises. */}
+      Last {best.weight > 0 ? `${num(best.weight, 1)} ${units} × ${best.reps}` : `${best.reps} reps`}
       {best.rpe != null ? ` @ ${formatRpe(best.rpe)}` : ''}
       <span className="dim"> · {relativeDay(performance.date)}</span>
     </span>
@@ -128,9 +131,15 @@ export function LoggedSetChip({
       }}
     >
       {isPr && <Icon name="seal.fill" size={11} color="var(--orange)" />}
-      {num(set.weight, 1)}
-      <span className="dim" style={{ fontWeight: 400 }}>{units} ×</span>
+      {/* A bodyweight set carries no load, and "0 lb × 12" reads as a fault. */}
+      {set.weight > 0 && (
+        <>
+          {num(set.weight, 1)}
+          <span className="dim" style={{ fontWeight: 400 }}>{units} ×</span>
+        </>
+      )}
       {set.reps}
+      {set.weight <= 0 && <span className="dim" style={{ fontWeight: 400 }}>reps</span>}
       {set.rpe != null && <span className="dim" style={{ fontWeight: 400 }}>@{num(set.rpe, 1)}</span>}
     </Tag>
   )

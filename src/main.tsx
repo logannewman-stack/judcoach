@@ -6,6 +6,11 @@ import { App } from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { useNav } from './nav/nav'
 import { useStore, exportSnapshot } from './store/useStore'
+import { installPressStates } from './lib/press'
+
+// Press feedback is driven off pointer events for the whole document rather
+// than `:active`, which a browser withholds until a touch is not a scroll.
+installPressStates()
 
 // Dev-only handle so the screen walkthrough can drive navigation directly.
 // Stripped from production builds by the DEV guard.

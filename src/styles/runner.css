@@ -1,0 +1,108 @@
+/* ============================================================================
+   Workout runner.
+
+   Kept out of base.css because none of this is a shared primitive: it is the
+   chrome of the one screen a client stares at for an hour, and most of it exists
+   to buy that screen vertical space or a bigger target.
+   ========================================================================== */
+
+/* Every pushed screen floats its nav bar over the scroll view, so `.scroll`
+   reserves a bar's height at the top. The runner's toolbar is a real flex child
+   above the scroller instead, which left that reservation sitting under it as
+   60pt of nothing — on the one screen that has to fit a target, a plate
+   readout, a keypad and a log button without scrolling. */
+.runner-scroll { padding-top: 0; }
+
+/* ---------------------------- quantity control --------------------------- */
+
+/* Weight, reps and RPE each read as one control: the number opens a precise
+   editor, the footer nudges it by one step. Nothing in here may use
+   `overflow: hidden` — it would clip the pseudo-element that grows each step
+   button to a 44pt target on a narrow phone. */
+.runner-quant {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-radius: 12px;
+  background: var(--fill-4);
+}
+
+.runner-quant-read {
+  min-width: 0;
+  padding: 6px 5px 7px;
+  border-radius: 12px 12px 0 0;
+  text-align: center;
+}
+.runner-quant-read:active { background: var(--fill-3); }
+
+.runner-quant-steps {
+  display: grid;
+  grid-template-columns: 1fr var(--hairline) 1fr;
+  box-shadow: inset 0 var(--hairline) 0 var(--sep);
+}
+
+.runner-step {
+  height: 42px;
+  display: grid;
+  place-items: center;
+  color: var(--label);
+}
+.runner-step:first-child { border-radius: 0 0 0 12px; }
+.runner-step:last-child { border-radius: 0 0 12px 0; }
+.runner-step:active { background: var(--fill-3); }
+.runner-step:disabled { opacity: 0.3; }
+
+.runner-step-sep { background: var(--sep); }
+
+/* ------------------------------ header row ------------------------------- */
+
+/* The exercise name shares its line with two 44pt actions, and the longest name
+   in the library — "Conventional Deadlift" — is a single word wider than what
+   is left of a 320pt screen, so at 28px it used to be drawn straight over the
+   note button. Type that gives way a little is better than either a word over a
+   control or a word broken mid-syllable, and the measure is the header's own
+   width rather than the viewport's: on a desktop the app is a phone-sized frame
+   inside a much wider window. */
+.runner-head { container-type: inline-size; }
+
+h1.runner-title {
+  flex: 1;
+  min-width: 0;
+  font-size: clamp(21px, 7.8cqi, 28px);
+  line-height: 1.22;
+  letter-spacing: -0.5px;
+  /* Last resort if container queries are not available: break rather than
+     overlap. */
+  overflow-wrap: break-word;
+}
+
+/* Note and Swap are once-a-session actions sharing a line with the exercise
+   name, so they are sized for a chalky thumb rather than for the space they
+   take: 44pt, and the name takes whatever is left. */
+.runner-tool {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 44px;
+  padding: 0 13px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.23px;
+  background: var(--fill-3);
+  color: var(--label);
+}
+.runner-tool:active { opacity: 0.86; }
+.runner-tool.icon-only { width: 44px; padding: 0; }
+
+/* Narrower than any shipping iPhone, where the word "Swap" is the difference
+   between a two-line exercise name and a three-line one. The target stays 44pt
+   and keeps its label for assistive tech either way. */
+@container (max-width: 300px) {
+  .runner-tool { width: 44px; padding: 0; }
+  .runner-tool > span { display: none; }
+}
+/* A note already written is a state worth seeing from arm's length. */
+.runner-tool[data-on='true'] { background: var(--accent-soft); color: var(--accent); }

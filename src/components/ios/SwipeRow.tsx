@@ -4,6 +4,7 @@ import { motion, useMotionValue, useTransform } from 'framer-motion'
 import { Icon } from '../Icon'
 import type { IconName } from '../Icon'
 import { haptic } from '../../lib/haptics'
+import { cancelPress } from '../../lib/press'
 
 /* ============================================================================
    Swipe-to-reveal list row.
@@ -48,6 +49,11 @@ export function SwipeRow({
   // The action tray only needs to paint while the row is actually moving.
   const trayOpacity = useTransform(x, [-8, -28], [0, 1])
   const from = useRef<{ x: number; y: number } | null>(null)
+  const armed = useRef(false)
+  // Only a destructive action at the end of the tray is what a full swipe
+  // commits to, the way Mail's delete is.
+  const last = actions[actions.length - 1]
+  const fullSwipe = last?.destructive ? last : null
 
   useEffect(() => {
     if (id && openId !== id && open) {
@@ -56,17 +62,26 @@ export function SwipeRow({
   }, [openId, id, open])
 
   const commit = () => {
-    const last = actions[actions.length - 1]
-    if (!last) return
-    haptic('warning')
+    if (!fullSwipe) return
+    // No haptic: the swipe already tapped back when it armed, and one event
+    // should only ever be felt once.
     setOpen(false)
     onOpenChange?.(null)
-    last.onPress()
+    fullSwipe.onPress()
   }
 
   return (
     <div className="swipe-row">
-      <motion.div className="swipe-row-tray" style={{ opacity: trayOpacity }} aria-hidden={!open}>
+      {/* The tray carries the last action's colour so pulling past the actions
+          stretches that colour, rather than opening a gap of bare row. */}
+      <motion.div
+        className="swipe-row-tray"
+        style={{
+          opacity: trayOpacity,
+          background: last ? (last.destructive ? 'var(--red)' : 'var(--gray)') : undefined,
+        }}
+        aria-hidden={!open}
+      >
         {actions.map((action, i) => (
           <button
             key={i}
@@ -96,15 +111,25 @@ export function SwipeRow({
         style={{ x }}
         animate={{ x: open ? -width : 0 }}
         transition={{ type: 'spring', stiffness: 520, damping: 44 }}
+        onDragStart={cancelPress}
+        // iOS taps you the moment a full swipe arms, not when you let go of it.
+        onDrag={(_, info) => {
+          const arm = !!fullSwipe && -info.offset.x > COMMIT_AT
+          if (arm === armed.current) return
+          armed.current = arm
+          if (arm) haptic('medium')
+        }}
         onDragEnd={(_, info) => {
-          if (-info.offset.x > COMMIT_AT && actions.some((a) => a.destructive)) {
+          armed.current = false
+          if (fullSwipe && -info.offset.x > COMMIT_AT) {
             commit()
             return
           }
+          // Revealing the actions is not a selection, and Mail does not buzz
+          // for it either.
           const shouldOpen = -info.offset.x > OPEN_AT || info.velocity.x < -420
           setOpen(shouldOpen)
           onOpenChange?.(shouldOpen ? (id ?? null) : null)
-          if (shouldOpen) haptic('selection')
         }}
         onPointerDownCapture={(e) => {
           from.current = { x: e.clientX, y: e.clientY }

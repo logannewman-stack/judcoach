@@ -96,7 +96,6 @@ export function Messages() {
           placeholder={`Message ${them}`}
           onSend={(body) => {
             send({ kind: 'thread' }, body)
-            haptic('light')
             requestAnimationFrame(() => toBottom())
           }}
         />

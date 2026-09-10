@@ -251,7 +251,7 @@
   transition: opacity 0.16s ease, transform 0.16s ease;
 }
 .compose-send:disabled { opacity: 0.32; }
-.compose-send:not(:disabled):active { transform: scale(0.9); }
+.compose-send:not(:disabled)[data-pressed] { transform: scale(0.9); }
 
 /* ---------------------------- notes on a record --------------------------- */
 

@@ -13,6 +13,8 @@ export interface TrendPoint {
   weight: number
   /** Trailing rolling average across `window` days. */
   avg: number
+  /** Readings the average was taken over — 1 means it is just that day's scale. */
+  count: number
 }
 
 /**
@@ -30,7 +32,12 @@ export function rollingSeries(entries: WeighIn[], window = 7): TrendPoint[] {
       sum += other.weight
       count++
     }
-    return { date: entry.date, weight: entry.weight, avg: count ? sum / count : entry.weight }
+    return {
+      date: entry.date,
+      weight: entry.weight,
+      avg: count ? sum / count : entry.weight,
+      count,
+    }
   })
 }
 
@@ -59,6 +66,14 @@ export interface TrendSummary {
    */
   reliable: boolean
 }
+
+/**
+ * What a slope has to be fitted on before it is worth quoting. Published so the
+ * screen can name the shortfall — "6 of 10 weigh-ins" tells a client what to do
+ * next, where a blank pill or a made-up rate tells them nothing.
+ */
+export const TREND_MIN_ENTRIES = 10
+export const TREND_MIN_DAYS = 14
 
 /**
  * Least-squares slope in units per day, with the standard error of that slope.
@@ -128,8 +143,31 @@ export function summarizeTrend(entries: WeighIn[], days = 28, window = 7): Trend
     sampleDays,
     entries: recent.length,
     stale,
-    reliable: !stale && recent.length >= 10 && sampleDays >= 14,
+    reliable: !stale && recent.length >= TREND_MIN_ENTRIES && sampleDays >= TREND_MIN_DAYS,
   }
+}
+
+/**
+ * The line the plan puts the client on, anchored to the first point of whatever
+ * stretch is being looked at. Drawn beside the trend so "on pace" is a shape the
+ * eye reads in one go rather than two numbers to hold in the head.
+ */
+export function targetPace(
+  series: TrendPoint[],
+  perWeekTarget: number,
+): { date: string; weight: number }[] {
+  const first = series[0]
+  if (!first || series.length < 2) return []
+  return series.map((p) => ({
+    date: p.date,
+    weight: first.avg + (daysBetween(first.date, p.date) / 7) * perWeekTarget,
+  }))
+}
+
+/** Days in the last `days` that carry a weigh-in — how much the average rests on. */
+export function weighInsInLast(entries: WeighIn[], today: string, days = 7): number {
+  const from = daysAgoISO(today, days)
+  return new Set(entries.filter((e) => e.date >= from && e.date <= today).map((e) => e.date)).size
 }
 
 function daysAgoISO(fromISO: string, days: number): string {
@@ -185,9 +223,14 @@ export function rateVerdict(
   if (Math.sign(perWeek) !== Math.sign(targetPerWeek) && Math.abs(perWeek) > maintenanceBand / 2) {
     return { status: 'wrong-way', label: 'Moving the wrong way' }
   }
+  // Past this point the confidence interval has already excluded the target, so
+  // the gap is real and the only question is whether it is worth acting on. Two
+  // thirds of a prescribed rate is: across a twelve-week block that is four
+  // pounds of lean gain turning into two, which is the block. The old ±60% band
+  // called it "on target" and left the arrival date to break the news.
   const ratio = Math.abs(perWeek) / Math.abs(targetPerWeek)
-  if (ratio < 0.5) return { status: 'slow', label: 'Slower than target' }
-  if (ratio > 1.6) return { status: 'fast', label: 'Faster than target' }
+  if (ratio < 0.7) return { status: 'slow', label: 'Slower than target' }
+  if (ratio > 1.4) return { status: 'fast', label: 'Faster than target' }
   return { status: 'on-track', label: 'On target' }
 }
 

@@ -46,6 +46,21 @@ button {
   touch-action: manipulation;
 }
 
+/* Press feedback is written by src/lib/press.ts on pointer-down, because a
+   browser withholds `:active` on touch until it knows the gesture is not a
+   scroll — which is long after the finger landed.
+
+   Anything tappable that has no press style of its own still has to answer the
+   finger, so this is the floor. Both :where()s keep it at zero specificity, so
+   every rule that follows — a row's tint, a button's dim — wins on its own
+   terms rather than needing !important. */
+:where(a[href], button, [role='button']):where(:not(
+  .row, .card, .pressable, .btn, .nav-btn, .tab, .segment, .switch,
+  .action-item, .alert-action, .swipe-row-action
+))[data-pressed] {
+  opacity: 0.55;
+}
+
 input, textarea { -webkit-user-select: text; user-select: text; }
 
 /* Inputs must stay >= 16px or iOS zooms the viewport on focus. */
@@ -121,8 +136,8 @@ img { max-width: 100%; display: block; }
   transform-origin: 50% 0;
   will-change: transform;
   transition:
-    transform 460ms cubic-bezier(0.32, 0.72, 0, 1),
-    border-radius 460ms cubic-bezier(0.32, 0.72, 0, 1);
+    transform var(--dur-push) var(--ease-ios),
+    border-radius var(--dur-push) var(--ease-ios);
 }
 .app-content[data-receded='true'] {
   transform: scale(0.925) translateY(12px);
@@ -138,7 +153,7 @@ img { max-width: 100%; display: block; }
   background: #000;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 460ms cubic-bezier(0.32, 0.72, 0, 1);
+  transition: opacity var(--dur-push) var(--ease-ios);
 }
 .app-content[data-receded='true'] .app-recede-dim { opacity: 0.18; }
 
@@ -345,7 +360,7 @@ img { max-width: 100%; display: block; }
   z-index: 20;
   padding-top: var(--sa-top);
   background: transparent;
-  transition: background 180ms ease;
+  transition: background var(--dur-state) var(--ease-ios);
 }
 
 .navbar[data-scrolled='true'] {
@@ -371,7 +386,7 @@ img { max-width: 100%; display: block; }
   text-align: center;
   opacity: 0;
   transform: translateY(6px);
-  transition: opacity 160ms ease, transform 160ms ease;
+  transition: opacity var(--dur-state) var(--ease-ios), transform var(--dur-state) var(--ease-ios);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -396,9 +411,12 @@ img { max-width: 100%; display: block; }
   /* A bar button item is 44 × 44 even when it's a single glyph. */
   min-height: 44px;
   min-width: 44px;
-  transition: opacity 120ms ease;
+  transition: opacity var(--dur-state) var(--ease-ios);
 }
-.nav-btn:active { opacity: 0.4; }
+/* A highlight arrives with the finger and fades out behind it: UIKit sets the
+   highlighted state on touch-down and crossfades it away on release. Every
+   press state below is written the same way. */
+.nav-btn[data-pressed] { opacity: 0.4; transition-duration: 0s; }
 .nav-btn.strong { font-weight: 600; }
 .nav-btn:disabled { color: var(--label-3); }
 
@@ -439,10 +457,10 @@ img { max-width: 100%; display: block; }
   color: var(--gray);
   padding-top: 3px;
   position: relative;
-  transition: color 120ms ease;
+  transition: color var(--dur-state) var(--ease-ios), opacity var(--dur-state) var(--ease-ios);
 }
 .tab[data-active='true'] { color: var(--accent); }
-.tab:active { opacity: 0.6; }
+.tab[data-pressed] { opacity: 0.6; transition-duration: 0s; }
 .tab-label { font-size: 10px; line-height: 12px; font-weight: 500; letter-spacing: 0.06px; }
 .tab-badge {
   position: absolute;
@@ -506,7 +524,7 @@ img { max-width: 100%; display: block; }
   text-align: left;
   background: var(--grouped-2);
   color: var(--label);
-  transition: background 90ms ease;
+  transition: background var(--dur-state) var(--ease-ios);
 }
 .row:has(.row-sub) { min-height: var(--row-h-2); }
 
@@ -525,7 +543,9 @@ img { max-width: 100%; display: block; }
   height: var(--hairline);
   background: var(--sep);
 }
-button.row:active, a.row:active, .row[data-pressable='true']:active { background: var(--fill-4); }
+button.row[data-pressed],
+a.row[data-pressed],
+.row[data-pressable='true'][data-pressed] { background: var(--fill-4); transition-duration: 0s; }
 
 .row-icon {
   flex: none;
@@ -572,8 +592,12 @@ button.row:active, a.row:active, .row[data-pressable='true']:active { background
   color: #fff;
   font-size: 13px;
   font-weight: 500;
+  transition: box-shadow var(--dur-state) var(--ease-ios);
 }
 .swipe-row-action.destructive { background: var(--red); }
+/* Darkened rather than dimmed: the tray behind it is the same colour, so
+   dropping the opacity would show red through red and read as nothing. */
+.swipe-row-action[data-pressed] { box-shadow: inset 0 0 0 999px rgba(0, 0, 0, 0.16); transition-duration: 0s; }
 .swipe-row-sled { position: relative; background: var(--grouped-2); }
 
 /* ================================ cards ================================= */
@@ -586,18 +610,19 @@ button.row:active, a.row:active, .row[data-pressable='true']:active { background
 }
 .card-pad { padding: 16px; }
 
-/* Tap feedback for anything card-shaped. The inset shadow tints the surface
-   without disturbing layout the way a background swap would. */
+/* A card is a surface, so it highlights the way a cell does rather than
+   shrinking: one language for pressing anything you can push. The inset shadow
+   tints it without disturbing layout the way a background swap would. */
 button.card,
 a.card,
 .pressable {
-  transition: transform 160ms cubic-bezier(0.2, 0.8, 0.3, 1), box-shadow 120ms ease;
+  transition: box-shadow var(--dur-state) var(--ease-ios);
 }
-button.card:active,
-a.card:active,
-.pressable:active {
-  transform: scale(0.982);
+button.card[data-pressed],
+a.card[data-pressed],
+.pressable[data-pressed] {
   box-shadow: inset 0 0 0 999px var(--fill-4);
+  transition-duration: 0s;
 }
 
 /* =============================== buttons ================================ */
@@ -614,9 +639,17 @@ a.card:active,
   min-height: 50px;
   padding: 0 20px;
   width: 100%;
-  transition: opacity 110ms ease, background 120ms ease;
+  transition:
+    opacity var(--dur-state) var(--ease-ios),
+    box-shadow var(--dur-state) var(--ease-ios),
+    background var(--dur-state) var(--ease-ios);
 }
-.btn:active { opacity: 0.86; }
+/* A filled control darkens rather than scaling or fading: dropping the opacity
+   washes the fill out against the page, where UIKit sinks it. The inset shadow
+   paints over the fill and under the label, so only the fill moves. A plain
+   button has no fill, so it dims as far as a bar button does instead. */
+.btn[data-pressed] { box-shadow: inset 0 0 0 999px rgba(0, 0, 0, 0.14); transition-duration: 0s; }
+.btn-plain[data-pressed] { box-shadow: none; opacity: 0.4; }
 .btn:disabled { opacity: 0.4; }
 
 .btn-filled { background: var(--accent); color: #fff; }
@@ -672,13 +705,13 @@ a.card:active,
   letter-spacing: -0.08px;
   color: var(--label);
   padding: 0 8px;
-  transition: opacity 120ms ease;
+  transition: opacity var(--dur-state) var(--ease-ios);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .segment[data-active='true'] { font-weight: 600; }
-.segment:active { opacity: 0.5; }
+.segment[data-pressed] { opacity: 0.5; transition-duration: 0s; }
 
 /* ================================ switch ================================ */
 
@@ -689,7 +722,7 @@ a.card:active,
   border-radius: var(--r-pill);
   background: var(--fill);
   position: relative;
-  transition: background 220ms cubic-bezier(0.32, 0.72, 0, 1);
+  transition: background var(--dur-state) var(--ease-ios);
 }
 .switch[data-on='true'] { background: var(--green); }
 .switch-knob {
@@ -701,7 +734,7 @@ a.card:active,
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15), 0 1px 1px rgba(0, 0, 0, 0.16);
-  transition: transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+  transition: transform var(--dur-state) var(--ease-ios);
 }
 .switch[data-on='true'] .switch-knob { transform: translateX(20px); }
 
@@ -786,6 +819,7 @@ a.card:active,
   color: var(--accent);
   position: relative;
   background: transparent;
+  transition: background var(--dur-state) var(--ease-ios);
 }
 .action-item + .action-item::before {
   content: '';
@@ -796,7 +830,7 @@ a.card:active,
   height: var(--hairline);
   background: var(--sep);
 }
-.action-item:active { background: var(--fill-4); }
+.action-item[data-pressed] { background: var(--fill-4); transition-duration: 0s; }
 .action-item.destructive { color: var(--red); }
 .action-item.cancel { font-weight: 600; }
 .action-title {
@@ -847,6 +881,7 @@ a.card:active,
   color: var(--accent);
   font-size: 17px;
   position: relative;
+  transition: background var(--dur-state) var(--ease-ios);
 }
 .alert-action::before {
   content: '';
@@ -868,7 +903,7 @@ a.card:active,
 }
 .alert-action.strong { font-weight: 600; }
 .alert-action.destructive { color: var(--red); }
-.alert-action:active { background: var(--fill-4); }
+.alert-action[data-pressed] { background: var(--fill-4); transition-duration: 0s; }
 
 /* A presented overlay freezes what's behind it. The app's scrolling lives in
    `.scroll`, never on `body`, so hiding the body's overflow locked nothing. */
@@ -1087,7 +1122,7 @@ a.card:active,
   height: 6px;
   border-radius: 50%;
   background: var(--label-4);
-  transition: background 220ms ease, transform 220ms ease;
+  transition: background var(--dur-state) var(--ease-ios), transform var(--dur-state) var(--ease-ios);
 }
 .onboarding-dots span[data-on='true'] { background: var(--accent); transform: scale(1.15); }
 
@@ -1173,7 +1208,7 @@ a.card:active,
   color: var(--label);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  transition: background 140ms ease, color 140ms ease;
+  transition: background var(--dur-state) var(--ease-ios), color var(--dur-state) var(--ease-ios);
 }
 .onboarding-rate-row button[data-on='true'] { background: var(--accent); color: #fff; }
 

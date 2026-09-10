@@ -5,7 +5,6 @@ import { useNav } from '../nav/nav'
 import { findSession, useProgram } from '../store/selectors'
 import { Icon } from './Icon'
 import { formatDuration } from '../lib/date'
-import { haptic } from '../lib/haptics'
 
 /**
  * The way back into a minimised workout, from anywhere in the app — iOS's
@@ -44,9 +43,7 @@ export function ActiveWorkoutBar({ bottomOffset }: { bottomOffset: number | stri
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 70, opacity: 0 }}
           transition={{ type: 'spring', stiffness: 420, damping: 38 }}
-          whileTap={{ scale: 0.98 }}
           onClick={() => {
-            haptic('light')
             present('runner', { weekIndex: active.weekIndex, sessionId: active.sessionId })
           }}
           style={{

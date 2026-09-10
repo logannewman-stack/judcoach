@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { AnimatePresence, MotionConfig, motion, useDragControls } from 'framer-motion'
-import { Stack } from './nav/Stack'
+import { IOS_PUSH, Stack } from './nav/Stack'
 import { TabBar } from './nav/TabBar'
 import { TABS, useNav } from './nav/nav'
 import { SCREENS } from './screens/registry'
@@ -107,7 +107,7 @@ export function App() {
                   initial={{ y: '100%' }}
                   animate={{ y: 0 }}
                   exit={{ y: '100%' }}
-                  transition={{ duration: 0.42, ease: [0.32, 0.72, 0, 1] }}
+                  transition={IOS_PUSH}
                   // The gesture is started by the presented screen's own
                   // toolbar, so the scroll view never fights it.
                   drag="y"
@@ -141,7 +141,7 @@ export function App() {
                   key="onboarding"
                   initial={false}
                   exit={{ opacity: 0, scale: 1.03 }}
-                  transition={{ duration: 0.34, ease: [0.32, 0.72, 0, 1] }}
+                  transition={IOS_PUSH}
                   style={{ position: 'absolute', inset: 0, zIndex: 400 }}
                 >
                   <Onboarding />

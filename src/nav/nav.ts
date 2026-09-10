@@ -57,7 +57,6 @@ export const useNav = create<NavState>((set, get) => ({
 
   switchTab: (tab) => {
     const { tab: current, stacks, scrollTopTick } = get()
-    haptic('selection')
     if (current === tab) {
       // Tapping the active tab pops its stack to root, then scrolls to the top
       // on a second tap — exactly like iOS.
@@ -68,6 +67,9 @@ export const useNav = create<NavState>((set, get) => ({
       }
       return
     }
+    // Only an actual change of tab is a selection; tapping the one you are
+    // already on pops or scrolls, and iOS says nothing about either.
+    haptic('selection')
     set({ tab })
   },
 

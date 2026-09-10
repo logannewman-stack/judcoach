@@ -108,6 +108,18 @@
      the ratio. The 1x value is the default because a media query can only add. */
   --hairline: 1px;
 
+  /* ---- motion ------------------------------------------------------------
+     One curve and two durations. --ease-ios is the curve a UINavigationController
+     pushes on and --dur-push its 0.35s, shared by everything that presents or
+     dismisses a surface — a sheet, its scrim and the screen receding behind it
+     were on three separate rates. --dur-state is a control changing in place: a
+     switch travelling, a bar taking its blur, a highlight letting go. A
+     highlight *arriving* has no duration at all, or it lags the finger.
+     --------------------------------------------------------------------- */
+  --ease-ios: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-state: 200ms;
+  --dur-push: 350ms;
+
   /* ---- safe areas (fall back to 0 off-device) ---- */
   --sa-top: env(safe-area-inset-top, 0px);
   --sa-bottom: env(safe-area-inset-bottom, 0px);

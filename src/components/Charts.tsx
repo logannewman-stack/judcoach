@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useSize } from '../lib/useSize'
+import '../styles/charts.css'
 
 /* ============================================================================
    Charts — hand-rolled SVG so the type, spacing and motion match the rest of
@@ -59,6 +60,8 @@ export interface LineChartProps {
   data: Point[]
   /** Drawn under the main line — the rolling average, usually. */
   secondary?: Point[]
+  /** A dashed pace line the data is meant to be compared against. */
+  reference?: Point[]
   height?: number
   color?: string
   secondaryColor?: string
@@ -75,9 +78,22 @@ export interface LineChartProps {
   ariaLabel?: string
 }
 
+/* The drawing's margins. The top band is deliberately taller than the type it
+   holds: the scrub readout lives there, clear of the plot, so nothing the
+   finger asks for lands on top of the goal line. */
+const PAD_L = 8
+const PAD_R = 8
+const PAD_T = 22
+const PAD_B = 22
+
+/** Width and height of the drawn goal arrow, in user units. */
+const ARROW_W = 7
+const ARROW_H = 7
+
 export function LineChart({
   data,
   secondary,
+  reference,
   height = 180,
   color = 'var(--accent)',
   secondaryColor,
@@ -94,15 +110,11 @@ export function LineChart({
   const [hover, setHover] = useState<number | null>(null)
   const gradientId = useMemo(nextId, [])
 
-  const PAD_L = 8
-  const PAD_R = 8
-  const PAD_T = 14
-  const PAD_B = 22
-
   // Keys, not the props themselves, so a parent re-render with unchanged numbers
   // reuses the geometry instead of rebuilding it.
   const dataKey = seriesKey(data)
   const trendKey = seriesKey(secondary)
+  const paceKey = seriesKey(reference)
   const goalValue = goal?.value ?? null
 
   const geom = useMemo(() => {
@@ -113,18 +125,30 @@ export function LineChart({
     // A flat or single-point series has no extent of its own to scale against.
     const extent = max - min || Math.max(1, Math.abs(max) * 0.05)
 
-    // Either the goal fits in the room MIN_DATA_SHARE leaves it, or the scale
-    // takes all of that room and the line is drawn on the frame instead. The
-    // room is discounted by padFraction, which is added to the stretched span
-    // below, so the share holds of the plot the client actually sees.
+    // The room the scale may stretch, above and below, before the data drops
+    // under MIN_DATA_SHARE of the plot. It is discounted by padFraction, which
+    // is added to the stretched span below, so the share holds of the plot the
+    // client actually sees. Everything that is not data — the pace line, the
+    // goal — draws on this one budget rather than each taking a helping.
     const room = Math.max(0, extent / (MIN_DATA_SHARE * (1 + padFraction * 2)) - extent)
+    const ceiling = max + room
+    const floor = min - room
+
+    // The pace line goes first: a client six weeks behind a fast target would
+    // otherwise pull the scale until their own weight was a flat line, and the
+    // chart's first job is still to show what they weigh.
+    if (reference && reference.length > 0) {
+      max = Math.max(max, Math.min(Math.max(...reference.map((d) => d.y)), ceiling))
+      min = Math.min(min, Math.max(Math.min(...reference.map((d) => d.y)), floor))
+    }
+
     let beyond: 'above' | 'below' | null = null
     if (goalValue != null) {
-      if (goalValue > max + room) {
-        max += room
+      if (goalValue > ceiling) {
+        max = ceiling
         beyond = 'above'
-      } else if (goalValue < min - room) {
-        min -= room
+      } else if (goalValue < floor) {
+        min = floor
         beyond = 'below'
       } else {
         min = Math.min(min, goalValue)
@@ -140,13 +164,20 @@ export function LineChart({
     const innerH = Math.max(1, height - PAD_T - PAD_B)
     const sx = (i: number, n: number) => PAD_L + (n <= 1 ? innerW / 2 : (i / (n - 1)) * innerW)
     const sy = (v: number) => PAD_T + innerH - ((v - min) / (max - min)) * innerH
+    // A pace line the budget above could not fit rides the frame rather than
+    // leaving the drawing: a line that vanishes reads as an app fault, a line
+    // pinned to the top reads as "further than this chart goes", which is true.
+    const syClamped = (v: number) => Math.min(Math.max(sy(v), PAD_T), height - PAD_B)
 
-    // Both series share the primary series' x positions so they stay aligned.
+    // Every series shares the primary series' x positions so they stay aligned.
     const indexOf = new Map(data.map((d, i) => [d.x, i]))
+    const place = (pts: Point[], scale: (v: number) => number) =>
+      pts
+        .filter((d) => indexOf.has(d.x))
+        .map((d) => ({ x: sx(indexOf.get(d.x)!, data.length), y: scale(d.y), raw: d }))
     const primary = data.map((d, i) => ({ x: sx(i, data.length), y: sy(d.y), raw: d }))
-    const trend = (secondary ?? [])
-      .filter((d) => indexOf.has(d.x))
-      .map((d) => ({ x: sx(indexOf.get(d.x)!, data.length), y: sy(d.y), raw: d }))
+    const trend = place(secondary ?? [], sy)
+    const pace = place(reference ?? [], syClamped)
 
     const goalY =
       goalValue == null
@@ -157,22 +188,22 @@ export function LineChart({
             ? height - PAD_B
             : sy(goalValue)
 
-    return { primary, trend, goal: goalY == null ? null : { y: goalY, beyond } }
-  }, [width, height, padFraction, dataKey, trendKey, goalValue])
+    return { primary, trend, pace, goal: goalY == null ? null : { y: goalY, beyond } }
+  }, [width, height, padFraction, dataKey, trendKey, paceKey, goalValue])
 
   const active = hover != null && geom ? geom.primary[hover] : null
   const activeTrend = hover != null && geom ? geom.trend[hover] : null
 
   const goalColor = goal?.color ?? 'var(--label-3)'
 
-  // On the frame the line's own position can no longer carry the number, so the
-  // label takes it, with an arrow for the direction it lies in.
-  const goalText =
-    goal?.label == null
-      ? null
-      : geom?.goal?.beyond
-        ? `${goal.label} ${formatValue(goal.value)} ${geom.goal.beyond === 'above' ? '↑' : '↓'}`
-        : goal.label
+  // The value rides along even when the line is honestly placed: with no y axis
+  // to read it off, a line marked only "Goal" is a line marked nothing. Off the
+  // scale, an arrow says which way the real one lies — drawn, not set, because
+  // an arrow glyph's ink runs past the advance width the layout reserves for
+  // it, and a right-anchored one is then sliced by the edge of the drawing on
+  // whichever font the device falls back to.
+  const goalText = goal?.label == null ? null : `${goal.label} ${formatValue(goal.value)}`
+  const goalArrow = geom?.goal?.beyond ?? null
 
   // x labels: first and last only, iOS-sparse. Resolved here so the body below
   // keys on the two strings rather than on a formatter rebuilt every render.
@@ -206,22 +237,34 @@ export function LineChart({
               strokeDasharray="3 4"
             />
             {goalText && (
-              <text
-                x={width - PAD_R}
-                y={geom.goal.y - 5 < PAD_T + 8 ? geom.goal.y + 12 : geom.goal.y - 5}
-                textAnchor="end" fontSize="10" fontWeight="600"
-                fill={goalColor}
-              >
-                {goalText}
-              </text>
+              <GoalLabel
+                text={goalText}
+                arrow={goalArrow}
+                right={width - PAD_R}
+                lineY={geom.goal.y}
+              />
             )}
           </>
+        )}
+
+        {/* the pace the plan puts them on, under everything they actually did */}
+        {geom.pace.length > 1 && (
+          <path
+            d={smoothPath(geom.pace)}
+            fill="none"
+            stroke="var(--label-2)"
+            strokeWidth={1.6}
+            strokeDasharray="5 4"
+            strokeLinecap="round"
+          />
         )}
 
         {/* raw series */}
         {rawAsDots ? (
           geom.primary.map((p, i) => (
-            <circle key={i} cx={p.x} cy={p.y} r={1.9} fill={color} opacity={0.32} />
+            // Half of --label-2 lands on --label-3, which is what the legend's
+            // "Daily" key is painted in: the cloud and its label match.
+            <circle key={i} cx={p.x} cy={p.y} r={1.9} fill={color} opacity={0.5} />
           ))
         ) : (
           <>
@@ -258,10 +301,10 @@ export function LineChart({
 
         {spanLabels && (
           <>
-            <text x={PAD_L} y={height - 6} fontSize="11" fill="var(--label-3)">
+            <text x={PAD_L} y={height - 6} fontSize="11" fill="var(--label-2)">
               {spanLabels.first}
             </text>
-            <text x={width - PAD_R} y={height - 6} fontSize="11" textAnchor="end" fill="var(--label-3)">
+            <text x={width - PAD_R} y={height - 6} fontSize="11" textAnchor="end" fill="var(--label-2)">
               {spanLabels.last}
             </text>
           </>
@@ -270,7 +313,7 @@ export function LineChart({
     )
   }, [
     geom, width, height, color, secondaryColor, gradientId, rawAsDots, showDots,
-    goalColor, goalText, spanLabels?.first, spanLabels?.last,
+    goalColor, goalText, goalArrow, spanLabels?.first, spanLabels?.last,
   ])
 
   const onMove = (e: React.PointerEvent<SVGSVGElement>) => {
@@ -289,12 +332,25 @@ export function LineChart({
     setHover(best)
   }
 
+  // A weight on its own answers half the question the finger asked: the other
+  // half is which morning it was.
+  const activeText = active
+    ? [formatLabel?.(active.raw.x), formatValue((activeTrend ?? active).raw.y)]
+      .filter(Boolean)
+      .join(' · ')
+    : ''
+  // Enough room for the readout to stay inside the drawing without measuring it:
+  // 11px semibold runs about 5.6px a character, and the clamp only has to be
+  // generous, not exact.
+  const readoutHalf = Math.min((activeText.length * 5.6) / 2 + 2, (width - PAD_L - PAD_R) / 2)
+
   return (
     <div ref={ref} style={{ width: '100%', ...style }}>
       {width > 0 && geom && (
         <svg
           width={width}
           height={height}
+          viewBox={`0 0 ${width} ${height}`}
           style={{ display: 'block', touchAction: 'pan-y' }}
           onPointerMove={onMove}
           onPointerDown={onMove}
@@ -308,26 +364,83 @@ export function LineChart({
           {active && (
             <>
               <line
-                x1={active.x} x2={active.x} y1={PAD_T - 6} y2={height - PAD_B}
+                x1={active.x} x2={active.x} y1={PAD_T - 4} y2={height - PAD_B}
                 stroke="var(--label-3)" strokeWidth={1}
               />
+              {activeTrend && (
+                <circle
+                  cx={active.x} cy={active.y} r={3}
+                  fill={color} stroke="var(--grouped-2)" strokeWidth={1.5}
+                />
+              )}
               <circle
                 cx={active.x} cy={(activeTrend ?? active).y} r={5}
                 fill={secondaryColor ?? color} stroke="var(--grouped-2)" strokeWidth={2.5}
               />
               <text
-                x={Math.min(Math.max(active.x, 28), width - 28)}
-                y={PAD_T - 2}
+                x={Math.min(Math.max(active.x, PAD_L + readoutHalf), width - PAD_R - readoutHalf)}
+                y={PAD_T - 7}
                 textAnchor="middle" fontSize="11" fontWeight="700"
                 fill="var(--label)"
               >
-                {formatValue((activeTrend ?? active).raw.y)}
+                {activeText}
               </text>
             </>
           )}
         </svg>
       )}
     </div>
+  )
+}
+
+/**
+ * The goal's number, parked on its line. When the goal is off the scale the line
+ * is drawn on the edge of the plot and the label carries an arrow for the
+ * direction the real value lies in; the arrow is a path so its geometry is the
+ * one we reserved room for, whatever font the text falls back to.
+ */
+function GoalLabel({
+  text, arrow, right, lineY,
+}: {
+  text: string
+  arrow: 'above' | 'below' | null
+  right: number
+  lineY: number
+}) {
+  // Off-scale lines sit on the frame, so the label hangs into the plot — which
+  // MIN_DATA_SHARE keeps clear of data for exactly this. An in-scale line has
+  // data on both sides, so the label rides above it and flips below only when
+  // the line is high enough to push it into the scrub readout's band.
+  const y =
+    arrow === 'above' ? lineY + 15
+    : arrow === 'below' ? lineY - 7
+    : lineY - 6 < PAD_T + 9 ? lineY + 15
+    : lineY - 6
+  // Middle of a 10px cap height, so the arrow reads as part of the word.
+  const mid = y - 3.5
+  const top = mid - ARROW_H / 2
+  const base = mid + ARROW_H / 2
+  return (
+    <>
+      <text
+        x={right - (arrow ? ARROW_W + 4 : 0)}
+        y={y}
+        textAnchor="end" fontSize="10" fontWeight="600"
+        fill="var(--label-2)"
+      >
+        {text}
+      </text>
+      {arrow && (
+        <path
+          d={
+            arrow === 'above'
+              ? `M${right - ARROW_W / 2},${top}L${right},${base}L${right - ARROW_W},${base}Z`
+              : `M${right - ARROW_W / 2},${base}L${right},${top}L${right - ARROW_W},${top}Z`
+          }
+          fill="var(--label-2)"
+        />
+      )}
+    </>
   )
 }
 

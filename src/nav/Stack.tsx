@@ -3,7 +3,6 @@ import type { ComponentType } from 'react'
 import { AnimatePresence, animate, motion, useMotionValue, useTransform } from 'framer-motion'
 import { useNav } from './nav'
 import type { Route, TabKey } from './nav'
-import { haptic } from '../lib/haptics'
 
 /** UIKit's push: 0.35s on the navigation controller's own curve. */
 const IOS_EASE = [0.32, 0.72, 0, 1] as const
@@ -99,7 +98,8 @@ export function Stack({
       const done = v > FLICK || (v > -FLICK && dx / width > SWIPE_COMPLETE)
 
       if (done) {
-        haptic('light')
+        // No haptic: iOS gives none for a swipe back, and one here fires on a
+        // gesture the client makes dozens of times a session.
         // Hand the screen straight to the exit animation. Carrying it the rest
         // of the way on dragX first reads better, but the element has to be
         // unbound from dragX for AnimatePresence to remove it, and unbinding

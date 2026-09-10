@@ -9,7 +9,6 @@ import { useCoach } from '../../store/coach'
 import { byTime, unreadFrom } from '../../domain/coach'
 import { useProgram, currentWeekIndex } from '../../store/selectors'
 import { formatMediumDate, todayISO } from '../../lib/date'
-import { haptic } from '../../lib/haptics'
 import { useNav } from '../../nav/nav'
 
 export function Coach() {
@@ -119,7 +118,7 @@ export function Coach() {
           trailing={
             <Switch
               checked={viewAs === 'coach'}
-              onChange={(on) => { haptic('light'); setViewAs(on ? 'coach' : 'client') }}
+              onChange={(on) => setViewAs(on ? 'coach' : 'client')}
               label={`Reply as ${COACH.name}`}
             />
           }

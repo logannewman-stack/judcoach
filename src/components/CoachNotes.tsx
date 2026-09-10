@@ -6,7 +6,6 @@ import { useStore } from '../store/useStore'
 import type { NoteAnchor } from '../domain/coach'
 import { COACH } from '../data/seed'
 import { formatMediumDate } from '../lib/date'
-import { haptic } from '../lib/haptics'
 import { toast } from './ios/Toast'
 import { useNav } from '../nav/nav'
 import { Composer } from '../screens/coach/Composer'
@@ -119,7 +118,6 @@ export function CoachNotes({
           onSend={(body) => {
             send(anchor, body)
             setReplying(false)
-            haptic('light')
             toast('Sent', { icon: 'check.circle.fill', tone: 'good' })
           }}
         />

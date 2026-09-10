@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Icon } from '../Icon'
-import { haptic } from '../../lib/haptics'
 
 /**
  * iOS search bar: a Cancel button slides in while the field is focused, and
@@ -76,7 +75,6 @@ export function SearchField({
             transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => {
-              haptic('light')
               onChange('')
               inputRef.current?.blur()
               setFocused(false)

@@ -10,6 +10,7 @@ import { toast } from '../../components/ios/Toast'
 import { useStore } from '../../store/useStore'
 import type { MeasurementEntry, Units } from '../../domain/types'
 import { formatLength, lengthUnit, tapeSteps } from '../../domain/units'
+import { rollingSeries } from '../../domain/weight'
 import { formatMediumDate, formatShortDate, relativeDay, todayISO } from '../../lib/date'
 import { num, signed } from '../../lib/format'
 import { useNav } from '../../nav/nav'
@@ -28,6 +29,7 @@ const SITES: { key: SiteKey; label: string; hint: string }[] = [
 export function Measurements() {
   const pop = useNav((s) => s.pop)
   const measurements = useStore((s) => s.measurements)
+  const weighIns = useStore((s) => s.weighIns)
   const saveMeasurement = useStore((s) => s.saveMeasurement)
   // The tape follows the weight unit, so the numbers and the label can never
   // disagree about which one they are in.
@@ -46,6 +48,18 @@ export function Measurements() {
   const latest = series[series.length - 1]
   const first = series[0]
   const meta = SITES.find((s) => s.key === site)!
+
+  // What the scale was doing over the same stretch. A waist holding while
+  // bodyweight climbs is the whole point of taking the tape out, and neither
+  // number says that on its own.
+  const weightSpan = useMemo(() => {
+    if (!first || !latest || first === latest) return null
+    const avg = rollingSeries(weighIns, 7)
+    const at = (date: string) => [...avg].reverse().find((p) => p.date <= date)
+    const from = at(first.x)
+    const to = at(latest.x)
+    return from && to && from !== to ? to.avg - from.avg : null
+  }, [weighIns, first, latest])
 
   return (
     <Screen
@@ -94,16 +108,17 @@ export function Measurements() {
                 {first && latest && first !== latest && (
                   <div style={{ textAlign: 'right' }}>
                     <div className="t-footnote dim">Since {formatShortDate(first.x)}</div>
-                    <div
-                      className="t-title3 mono-nums"
-                      style={{ color: latest.y >= first.y ? 'var(--green)' : 'var(--orange)' }}
-                    >
+                    {/* Left uncoloured on purpose. A bigger arm and a bigger
+                        waist are the same arithmetic and opposite news, and the
+                        app cannot tell which one this client wanted — a green
+                        number here would be a verdict it has not earned. */}
+                    <div className="t-title3 mono-nums">
                       {signed(latest.y - first.y, 1)}{units === 'kg' ? ' cm' : '″'}
                     </div>
                   </div>
                 )}
               </div>
-              {series.length > 0 ? (
+              {series.length > 1 ? (
                 <div style={{ marginTop: 10 }}>
                   <LineChart
                     data={series}
@@ -117,28 +132,44 @@ export function Measurements() {
               ) : (
                 // An empty chart says nothing; say what's missing instead.
                 <div className="t-subhead dim" style={{ marginTop: 8 }}>
-                  Nothing recorded here yet — add it next time you take the tape out.
+                  {series.length === 0
+                    ? 'Nothing recorded here yet — add it next time you take the tape out.'
+                    : 'One reading so far. The line appears the second time you take it.'}
+                </div>
+              )}
+              {weightSpan != null && (
+                <div className="t-footnote dim" style={{ marginTop: 8 }}>
+                  Bodyweight over the same stretch:{' '}
+                  <span className="mono-nums">{signed(weightSpan, 1)} {units}</span>
                 </div>
               )}
               <div className="t-caption1 dim" style={{ marginTop: 8 }}>{meta.hint}</div>
             </Card>
 
             <ListSection header="History" style={{ marginBottom: 0 }}>
-              {[...measurements].reverse().map((entry) => (
-                <Row
-                  key={entry.date}
-                  title={relativeDay(entry.date)}
-                  subtitle={formatMediumDate(entry.date)}
-                  value={
-                    <span className="mono-nums">
-                      {SITES.filter((s) => entry[s.key] != null)
-                        .slice(0, 3)
-                        .map((s) => `${s.label[0]} ${num(entry[s.key] as number, 1)}`)
-                        .join(' · ')}
-                    </span>
-                  }
-                />
-              ))}
+              {[...measurements].reverse().map((entry) => {
+                const title = relativeDay(entry.date)
+                return (
+                  <Row
+                    key={entry.date}
+                    title={title}
+                    // Older rows already read as a date — don't print it twice.
+                    subtitle={
+                      formatMediumDate(entry.date).endsWith(title)
+                        ? undefined
+                        : formatMediumDate(entry.date)
+                    }
+                    value={
+                      <span className="mono-nums">
+                        {SITES.filter((s) => entry[s.key] != null)
+                          .slice(0, 3)
+                          .map((s) => `${s.label[0]} ${num(entry[s.key] as number, 1)}`)
+                          .join(' · ')}
+                      </span>
+                    }
+                  />
+                )
+              })}
             </ListSection>
           </>
         )}
