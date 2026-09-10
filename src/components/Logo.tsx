@@ -117,13 +117,3 @@ export function Wordmark({
     </div>
   )
 }
-
-/** Mark + wordmark lock-up, used on the launch screen and in Settings. */
-export function LogoLockup({ size = 30, tagline = true }: { size?: number; tagline?: boolean }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: size * 0.42 }}>
-      <GritTile size={size * 1.6} />
-      <Wordmark size={size} tagline={tagline} />
-    </div>
-  )
-}

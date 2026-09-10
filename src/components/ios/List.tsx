@@ -89,28 +89,3 @@ export function Row({
     </Tag>
   )
 }
-
-/** A row whose whole body is custom content but keeps list separators. */
-export function CustomRow({
-  children,
-  onPress,
-  style,
-  inset,
-}: {
-  children: ReactNode
-  onPress?: () => void
-  style?: CSSProperties
-  inset?: boolean
-}) {
-  const Tag = onPress ? 'button' : 'div'
-  return (
-    <Tag
-      className="row"
-      onClick={onPress}
-      type={onPress ? 'button' : undefined}
-      style={{ ...(inset ? { ['--row-sep-inset' as string]: '57px' } : null), ...style }}
-    >
-      {children}
-    </Tag>
-  )
-}

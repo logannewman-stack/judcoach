@@ -28,9 +28,8 @@ export const RPE_STEPS = [6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10] as const
 export const MIN_RPE = 6
 export const MAX_RPE = 10
 
-/** RIR and RPE are two views of the same number. */
+/** RIR is the same information as RPE, said backwards. */
 export const rpeToRir = (rpe: number): number => clamp(10 - rpe, 0, 10)
-export const rirToRpe = (rir: number): number => clamp(10 - rir, MIN_RPE, MAX_RPE)
 
 export function formatRir(rir: number): string {
   if (rir <= 0) return '0 RIR'
@@ -82,19 +81,6 @@ export function e1RM(weight: number, reps: number, rpe?: number): number {
 /** Load that should produce `reps` at `rpe`, given a max. */
 export function loadFor(max: number, reps: number, rpe: number): number {
   return (max * percentOf1RM(reps, rpe)) / 100
-}
-
-/**
- * Reps you should be able to hit at a given load and RPE — used to sanity-check
- * a prescription against the client's current training max.
- */
-export function repsAt(max: number, weight: number, rpe: number): number {
-  if (max <= 0) return 0
-  const target = (weight / max) * 100
-  for (let reps = 1; reps <= 12; reps++) {
-    if (percentOf1RM(reps, rpe) <= target) return reps
-  }
-  return 12
 }
 
 /* ------------------------------- rounding ------------------------------- */

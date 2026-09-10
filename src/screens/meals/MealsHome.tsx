@@ -4,7 +4,7 @@ import { Screen } from '../../components/ios/Screen'
 import { ListSection, Row } from '../../components/ios/List'
 import { Card, SectionHeader } from '../../components/Bits'
 import { Icon } from '../../components/Icon'
-import { Pill, Segmented } from '../../components/ios/Controls'
+import { Pill, Segmented, Stepper } from '../../components/ios/Controls'
 import { Sheet } from '../../components/ios/Sheet'
 import { SwipeRow, useSwipeGroup } from '../../components/ios/SwipeRow'
 import { RingStack, MACRO_COLORS } from '../../components/Rings'
@@ -147,18 +147,13 @@ export function MealsHome() {
                   />
                 </div>
               </div>
-              <button
-                type="button"
-                aria-label="Add 16 ounces"
-                onClick={() => {
-                  haptic('light')
-                  setWater(date, day.waterOz + 16)
-                }}
-                className="btn btn-tinted btn-sm"
-                style={{ flex: 'none' }}
-              >
-                +16 oz
-              </button>
+              <Stepper
+                value={day.waterOz}
+                onChange={(oz) => setWater(date, oz)}
+                step={8}
+                min={0}
+                max={400}
+              />
             </div>
           </Card>
         </div>

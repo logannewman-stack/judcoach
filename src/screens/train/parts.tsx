@@ -1,10 +1,8 @@
 import type { ReactNode } from 'react'
 import { Icon } from '../../components/Icon'
 import { Pill } from '../../components/ios/Controls'
-import type { LoggedSet, Profile, SetPrescription } from '../../domain/types'
-import {
-  describeReps, formatRpe, groupPlates, rpeToRir, solvePlates,
-} from '../../domain/strength'
+import type { LoggedSet, SetPrescription } from '../../domain/types'
+import { describeReps, formatRir, formatRpe, rpeToRir } from '../../domain/strength'
 import type { ResolvedSet } from '../../domain/strength'
 import { num } from '../../lib/format'
 import { relativeDay } from '../../lib/date'
@@ -49,65 +47,11 @@ export function TargetSummary({
       {rpe != null && (
         <Pill tone={rpe >= 9 ? 'warn' : 'default'}>
           {formatRpe(rpe)}
-          {showRir && ` · ${num(rpeToRir(rpe), 1)} RIR`}
+          {showRir && ` · ${formatRir(rpeToRir(rpe))}`}
         </Pill>
       )}
       {prescription.amrap && <Pill tone="warn" icon="flame.fill">AMRAP</Pill>}
       {prescription.tempo && <Pill>Tempo {prescription.tempo}</Pill>}
-    </div>
-  )
-}
-
-/* ------------------------------ plate maths ----------------------------- */
-
-const PLATE_COLORS: Record<number, string> = {
-  45: 'var(--blue)', 35: 'var(--yellow)', 25: 'var(--green)',
-  20: 'var(--blue)', 15: 'var(--yellow)', 10: 'var(--label-2)',
-  5: 'var(--label-2)', 2.5: 'var(--label-3)', 1.25: 'var(--label-3)',
-}
-
-export function PlateRow({
-  target,
-  profile,
-}: {
-  target: number
-  profile: Pick<Profile, 'barWeight' | 'availablePlates' | 'units'>
-}) {
-  const stack = solvePlates(target, profile.barWeight, profile.availablePlates)
-  const groups = groupPlates(stack.perSide)
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-      <span className="t-caption1 dim semibold">Per side</span>
-      {stack.barOnly ? (
-        <span className="t-caption1 dim">Bar only ({num(profile.barWeight, 1)} {profile.units})</span>
-      ) : (
-        groups.map((g, i) => (
-          <span
-            key={i}
-            className="mono-nums"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 3,
-              padding: '3px 8px',
-              borderRadius: 7,
-              fontSize: 12,
-              fontWeight: 700,
-              color: '#fff',
-              background: PLATE_COLORS[g.plate] ?? 'var(--label-2)',
-            }}
-          >
-            {g.count}<span style={{ opacity: 0.7 }}>×</span>{num(g.plate, 2)}
-          </span>
-        ))
-      )}
-      {Math.abs(stack.remainder) > 0.01 && (
-        <span className="t-caption1" style={{ color: 'var(--orange)' }}>
-          {stack.remainder > 0 ? `${num(stack.remainder, 2)} short` : `${num(-stack.remainder, 2)} over`}
-          {' · '}load {num(stack.achievable, 1)}
-        </span>
-      )}
     </div>
   )
 }

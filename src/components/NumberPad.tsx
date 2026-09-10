@@ -3,6 +3,7 @@ import { Sheet } from './ios/Sheet'
 import { Icon } from './Icon'
 import { haptic } from '../lib/haptics'
 import { num } from '../lib/format'
+import { RPE_STEPS, formatRir } from '../domain/strength'
 
 /* ============================================================================
    Numeric entry.
@@ -186,8 +187,6 @@ export function NumberPad({
 
 /* ------------------------------- RPE picker ----------------------------- */
 
-const RPE_VALUES = [6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10]
-
 export const RPE_DESCRIPTIONS: Record<string, string> = {
   '10': 'Nothing left — could not add weight or reps',
   '9.5': 'Could add a little weight, not another rep',
@@ -216,7 +215,7 @@ export function RpePicker({
       <div
         style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' }}
       >
-        {RPE_VALUES.map((v) => {
+        {RPE_STEPS.map((v) => {
           const selected = value === v
           const isTarget = target === v
           return (
@@ -246,7 +245,7 @@ export function RpePicker({
                   className="mono-nums"
                   style={{ fontSize: 10, lineHeight: '13px', opacity: selected ? 0.75 : 0.5 }}
                 >
-                  {num(10 - v, 1)} RIR
+                  {formatRir(10 - v)}
                 </div>
               )}
             </button>

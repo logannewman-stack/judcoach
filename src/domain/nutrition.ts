@@ -29,8 +29,6 @@ export function foodTotals(items: FoodItem[]): MacroTotals {
   )
 }
 
-export const mealTotals = (meal: Meal): MacroTotals => foodTotals(meal.items)
-
 /** The multiplier applied to a planned food today; 1 unless it was adjusted. */
 export function portionOf(day: DayNutrition, foodId: string): number {
   return day.portions?.[foodId] ?? 1

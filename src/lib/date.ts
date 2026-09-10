@@ -41,10 +41,8 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 export const weekdayName = (iso: string) => WEEKDAYS[fromISODate(iso).getDay()]!
-export const weekdayShort = (iso: string) => WEEKDAYS_SHORT[fromISODate(iso).getDay()]!
 export const weekdayMin = (dow: number) => WEEKDAYS_MIN[dow]!
 export const weekdayShortFromDow = (dow: number) => WEEKDAYS_SHORT[dow]!
-export const monthName = (iso: string) => MONTHS[fromISODate(iso).getMonth()]!
 
 /** "Mar 14" */
 export function formatShortDate(iso: string): string {

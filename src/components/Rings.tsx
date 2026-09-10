@@ -113,48 +113,6 @@ export function RingStack({
   )
 }
 
-/** Horizontal macro bar with a target marker — used in the per-meal rows. */
-export function MacroBar({
-  value,
-  target,
-  color,
-  label,
-  unit = 'g',
-  compact,
-}: {
-  value: number
-  target: number
-  color: string
-  label: string
-  unit?: string
-  compact?: boolean
-}) {
-  const pct = target > 0 ? Math.min((value / target) * 100, 100) : 0
-  const over = target > 0 && value > target * 1.02
-  return (
-    <div style={{ flex: 1, minWidth: 0 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 6 }}>
-        <span className="t-caption1 dim" style={{ fontWeight: 600 }}>{label}</span>
-        <span className="t-caption1 mono-nums" style={{ fontWeight: 600, color: over ? 'var(--orange)' : 'var(--label)' }}>
-          {Math.round(value)}
-          <span className="dim" style={{ fontWeight: 400 }}>
-            /{Math.round(target)}{unit}
-          </span>
-        </span>
-      </div>
-      <div className="track" style={{ marginTop: 4, height: compact ? 5 : 6 }}>
-        <motion.div
-          className="track-fill"
-          style={{ background: over ? 'var(--orange)' : color }}
-          initial={{ width: 0 }}
-          animate={{ width: `${pct}%` }}
-          transition={{ type: 'spring', stiffness: 120, damping: 20 }}
-        />
-      </div>
-    </div>
-  )
-}
-
 export const MACRO_COLORS = {
   kcal: 'var(--accent)',
   protein: 'var(--red)',

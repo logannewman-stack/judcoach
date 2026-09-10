@@ -182,16 +182,3 @@ export function CoachNote({ children, name = 'Jud' }: { children: ReactNode; nam
     </div>
   )
 }
-
-export function Divider({ inset = 0 }: { inset?: number }) {
-  return (
-    <div
-      style={{
-        height: 'var(--hairline)',
-        background: 'var(--sep)',
-        marginLeft: inset,
-        transform: 'scaleY(0.6)',
-      }}
-    />
-  )
-}

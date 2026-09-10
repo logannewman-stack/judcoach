@@ -15,7 +15,7 @@ import { bestHistoricalE1RM, findSession, lastPerformance, useProgram } from '..
 import { EXERCISES, getExercise } from '../../data/exercises'
 import type { LoggedSet, SetPrescription } from '../../domain/types'
 import {
-  buildWarmup, describeReps, e1RM, formatRpe, resolveSet, rpeToRir,
+  buildWarmup, describeReps, e1RM, formatRir, formatRpe, resolveSet, rpeToRir,
   sessionTonnage, suggestNextLoad, topSet,
 } from '../../domain/strength'
 import { formatDuration } from '../../lib/date'
@@ -353,7 +353,7 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
                   {prescription.rpe != null && (
                     <Pill tone={prescription.rpe >= 9 ? 'warn' : 'default'}>
                       {formatRpe(prescription.rpe)}
-                      {settings.showRir && ` · ${num(rpeToRir(prescription.rpe), 1)} RIR`}
+                      {settings.showRir && ` · ${formatRir(rpeToRir(prescription.rpe))}`}
                     </Pill>
                   )}
                   {prescription.amrap && <Pill tone="warn" icon="flame.fill">AMRAP</Pill>}
@@ -787,7 +787,7 @@ function SetLogger({
           {prescription.rpe != null && (
             <div className="t-footnote dim" style={{ marginTop: 14 }}>
               Jud asked for {formatRpe(prescription.rpe)}
-              {showRir && ` (${num(rpeToRir(prescription.rpe), 1)} reps in reserve)`}.
+              {showRir && ` — ${formatRir(rpeToRir(prescription.rpe))} in reserve`}.
             </div>
           )}
         </div>

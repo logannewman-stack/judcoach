@@ -5,7 +5,7 @@ import { Segmented } from '../../components/ios/Controls'
 import { RPE_DESCRIPTIONS } from '../../components/NumberPad'
 import { useStore } from '../../store/useStore'
 import { MAIN_LIFTS } from '../../data/exercises'
-import { RPE_CHART, loadFor, roundToIncrement, rpeToRir } from '../../domain/strength'
+import { RPE_CHART, formatRir, loadFor, roundToIncrement, rpeToRir } from '../../domain/strength'
 import { num } from '../../lib/format'
 import { useNav } from '../../nav/nav'
 
@@ -67,7 +67,7 @@ export function RpeGuide() {
                   {rpe}
                 </span>
                 <span className="mono-nums t-footnote dim" style={{ width: 48, flex: 'none' }}>
-                  {num(rpeToRir(Number(rpe)), 1)} RIR
+                  {formatRir(rpeToRir(Number(rpe)))}
                 </span>
                 <span className="t-subhead" style={{ minWidth: 0, color: 'var(--label-2)' }}>
                   {RPE_DESCRIPTIONS[rpe]}

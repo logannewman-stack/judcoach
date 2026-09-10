@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import type { CSSProperties, ReactNode } from 'react'
+import type { CSSProperties } from 'react'
 import { useSize } from '../lib/useSize'
 
 /* ============================================================================
@@ -356,39 +356,5 @@ export function Sparkline({
     <svg width={width} height={height} style={{ display: 'block', flex: 'none' }} aria-hidden="true">
       <path d={smoothPath(pts)} fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
     </svg>
-  )
-}
-
-/* ----------------------------- chart framing ---------------------------- */
-
-export function ChartCard({
-  title,
-  value,
-  caption,
-  accessory,
-  children,
-}: {
-  title: ReactNode
-  value?: ReactNode
-  caption?: ReactNode
-  accessory?: ReactNode
-  children: ReactNode
-}) {
-  return (
-    <div className="card card-pad">
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-        <div style={{ minWidth: 0 }}>
-          <div className="t-footnote dim">{title}</div>
-          {value != null && (
-            <div className="t-title2 mono-nums" style={{ marginTop: 1 }}>
-              {value}
-            </div>
-          )}
-          {caption && <div className="t-footnote dim" style={{ marginTop: 2 }}>{caption}</div>}
-        </div>
-        {accessory}
-      </div>
-      <div style={{ marginTop: 10 }}>{children}</div>
-    </div>
   )
 }
