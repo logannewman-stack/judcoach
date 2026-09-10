@@ -15,6 +15,8 @@ import { bestE1RM, formatRpe } from '../../domain/strength'
 import { addDays, formatMediumDate, formatMinutes, relativeDay, startOfWeek, todayISO } from '../../lib/date'
 import { compact, estimate, num } from '../../lib/format'
 import { useNav } from '../../nav/nav'
+import { CoachNotes } from '../../components/CoachNotes'
+import { COACH } from '../../data/seed'
 
 /* -------------------------------- history -------------------------------- */
 
@@ -68,7 +70,7 @@ export function History() {
             style={{ marginTop: -2, marginBottom: 16, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}
           >
             <StatTile label="Sessions" value={totals.sessions} icon="dumbbell" />
-            <StatTile label="Hard sets" value={totals.sets} icon="list" />
+            <StatTile label="Working sets" value={totals.sets} icon="list" />
             <StatTile label={`Volume (${profile.units})`} value={compact(totals.tonnage)} icon="chart.bar" />
           </div>
           {/* The filter belongs to what's below it, so it sits closer to the
@@ -245,6 +247,17 @@ export function LogDetail({ logId }: { logId: string }) {
                 </button>
               )
             })}
+          </div>
+        </div>
+
+        {/* Jud's read of this session, next to the sets it is about. */}
+        <div>
+          <SectionHeader title={`From ${COACH.name}`} />
+          <div className="gutter">
+            <CoachNotes
+              anchor={{ kind: 'workout', id: log.id }}
+              empty={`${COACH.name} hasn't looked at this one yet.`}
+            />
           </div>
         </div>
       </div>

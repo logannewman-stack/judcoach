@@ -20,7 +20,8 @@ const ROUTES = [
   ['settings', 'profileSettings'], ['settings', 'trainingMaxes'],
   ['settings', 'equipment'], ['settings', 'appearance'],
   ['settings', 'workoutSettings'], ['settings', 'notifications'],
-  ['settings', 'dataSettings'], ['settings', 'coach'], ['settings', 'programSettings'],
+  ['settings', 'dataSettings'], ['settings', 'coach'], ['settings', 'messages'],
+  ['settings', 'programSettings'],
 ]
 
 const PARAMS = {

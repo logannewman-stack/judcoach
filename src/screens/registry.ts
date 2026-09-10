@@ -14,6 +14,8 @@ import { MealDetail } from './meals/MealDetail'
 import { Grocery } from './meals/Grocery'
 import { Guidelines } from './meals/Guidelines'
 
+import { Messages } from './coach/Messages'
+
 import { WeighInHome } from './weigh/WeighInHome'
 import { Measurements } from './weigh/Measurements'
 import { Photos } from './weigh/Photos'
@@ -66,6 +68,7 @@ export const SCREENS: ScreenRegistry = {
   notifications: Notifications,
   dataSettings: DataSettings,
   coach: Coach,
+  messages: Messages,
   programSettings: ProgramSettings,
   install: Install,
 }
@@ -103,6 +106,7 @@ export const ROUTE_TITLES: Record<string, string> = {
   notifications: 'Alerts',
   dataSettings: 'Data',
   coach: 'Coach',
+  messages: 'Jud',
   programSettings: 'Programme',
   install: 'Home Screen',
 }

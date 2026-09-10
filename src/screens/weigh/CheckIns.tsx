@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Screen } from '../../components/ios/Screen'
-import { CoachAvatar, EmptyState, SectionHeader } from '../../components/Bits'
+import { EmptyState, SectionHeader } from '../../components/Bits'
 import { Icon } from '../../components/Icon'
 import { Button, Pill } from '../../components/ios/Controls'
 import { Sheet } from '../../components/ios/Sheet'
@@ -11,6 +11,8 @@ import { formatMediumDate, relativeDay, todayISO } from '../../lib/date'
 import { num } from '../../lib/format'
 import { haptic } from '../../lib/haptics'
 import { useNav } from '../../nav/nav'
+import { CoachNotes } from '../../components/CoachNotes'
+import { COACH } from '../../data/seed'
 
 const SCALES = [
   { key: 'sleepQuality' as const, label: 'Sleep', low: 'Wrecked', high: 'Excellent' },
@@ -95,22 +97,13 @@ export function CheckIns() {
                       </div>
                     )}
 
-                    {entry.coachReply && (
-                      <div
-                        style={{
-                          display: 'flex', gap: 10, marginTop: 12, padding: 12,
-                          borderRadius: 12, background: 'var(--accent-soft)',
-                        }}
-                      >
-                        <CoachAvatar size={26} />
-                        <div style={{ minWidth: 0 }}>
-                          <div className="t-caption1 semibold" style={{ color: 'var(--accent)' }}>Jud replied</div>
-                          <div className="t-subhead" style={{ lineHeight: '20px', marginTop: 1 }}>
-                            {entry.coachReply}
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                    {/* Jud's reply is a real message, so the client can answer it. */}
+                    <div style={{ marginTop: 12 }}>
+                      <CoachNotes
+                        anchor={{ kind: 'checkIn', id: entry.id }}
+                        empty={`Waiting on ${COACH.name}.`}
+                      />
+                    </div>
                   </div>
                 ))}
               </div>

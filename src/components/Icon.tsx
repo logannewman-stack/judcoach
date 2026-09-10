@@ -16,6 +16,7 @@ export type IconName =
   | 'chart.line' | 'lock' | 'pencil' | 'search' | 'star.fill' | 'seal.fill'
   | 'note' | 'photo' | 'reset' | 'question' | 'heart.fill' | 'list'
   | 'paintbrush' | 'hand.raised' | 'sparkle' | 'arrow.right' | 'video'
+  | 'message' | 'message.fill' | 'send.fill'
 
 interface Part {
   d: string
@@ -125,6 +126,11 @@ const ICONS: Record<IconName, Part[]> = {
   lock: [{ d: 'M6.6 10.4h10.8a1.6 1.6 0 0 1 1.6 1.6v7a1.6 1.6 0 0 1-1.6 1.6H6.6A1.6 1.6 0 0 1 5 19v-7a1.6 1.6 0 0 1 1.6-1.6Z' }, { d: 'M8.4 10.4V7.8a3.6 3.6 0 1 1 7.2 0v2.6' }],
   book: [{ d: 'M4.2 5.6A2.6 2.6 0 0 1 6.8 3h12.4v14.6H6.8a2.6 2.6 0 0 0-2.6 2.6Z' }, { d: 'M4.2 5.6v14.6M19.2 17.6V21H6.8' }],
   note: [{ d: 'M5.4 3.6h13.2a1.8 1.8 0 0 1 1.8 1.8v13.2a1.8 1.8 0 0 1-1.8 1.8H5.4a1.8 1.8 0 0 1-1.8-1.8V5.4a1.8 1.8 0 0 1 1.8-1.8Z' }, { d: 'M7.4 8.2h9.2M7.4 12h9.2M7.4 15.8h5.6' }],
+  // A rounded speech bubble with a tail at the lower left, so it reads the same
+  // way round as the coach's own messages in the thread.
+  message: [{ d: 'M12 3.6c-4.9 0-8.8 3.2-8.8 7.2 0 2.3 1.3 4.4 3.4 5.7-.2 1.2-.8 2.4-1.7 3.4 1.7-.2 3.3-.9 4.6-1.9 .8.2 1.7.3 2.5.3 4.9 0 8.8-3.2 8.8-7.5S16.9 3.6 12 3.6Z' }],
+  'message.fill': [{ d: 'M12 3.6c-4.9 0-8.8 3.2-8.8 7.2 0 2.3 1.3 4.4 3.4 5.7-.2 1.2-.8 2.4-1.7 3.4 1.7-.2 3.3-.9 4.6-1.9 .8.2 1.7.3 2.5.3 4.9 0 8.8-3.2 8.8-7.5S16.9 3.6 12 3.6Z', fill: true }],
+  'send.fill': [{ d: 'M12 4.4 6.1 10.3M12 4.4l5.9 5.9M12 4.4v15.2' }],
   list: [{ d: 'M9 6.4h11.4M9 12h11.4M9 17.6h11.4' }, { d: 'M4.6 7.5a1.1 1.1 0 1 0 0-2.2 1.1 1.1 0 0 0 0 2.2ZM4.6 13.1a1.1 1.1 0 1 0 0-2.2 1.1 1.1 0 0 0 0 2.2ZM4.6 18.7a1.1 1.1 0 1 0 0-2.2 1.1 1.1 0 0 0 0 2.2Z', fill: true }],
   ruler: [{ d: 'M3.4 8.6h17.2a1.4 1.4 0 0 1 1.4 1.4v4a1.4 1.4 0 0 1-1.4 1.4H3.4A1.4 1.4 0 0 1 2 14v-4a1.4 1.4 0 0 1 1.4-1.4Z' }, { d: 'M6.4 8.6v3M10 8.6v4.4M13.6 8.6v3M17.2 8.6v4.4' }],
   target: [{ d: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z' }, { d: 'M12 16.6a4.6 4.6 0 1 0 0-9.2 4.6 4.6 0 0 0 0 9.2Z' }, { d: 'M12 13.4a1.4 1.4 0 1 0 0-2.8 1.4 1.4 0 0 0 0 2.8Z', fill: true }],

@@ -34,6 +34,7 @@ const ROUTES = [
   ['settings', 'notifications', null],
   ['settings', 'dataSettings', null],
   ['settings', 'coach', null],
+  ['settings', 'messages', null],
   ['settings', 'programSettings', null],
   ['settings', 'install', null],
 ]

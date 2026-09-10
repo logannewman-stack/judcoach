@@ -13,6 +13,8 @@ import { FullScreenDragContext } from './nav/FullScreenDrag'
 import { Onboarding } from './screens/Onboarding'
 import { useTheme, useWakeLock } from './lib/useTheme'
 import { useStore } from './store/useStore'
+import { useCoach } from './store/coach'
+import { unreadFrom } from './domain/coach'
 import { onStorageProblem } from './store/persist'
 
 export function App() {
@@ -27,6 +29,8 @@ export function App() {
   const sheetLayer = useRef<HTMLDivElement>(null)
   const dragControls = useDragControls()
   const dismiss = useNav((s) => s.dismiss)
+  // Jud writing to a client is worth a badge; they should not have to go looking.
+  const unreadFromCoach = useCoach((s) => unreadFrom(s.notes).length)
   useWakeLock(keepAwake && !!active)
 
   /* A full disk used to throw out of the store and into whichever component
@@ -74,7 +78,7 @@ export function App() {
               ))}
             </div>
 
-            <TabBar />
+            <TabBar badges={{ settings: unreadFromCoach }} />
 
             <AnimatePresence>
               {fullScreen && FullScreenComponent && (

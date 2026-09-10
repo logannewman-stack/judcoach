@@ -4,6 +4,8 @@ import { CoachAvatar } from '../../components/Bits'
 import { Icon } from '../../components/Icon'
 import { GritTile, Wordmark } from '../../components/Logo'
 import { useStore } from '../../store/useStore'
+import { useCoach } from '../../store/coach'
+import { byTime, unreadFrom } from '../../domain/coach'
 import { COACH } from '../../data/seed'
 import { useProgram, currentWeekIndex } from '../../store/selectors'
 import { initials } from '../../lib/format'
@@ -17,6 +19,9 @@ export function SettingsHome() {
   const settings = useStore((s) => s.settings)
   const program = useProgram()
   const week = currentWeekIndex(program, todayISO())
+  const notes = useCoach((s) => s.notes)
+  const unread = unreadFrom(notes).length
+  const lastFromCoach = byTime(notes.filter((n) => n.author === 'coach')).at(-1)
 
   return (
     <Screen title="Settings">
@@ -52,6 +57,22 @@ export function SettingsHome() {
             leading={<CoachAvatar size={29} />}
             chevron
             onPress={() => push('coach')}
+            inset
+          />
+          <Row
+            title="Messages"
+            subtitle={
+              lastFromCoach ? `${COACH.name}: ${lastFromCoach.body}` : `Ask ${COACH.name} anything`
+            }
+            icon="message"
+            iconColor="var(--accent)"
+            trailing={
+              unread > 0
+                ? <span className="tab-badge" style={{ position: 'static' }}>{unread > 9 ? '9+' : unread}</span>
+                : undefined
+            }
+            chevron
+            onPress={() => push('messages')}
             inset
           />
           <Row
@@ -155,7 +176,7 @@ export function SettingsHome() {
         >
           <GritTile size={54} />
           <Wordmark size={22} align="center" />
-          <div className="t-caption1 dim3" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <div className="t-caption1 dim" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <Icon name="lock" size={11} weight={2.2} color="var(--label-3)" />
             Version {APP_VERSION} · everything stored on this device
           </div>

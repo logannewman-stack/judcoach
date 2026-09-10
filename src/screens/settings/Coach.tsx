@@ -5,6 +5,8 @@ import { Icon } from '../../components/Icon'
 import { Pill } from '../../components/ios/Controls'
 import { COACH } from '../../data/seed'
 import { useStore } from '../../store/useStore'
+import { useCoach } from '../../store/coach'
+import { byTime, unreadFrom } from '../../domain/coach'
 import { useProgram, currentWeekIndex } from '../../store/selectors'
 import { formatMediumDate, todayISO } from '../../lib/date'
 import { useNav } from '../../nav/nav'
@@ -16,6 +18,9 @@ export function Coach() {
   const checkIns = useStore((s) => s.checkIns)
   const week = currentWeekIndex(program, todayISO())
   const lastCheckIn = [...checkIns].sort((a, b) => b.date.localeCompare(a.date))[0]
+  const notes = useCoach((s) => s.notes)
+  const unread = unreadFrom(notes).length
+  const lastFromCoach = byTime(notes.filter((n) => n.author === 'coach')).at(-1)
 
   return (
     <Screen
@@ -59,6 +64,19 @@ export function Coach() {
       </ListSection>
 
       <ListSection header="Talk to Jud" footer={COACH.responseWindow}>
+        <Row
+          title="Messages"
+          subtitle={
+            lastFromCoach
+              ? `${COACH.name}: ${lastFromCoach.body}`
+              : `Anything you want to ask, any time`
+          }
+          icon="message"
+          iconColor="var(--accent)"
+          trailing={unread > 0 ? <span className="tab-badge" style={{ position: 'static' }}>{unread > 9 ? '9+' : unread}</span> : undefined}
+          chevron
+          onPress={() => push('messages')}
+        />
         <Row
           title="Weekly check-in"
           subtitle={
