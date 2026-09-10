@@ -1,0 +1,236 @@
+/* ============================================================================
+   GRIT — iOS design tokens
+   Colours mirror Apple's system palette (light + dark), so the app reads as
+   native on an iPhone home screen. Every colour is defined on bare :root first;
+   dark overrides only redefine values.
+   ========================================================================== */
+
+:root {
+  /* ---- accent (user-selectable in Settings; --accent is the live value) ---- */
+  --accent-blue: #007aff;
+  --accent-indigo: #5856d6;
+  --accent-green: #34c759;
+  --accent-orange: #ff9500;
+  --accent-pink: #ff2d55;
+  --accent-purple: #af52de;
+  --accent: var(--accent-blue);
+  --accent-soft: rgba(0, 122, 255, 0.12);
+
+  /* ---- system colours ---- */
+  --blue: #007aff;
+  --green: #34c759;
+  --indigo: #5856d6;
+  --orange: #ff9500;
+  --pink: #ff2d55;
+  --purple: #af52de;
+  --red: #ff3b30;
+  --teal: #30b0c7;
+  --yellow: #ffcc00;
+  --mint: #00c7be;
+  --cyan: #32ade6;
+
+  /* ---- greys ---- */
+  --gray: #8e8e93;
+  --gray2: #aeaeb2;
+  --gray3: #c7c7cc;
+  --gray4: #d1d1d6;
+  --gray5: #e5e5ea;
+  --gray6: #f2f2f7;
+
+  /* ---- labels ---- */
+  --label: #000000;
+  --label-2: rgba(60, 60, 67, 0.6);
+  --label-3: rgba(60, 60, 67, 0.3);
+  --label-4: rgba(60, 60, 67, 0.18);
+
+  /* ---- backgrounds ---- */
+  --bg: #ffffff;
+  --bg-2: #f2f2f7;
+  --bg-3: #ffffff;
+  --grouped: #f2f2f7;
+  --grouped-2: #ffffff;
+  --grouped-3: #f2f2f7;
+
+  /* ---- fills ---- */
+  --fill: rgba(120, 120, 128, 0.2);
+  --fill-2: rgba(120, 120, 128, 0.16);
+  --fill-3: rgba(118, 118, 128, 0.12);
+  --fill-4: rgba(116, 116, 128, 0.08);
+
+  /* ---- separators ---- */
+  --sep: rgba(60, 60, 67, 0.29);
+  --sep-opaque: #c6c6c8;
+
+  /* ---- chrome (translucent bars) ---- */
+  --chrome: rgba(249, 249, 249, 0.82);
+  --chrome-solid: #f9f9f9;
+  --sheet-scrim: rgba(0, 0, 0, 0.32);
+  --elevated: #ffffff;
+
+  /* ---- shadows ---- */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.09);
+  --shadow-lg: 0 12px 38px rgba(0, 0, 0, 0.16);
+  --shadow-float: 0 6px 22px rgba(0, 0, 0, 0.15);
+
+  /* ---- radii (iOS continuous-ish corners) ---- */
+  --r-inset: 10px;
+  --r-card: 14px;
+  --r-lg: 18px;
+  --r-sheet: 14px;
+  --r-btn: 12px;
+  --r-pill: 999px;
+
+  /* ---- metrics ---- */
+  --nav-h: 44px;
+  --tab-h: 49px;
+  --gutter: 16px;
+  --row-h: 44px;
+  --hairline: 0.5px;
+
+  /* ---- safe areas (fall back to 0 off-device) ---- */
+  --sa-top: env(safe-area-inset-top, 0px);
+  --sa-bottom: env(safe-area-inset-bottom, 0px);
+  --sa-left: env(safe-area-inset-left, 0px);
+  --sa-right: env(safe-area-inset-right, 0px);
+
+  /* ---- type ---- */
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display',
+    'Segoe UI', Roboto, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-rounded: ui-rounded, -apple-system, BlinkMacSystemFont, 'SF Pro Rounded',
+    'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --accent-blue: #0a84ff;
+    --accent-indigo: #5e5ce6;
+    --accent-green: #30d158;
+    --accent-orange: #ff9f0a;
+    --accent-pink: #ff375f;
+    --accent-purple: #bf5af2;
+    --accent-soft: rgba(10, 132, 255, 0.18);
+
+    --blue: #0a84ff;
+    --green: #30d158;
+    --indigo: #5e5ce6;
+    --orange: #ff9f0a;
+    --pink: #ff375f;
+    --purple: #bf5af2;
+    --red: #ff453a;
+    --teal: #40c8e0;
+    --yellow: #ffd60a;
+    --mint: #63e6e2;
+    --cyan: #64d2ff;
+
+    --gray: #8e8e93;
+    --gray2: #636366;
+    --gray3: #48484a;
+    --gray4: #3a3a3c;
+    --gray5: #2c2c2e;
+    --gray6: #1c1c1e;
+
+    --label: #ffffff;
+    --label-2: rgba(235, 235, 245, 0.6);
+    --label-3: rgba(235, 235, 245, 0.3);
+    --label-4: rgba(235, 235, 245, 0.16);
+
+    --bg: #000000;
+    --bg-2: #1c1c1e;
+    --bg-3: #2c2c2e;
+    --grouped: #000000;
+    --grouped-2: #1c1c1e;
+    --grouped-3: #2c2c2e;
+
+    --fill: rgba(120, 120, 128, 0.36);
+    --fill-2: rgba(120, 120, 128, 0.32);
+    --fill-3: rgba(118, 118, 128, 0.24);
+    --fill-4: rgba(118, 118, 128, 0.18);
+
+    --sep: rgba(84, 84, 88, 0.6);
+    --sep-opaque: #38383a;
+
+    --chrome: rgba(22, 22, 24, 0.8);
+    --chrome-solid: #161618;
+    --sheet-scrim: rgba(0, 0, 0, 0.5);
+    --elevated: #1c1c1e;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 12px 38px rgba(0, 0, 0, 0.62);
+    --shadow-float: 0 6px 22px rgba(0, 0, 0, 0.55);
+
+    color-scheme: dark;
+  }
+}
+
+/* Explicit dark choice wins in both directions. */
+:root[data-theme='dark'] {
+  --accent-blue: #0a84ff;
+  --accent-indigo: #5e5ce6;
+  --accent-green: #30d158;
+  --accent-orange: #ff9f0a;
+  --accent-pink: #ff375f;
+  --accent-purple: #bf5af2;
+  --accent-soft: rgba(10, 132, 255, 0.18);
+
+  --blue: #0a84ff;
+  --green: #30d158;
+  --indigo: #5e5ce6;
+  --orange: #ff9f0a;
+  --pink: #ff375f;
+  --purple: #bf5af2;
+  --red: #ff453a;
+  --teal: #40c8e0;
+  --yellow: #ffd60a;
+  --mint: #63e6e2;
+  --cyan: #64d2ff;
+
+  --gray: #8e8e93;
+  --gray2: #636366;
+  --gray3: #48484a;
+  --gray4: #3a3a3c;
+  --gray5: #2c2c2e;
+  --gray6: #1c1c1e;
+
+  --label: #ffffff;
+  --label-2: rgba(235, 235, 245, 0.6);
+  --label-3: rgba(235, 235, 245, 0.3);
+  --label-4: rgba(235, 235, 245, 0.16);
+
+  --bg: #000000;
+  --bg-2: #1c1c1e;
+  --bg-3: #2c2c2e;
+  --grouped: #000000;
+  --grouped-2: #1c1c1e;
+  --grouped-3: #2c2c2e;
+
+  --fill: rgba(120, 120, 128, 0.36);
+  --fill-2: rgba(120, 120, 128, 0.32);
+  --fill-3: rgba(118, 118, 128, 0.24);
+  --fill-4: rgba(118, 118, 128, 0.18);
+
+  --sep: rgba(84, 84, 88, 0.6);
+  --sep-opaque: #38383a;
+
+  --chrome: rgba(22, 22, 24, 0.8);
+  --chrome-solid: #161618;
+  --sheet-scrim: rgba(0, 0, 0, 0.5);
+  --elevated: #1c1c1e;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 12px 38px rgba(0, 0, 0, 0.62);
+  --shadow-float: 0 6px 22px rgba(0, 0, 0, 0.55);
+
+  color-scheme: dark;
+}
+
+/* Accent overrides written by Settings. */
+:root[data-accent='indigo'] { --accent: var(--accent-indigo); --accent-soft: rgba(88, 86, 214, 0.14); }
+:root[data-accent='green']  { --accent: var(--accent-green);  --accent-soft: rgba(52, 199, 89, 0.14); }
+:root[data-accent='orange'] { --accent: var(--accent-orange); --accent-soft: rgba(255, 149, 0, 0.14); }
+:root[data-accent='pink']   { --accent: var(--accent-pink);   --accent-soft: rgba(255, 45, 85, 0.14); }
+:root[data-accent='purple'] { --accent: var(--accent-purple); --accent-soft: rgba(175, 82, 222, 0.14); }

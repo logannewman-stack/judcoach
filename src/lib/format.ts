@@ -1,0 +1,51 @@
+import type { Units } from '../domain/types'
+
+/** Trim trailing zeros: 225.0 → "225", 182.5 → "182.5". */
+export function num(value: number, maxDecimals = 1): string {
+  if (!Number.isFinite(value)) return '—'
+  const rounded = Number(value.toFixed(maxDecimals))
+  return String(rounded)
+}
+
+export function signed(value: number, maxDecimals = 1): string {
+  const n = num(Math.abs(value), maxDecimals)
+  if (Math.abs(value) < Math.pow(10, -maxDecimals) / 2) return n
+  return `${value > 0 ? '+' : '−'}${n}`
+}
+
+export const weight = (value: number, units: Units, decimals = 1): string =>
+  `${num(value, decimals)} ${units}`
+
+export const kcal = (value: number): string => `${Math.round(value)}`
+
+export const grams = (value: number): string => `${Math.round(value)}g`
+
+export function percent(value: number, decimals = 0): string {
+  return `${num(value, decimals)}%`
+}
+
+/** 12500 → "12.5k" */
+export function compact(value: number): string {
+  if (Math.abs(value) >= 1_000_000) return `${num(value / 1_000_000, 1)}M`
+  if (Math.abs(value) >= 1000) return `${num(value / 1000, 1)}k`
+  return num(value, 0)
+}
+
+export function ordinal(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd']
+  const v = n % 100
+  return n + (s[(v - 20) % 10] || s[v] || s[0]!)
+}
+
+export function pluralize(n: number, one: string, many = `${one}s`): string {
+  return `${n} ${n === 1 ? one : many}`
+}
+
+export function initials(name: string): string {
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? '')
+    .join('')
+}
