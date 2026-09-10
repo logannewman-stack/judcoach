@@ -12,6 +12,7 @@ import { DeviceFrame } from './components/DeviceFrame'
 import { FullScreenDragContext } from './nav/FullScreenDrag'
 import { Onboarding } from './screens/Onboarding'
 import { useTheme, useWakeLock } from './lib/useTheme'
+import { useKeyboardInset } from './lib/useKeyboardInset'
 import { useStore } from './store/useStore'
 import { useCoach } from './store/coach'
 import { unreadFrom } from './domain/coach'
@@ -33,6 +34,7 @@ export function App() {
   // Jud writing to a client is worth a badge; they should not have to go looking.
   const unreadMessages = useCoach((s) => unreadFrom(s.notes, s.viewAs).length)
   const coachSeat = useCoach((s) => s.viewAs === 'coach')
+  const keyboard = useKeyboardInset()
   useWakeLock(keepAwake && !!active)
 
   /* A full disk used to throw out of the store and into whichever component
@@ -73,7 +75,13 @@ export function App() {
     <MotionConfig reducedMotion="user">
       <DeviceFrame>
         <div className="app">
-          <div className="app-content" data-receded={sheetDepth > 0}>
+          {/* Shrink rather than translate, so the scroll view keeps a real
+              bottom and anything pinned to it lands above the keyboard. */}
+          <div
+            className="app-content"
+            data-receded={sheetDepth > 0}
+            style={keyboard > 0 ? { bottom: keyboard } : undefined}
+          >
             <SeatBar />
             <div
               style={{
