@@ -3,11 +3,14 @@ import { createRoot } from 'react-dom/client'
 import './styles/base.css'
 import { App } from './App'
 import { useNav } from './nav/nav'
+import { useStore } from './store/useStore'
 
 // Dev-only handle so the screen walkthrough can drive navigation directly.
 // Stripped from production builds by the DEV guard.
 if (import.meta.env.DEV) {
-  ;(window as unknown as { __nav: typeof useNav }).__nav = useNav
+  const w = window as unknown as { __nav: typeof useNav; __store: typeof useStore }
+  w.__nav = useNav
+  w.__store = useStore
 }
 
 // Offline support for the real PWA build. The single-file preview ships as one

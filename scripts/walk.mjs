@@ -53,6 +53,13 @@ page.on('pageerror', (e) => problems.push(`[pageerror] ${String(e)}`))
 await page.goto(process.env.APP_URL ?? 'http://127.0.0.1:5177/', { waitUntil: 'networkidle' })
 await page.waitForTimeout(700)
 
+// WIPE=1 walks the app with every log, weigh-in and photo cleared, which is
+// where empty states and divide-by-zero maths tend to surface.
+if (process.env.WIPE === '1') {
+  await page.evaluate(() => window.__store.getState().clearAllData())
+  await page.waitForTimeout(500)
+}
+
 for (const [tab, key, rawParams] of ROUTES) {
   const before = problems.length
   await page.evaluate(({ tab, key, rawParams }) => {
