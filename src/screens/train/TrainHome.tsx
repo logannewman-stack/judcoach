@@ -1,14 +1,15 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { Screen } from '../../components/ios/Screen'
 import { ListSection, Row } from '../../components/ios/List'
-import { Card, CoachNote, SectionHeader } from '../../components/Bits'
+import { Card, CoachNote } from '../../components/Bits'
 import { Icon } from '../../components/Icon'
 import { Pill } from '../../components/ios/Controls'
+import { flushSection } from './parts'
 import { useStore } from '../../store/useStore'
 import {
   currentWeekIndex, getWeek, useProgram, weekSchedule, sessionsThisWeek,
 } from '../../store/selectors'
-import { getExercise } from '../../data/exercises'
+import { EXERCISES, getExercise } from '../../data/exercises'
 import { resolveSet } from '../../domain/strength'
 import { formatShortDate, relativeDay, todayISO, weekdayShortFromDow } from '../../lib/date'
 import { num, pluralize } from '../../lib/format'
@@ -37,7 +38,7 @@ export function TrainHome() {
       }
       right={{ icon: 'calendar', onPress: () => push('history'), ariaLabel: 'Workout history' }}
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
         {/* ---------------------------- week picker --------------------------- */}
         <div>
           <div className="hscroll" style={{ gap: 8, paddingBottom: 2 }}>
@@ -90,111 +91,104 @@ export function TrainHome() {
         )}
 
         {/* ------------------------------ sessions ---------------------------- */}
-        <div>
-          <SectionHeader title="Sessions" />
-          <div className="gutter" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {schedule.map(({ session, date, log }) => {
-              const main = session.blocks[0]
-              const exercise = main ? getExercise(main.exerciseId) : undefined
-              const firstSet = main?.sets[0]
-              const resolved = firstSet
-                ? resolveSet(firstSet, {
-                    trainingMax: profile.trainingMaxes[main!.exerciseId],
-                    profile,
-                  })
-                : undefined
-              const isToday = date === today
-              const isPast = date < today
+        <ListSection header="Sessions" style={flushSection}>
+          {schedule.map(({ session, date, log }) => {
+            const main = session.blocks[0]
+            const exercise = main ? getExercise(main.exerciseId) : undefined
+            const firstSet = main?.sets[0]
+            const resolved = firstSet
+              ? resolveSet(firstSet, {
+                  trainingMax: profile.trainingMaxes[main!.exerciseId],
+                  profile,
+                })
+              : undefined
+            const isToday = date === today
+            const isPast = date < today
 
-              return (
-                <button
-                  key={session.id}
-                  type="button"
-                  onClick={() => push('session', { weekIndex, sessionId: session.id })}
-                  className="card"
-                  style={{
-                    width: '100%',
-                    margin: 0,
-                    padding: 14,
-                    textAlign: 'left',
-                    border: isToday ? '1.5px solid var(--accent)' : '1.5px solid transparent',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div
+            const opener = exercise && resolved
+              ? `${exercise.shortName ?? exercise.name} · ${
+                  resolved.targetWeight
+                    ? `${num(resolved.targetWeight, 1)} ${profile.units} opener`
+                    : resolved.loadLabel
+                }`
+              : undefined
+            const detail = log
+              ? [
+                  `Completed ${relativeDay(log.date, today)}`,
+                  log.durationSec ? `${Math.round(log.durationSec / 60)} min` : null,
+                  log.sessionRpe ? `RPE ${log.sessionRpe}` : null,
+                ].filter(Boolean).join(' · ')
+              : opener ?? pluralize(session.blocks.length, 'exercise')
+
+            return (
+              <Fragment key={session.id}>
+                <Row
+                  leading={
+                    <span
+                      aria-hidden="true"
                       style={{
-                        width: 44, flex: 'none', textAlign: 'center',
+                        width: 29,
+                        flex: 'none',
+                        textAlign: 'center',
                         color: log ? 'var(--green)' : isToday ? 'var(--accent)' : 'var(--label-2)',
                       }}
                     >
-                      <div className="t-caption2 semibold" style={{ textTransform: 'uppercase' }}>
+                      <span
+                        className="t-caption2 semibold"
+                        style={{ display: 'block', textTransform: 'uppercase' }}
+                      >
                         {weekdayShortFromDow(session.weekday)}
-                      </div>
-                      <div className="t-title3 mono-nums" style={{ lineHeight: '24px' }}>
+                      </span>
+                      <span
+                        className="mono-nums"
+                        style={{ display: 'block', fontSize: 17, fontWeight: 700, lineHeight: '20px' }}
+                      >
                         {formatShortDate(date).split(' ')[1]}
-                      </div>
-                    </div>
-
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                        <span className="t-headline truncate">{session.name}</span>
-                        {log && <Icon name="check.circle.fill" size={16} color="var(--green)" />}
-                        {!log && isPast && <Icon name="clock" size={14} color="var(--orange)" weight={2.2} />}
-                      </div>
-                      <div className="t-footnote dim truncate">{session.focus}</div>
-                      {exercise && resolved && (
-                        <div className="t-caption1 mono-nums" style={{ marginTop: 5, color: 'var(--label-2)' }}>
-                          {exercise.shortName ?? exercise.name}
-                          {resolved.targetWeight
-                            ? ` · ${num(resolved.targetWeight, 1)} ${profile.units} opener`
-                            : ` · ${resolved.loadLabel}`}
-                          {` · ${session.blocks.length} exercises`}
-                        </div>
-                      )}
-                    </div>
-
-                    <Icon name="chevron.right" size={15} weight={2.6} color="var(--label-3)" />
-                  </div>
-
-                  {isToday && !log && (
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        navPresent('runner', { weekIndex, sessionId: session.id })
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.stopPropagation()
-                          navPresent('runner', { weekIndex, sessionId: session.id })
-                        }
-                      }}
-                      className="btn btn-filled"
-                      style={{ marginTop: 12, minHeight: 44, fontSize: 16 }}
-                    >
-                      <Icon name="play.fill" size={15} />
-                      Start workout
-                    </div>
-                  )}
-                  {log && (
-                    <div className="t-caption1 dim" style={{ marginTop: 9 }}>
-                      Completed {relativeDay(log.date, today)}
-                      {log.durationSec ? ` · ${Math.round(log.durationSec / 60)} min` : ''}
-                      {log.sessionRpe ? ` · session RPE ${log.sessionRpe}` : ''}
-                    </div>
-                  )}
-                </button>
-              )
-            })}
-          </div>
-        </div>
+                      </span>
+                    </span>
+                  }
+                  title={session.name}
+                  subtitle={
+                    <>
+                      <span className="truncate" style={{ display: 'block' }}>{session.focus}</span>
+                      <span className="truncate dim3 mono-nums" style={{ display: 'block' }}>
+                        {detail}
+                      </span>
+                    </>
+                  }
+                  trailing={
+                    log ? (
+                      <Icon name="check.circle.fill" size={17} color="var(--green)" />
+                    ) : isToday ? (
+                      <Pill tone="tinted">Today</Pill>
+                    ) : isPast ? (
+                      <Icon name="clock" size={15} color="var(--orange)" weight={2.2} />
+                    ) : undefined
+                  }
+                  chevron
+                  onPress={() => push('session', { weekIndex, sessionId: session.id })}
+                />
+                {/* The primary action is the session's sibling, not a button
+                    inside one — a tinted action row, the way iOS stacks it. */}
+                {isToday && !log && (
+                  <Row
+                    title="Start workout"
+                    icon="play.fill"
+                    iconColor="var(--accent)"
+                    tinted
+                    onPress={() => navPresent('runner', { weekIndex, sessionId: session.id })}
+                  />
+                )}
+              </Fragment>
+            )
+          })}
+        </ListSection>
 
         {/* ------------------------------- toolbox ---------------------------- */}
-        <ListSection header="Reference">
+        <ListSection header="Reference" style={flushSection}>
           <Row
             title="Exercise library"
-            subtitle={pluralize(53, 'movement')}
+            subtitle={pluralize(EXERCISES.length, 'movement')}
             icon="book"
             iconColor="var(--indigo)"
             chevron
@@ -224,7 +218,7 @@ export function TrainHome() {
             onPress={() => push('history')}
           />
           <Row
-            title="Training maxes"
+            title="Working maxes"
             subtitle="Drives every percentage in the block"
             icon="chart.bar"
             iconColor="var(--blue)"

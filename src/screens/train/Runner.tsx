@@ -719,7 +719,7 @@ function SetLogger({
     )
     if (!result || result.direction === 'hold') return null
     // Only an autoregulated set takes a load suggestion; a percentage set's
-    // load is set by the training max, so the deviation is information for the
+    // load is set by the working max, so the deviation is information for the
     // coach rather than a number to override.
     const autoregulated = prescription.load.kind === 'rpe'
     return { ...result, autoregulated }

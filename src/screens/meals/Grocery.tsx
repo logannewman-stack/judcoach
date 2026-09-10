@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Screen } from '../../components/ios/Screen'
 import { ListSection, Row } from '../../components/ios/List'
 import { Segmented } from '../../components/ios/Controls'
@@ -9,10 +9,38 @@ import { num } from '../../lib/format'
 import { haptic } from '../../lib/haptics'
 import { useNav } from '../../nav/nav'
 
+/* ============================================================================
+   Ticks are a shopping-trip scratchpad rather than training data, so they live
+   in sessionStorage instead of the store: they survive leaving the screen and
+   an accidental reload mid-aisle, and are gone by the next shop.
+   ========================================================================== */
+
+const TICKS_KEY = 'grit-grocery-ticks'
+
+function readTicks(): Record<string, boolean> {
+  try {
+    const raw = sessionStorage.getItem(TICKS_KEY)
+    const parsed: unknown = raw ? JSON.parse(raw) : null
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, boolean>) : {}
+  } catch {
+    return {}
+  }
+}
+
 export function Grocery() {
   const pop = useNav((s) => s.pop)
   const [days, setDays] = useState('7')
-  const [ticked, setTicked] = useState<Record<string, boolean>>({})
+  const [ticked, setTicked] = useState<Record<string, boolean>>(readTicks)
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(TICKS_KEY, JSON.stringify(ticked))
+    } catch {
+      // Private browsing with no quota — the list still works for this visit.
+    }
+  }, [ticked])
+
+  const reset = () => setTicked({})
 
   const lines = useMemo(() => groceryList(MEAL_PLAN, Number(days)), [days])
   const remaining = lines.filter((l) => !ticked[l.name]).length
@@ -20,22 +48,23 @@ export function Grocery() {
   return (
     <Screen
       title="Grocery list"
-      back={{ label: 'Meals', onPress: pop }}
-      largeTitle={false}
-      right={{
-        label: 'Reset',
-        onPress: () => setTicked({}),
-        disabled: remaining === lines.length,
-      }}
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, paddingTop: 12 }}>
-        <div className="gutter">
-          <h1 className="t-large-title" style={{ letterSpacing: -0.6 }}>Grocery list</h1>
-          <div className="t-subhead dim" style={{ marginTop: 2 }}>
+      back={{ onPress: pop }}
+      titleAccessory={
+        <div className="gutter" style={{ marginTop: -6, marginBottom: 16 }}>
+          <div className="t-subhead dim">
             Everything the plan needs · {remaining} of {lines.length} left
           </div>
         </div>
-
+      }
+      right={{
+        label: 'Reset',
+        onPress: reset,
+        disabled: remaining === lines.length,
+      }}
+    >
+      {/* One 32px rhythm between groups — the same figure `.list-section`
+          carries, so lists and cards space identically. */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
         <div className="gutter">
           <Segmented
             options={[
@@ -50,7 +79,8 @@ export function Grocery() {
 
         <ListSection
           header="Shop"
-          footer="Quantities assume you follow the plan exactly. Round up on the fresh stuff."
+          footer="Ticks stay put while the app is open — quantities assume you follow the plan exactly, so round up on the fresh stuff."
+          style={{ marginBottom: 0 }}
         >
           {lines.map((line) => {
             const done = !!ticked[line.name]

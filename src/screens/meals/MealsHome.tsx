@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { motion } from 'framer-motion'
 import { Screen } from '../../components/ios/Screen'
 import { ListSection, Row } from '../../components/ios/List'
@@ -25,6 +26,17 @@ import { useNav } from '../../nav/nav'
 
 type DayMode = 'training' | 'rest'
 
+/**
+ * SwipeRow's wrapper element breaks the stylesheet's `.row + .row` hairline, so
+ * rows inside one paint their own — at the same inset the sheet would use.
+ */
+const ROW_SEPARATOR: CSSProperties = {
+  backgroundImage: 'linear-gradient(var(--sep), var(--sep))',
+  backgroundRepeat: 'no-repeat',
+  backgroundPosition: 'right top',
+  backgroundSize: 'calc(100% - var(--row-sep-inset, var(--gutter))) var(--hairline)',
+}
+
 export function MealsHome() {
   const today = todayISO()
   const [date, setDate] = useState(today)
@@ -44,8 +56,10 @@ export function MealsHome() {
     const wi = currentWeekIndex(program, date)
     return weekSchedule(program, wi, logs).some((s) => s.date === date)
   }, [program, logs, date])
-  const [override, setOverride] = useState<DayMode | null>(null)
-  const mode: DayMode = override ?? (isTrainingDay ? 'training' : 'rest')
+  // Keyed by date: a manual choice belongs to the day you made it on, and must
+  // never carry over to the next day you look at.
+  const [overrides, setOverrides] = useState<Record<string, DayMode>>({})
+  const mode: DayMode = overrides[date] ?? (isTrainingDay ? 'training' : 'rest')
   const targets: MacroTargets =
     mode === 'rest' && MEAL_PLAN.restDayTargets ? MEAL_PLAN.restDayTargets : MEAL_PLAN.targets
 
@@ -65,7 +79,9 @@ export function MealsHome() {
       }
       right={{ icon: 'list', onPress: () => push('grocery'), ariaLabel: 'Grocery list' }}
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* One 32px rhythm between groups — the same figure `.list-section`
+          carries, so lists and cards space identically. */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
         {/* ------------------------------ day picker ------------------------- */}
         <div>
           <DayStrip date={date} today={today} onPick={setDate} nutrition={nutrition} />
@@ -122,7 +138,7 @@ export function MealsHome() {
                 { value: 'rest', label: 'Rest day' },
               ]}
               value={mode}
-              onChange={(v) => setOverride(v as DayMode)}
+              onChange={(v) => setOverrides((o) => ({ ...o, [date]: v as DayMode }))}
             />
           </div>
         </Card>
@@ -180,48 +196,54 @@ export function MealsHome() {
         </div>
 
         {/* -------------------------------- extras --------------------------- */}
-        <ListSection
-          header="Extras"
-          footer="Anything off-plan. Log it honestly — it's what tells Jud whether the plan is working."
-        >
-          {day.extras.map((food) => (
-            <SwipeRow
-              key={food.id}
-              id={food.id}
-              openId={swipe.openId}
-              onOpenChange={swipe.onOpenChange}
-              actions={[
-                {
-                  label: 'Remove',
-                  icon: 'trash',
-                  destructive: true,
-                  onPress: () => removeExtraFood(date, food.id),
-                },
-              ]}
-            >
-              <Row
-                title={food.name}
-                subtitle={`${food.kcal} kcal · P${food.protein} C${food.carbs} F${food.fat}`}
-                trailing={
-                  <button
-                    type="button"
-                    aria-label={`Remove ${food.name}`}
-                    onClick={() => removeExtraFood(date, food.id)}
-                  >
-                    <Icon name="xmark.circle.fill" size={20} color="var(--label-3)" />
-                  </button>
-                }
-              />
-            </SwipeRow>
-          ))}
-          <Row
-            title="Add food"
-            icon="plus"
-            iconColor="var(--accent)"
-            tinted
-            onPress={() => setQuickAdd(true)}
-          />
-        </ListSection>
+        <div>
+          <SectionHeader title="Extras" />
+          <ListSection
+            footer="Anything off-plan. Log it honestly — it's what tells Jud whether the plan is working."
+            style={{ marginBottom: 0 }}
+          >
+            {day.extras.map((food, i) => (
+              <SwipeRow
+                key={food.id}
+                id={food.id}
+                openId={swipe.openId}
+                onOpenChange={swipe.onOpenChange}
+                actions={[
+                  {
+                    label: 'Remove',
+                    icon: 'trash',
+                    destructive: true,
+                    onPress: () => removeExtraFood(date, food.id),
+                  },
+                ]}
+              >
+                <Row
+                  title={food.name}
+                  subtitle={`${food.kcal} kcal · P${food.protein} C${food.carbs} F${food.fat}`}
+                  style={i > 0 ? ROW_SEPARATOR : undefined}
+                  trailing={
+                    <button
+                      type="button"
+                      className="hit-expand"
+                      aria-label={`Remove ${food.name}`}
+                      onClick={() => removeExtraFood(date, food.id)}
+                    >
+                      <Icon name="xmark.circle.fill" size={20} color="var(--label-3)" />
+                    </button>
+                  }
+                />
+              </SwipeRow>
+            ))}
+            <Row
+              title="Add food"
+              icon="plus"
+              iconColor="var(--accent)"
+              tinted
+              onPress={() => setQuickAdd(true)}
+              style={day.extras.length > 0 ? ROW_SEPARATOR : undefined}
+            />
+          </ListSection>
+        </div>
       </div>
 
       <QuickAddSheet
@@ -358,6 +380,7 @@ function MealCard({
       <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '13px 14px 11px' }}>
         <button
           type="button"
+          className="hit-expand"
           aria-label={allDone ? `Uncheck ${meal.name}` : `Check off ${meal.name}`}
           onClick={() => {
             haptic(allDone ? 'light' : 'success')
@@ -373,7 +396,12 @@ function MealCard({
           {allDone && <Icon name="check" size={16} weight={3} color="#fff" />}
         </button>
 
-        <button type="button" onClick={onOpen} style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+        <button
+          type="button"
+          onClick={onOpen}
+          className="hit-expand"
+          style={{ flex: 1, minWidth: 0, textAlign: 'left' }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
             <span className="t-headline">{meal.name}</span>
             <span className="t-caption1 dim">{formatClock(meal.time)}</span>
@@ -417,8 +445,11 @@ export function FoodLine({
   portion?: number
 }) {
   const scaled = scaleFood(item, portion)
+  // A real 44pt row pitch. Every control in here expands to Apple's 44×44
+  // minimum, so anything shorter would have those rectangles overlapping each
+  // other and the rows above and below — the classic mis-tap.
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 44 }}>
       <button
         type="button"
         aria-label={checked ? `Uncheck ${item.name}` : `Check ${item.name}`}
@@ -472,13 +503,23 @@ export function FoodLine({
           type="button"
           aria-label={`Swap ${item.name}`}
           onClick={onSwap}
-          className="hit-expand"
-          style={{ flex: 'none' }}
+          style={{
+            flex: 'none',
+            width: 44,
+            height: 44,
+            display: 'grid',
+            placeItems: 'center',
+          }}
         >
           <Icon name="swap" size={16} weight={2.2} color="var(--accent)" />
         </button>
       )}
-      <span className="t-caption1 dim mono-nums" style={{ flex: 'none' }}>
+      {/* Fixed width so the kcal column — and everything left of it — lines up
+          down the card instead of ragging with the digit count. */}
+      <span
+        className="t-caption1 dim mono-nums"
+        style={{ flex: 'none', minWidth: 30, textAlign: 'right' }}
+      >
         {scaled.kcal}
       </span>
     </div>

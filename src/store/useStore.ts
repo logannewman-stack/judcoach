@@ -18,6 +18,12 @@ export interface AppState {
   settings: Settings
   /** The programme is rebuilt from this date, not stored set-by-set. */
   programStartDate: string
+  /**
+   * The day this client actually began. Sessions scheduled before it are not
+   * "missed" — signing up on a Thursday shouldn't greet you with two overdue
+   * workouts from a Monday you had no account for.
+   */
+  blockStartedOn: string
   weighIns: WeighIn[]
   measurements: MeasurementEntry[]
   photos: ProgressPhoto[]
@@ -35,6 +41,7 @@ export interface AppState {
   /* ------------------------------ profile ----------------------------- */
   completeOnboarding: () => void
   startFresh: () => void
+  startNextBlock: () => void
   updateProfile: (patch: Partial<Profile>) => void
   updateSettings: (patch: Partial<Settings>) => void
   setTrainingMax: (exerciseId: string, value: number) => void
@@ -43,6 +50,8 @@ export interface AppState {
   saveWeighIn: (entry: WeighIn) => void
   deleteWeighIn: (date: string) => void
   saveMeasurement: (entry: MeasurementEntry) => void
+  deleteMeasurement: (date: string) => void
+  deleteCheckIn: (id: string) => void
   addPhoto: (photo: ProgressPhoto) => void
   deletePhoto: (id: string) => void
   addCheckIn: (entry: Omit<CheckIn, 'id'>) => void
@@ -105,6 +114,7 @@ function seedState() {
     restTimer: null,
     seededAt: new Date().toISOString(),
     onboarded: false,
+    blockStartedOn: startDate,
   }
 }
 
@@ -131,7 +141,7 @@ export const useStore = create<AppState>()(
        * into the middle of someone else's programme.
        */
       startFresh: () =>
-        set((s) => ({
+        set(() => ({
           weighIns: [],
           measurements: [],
           photos: [],
@@ -141,7 +151,30 @@ export const useStore = create<AppState>()(
           active: null,
           restTimer: null,
           programStartDate: startOfWeek(todayISO(), 1),
-          profile: { ...s.profile, name: '' },
+          blockStartedOn: todayISO(),
+          // A new client must not inherit the sample client's body or
+          // strength — a pre-filled 465 lb deadlift reads as a suggestion.
+          profile: {
+            ...SEED_PROFILE,
+            name: '',
+            goalLabel: '',
+            startWeight: 0,
+            goalWeight: 0,
+            trainingMaxes: {},
+          },
+        })),
+
+      /**
+       * Roll into the next block from this week, keeping the client's history
+       * and maxes. Without it the programme simply runs out and pins everyone
+       * on week eight forever.
+       */
+      startNextBlock: () =>
+        set(() => ({
+          programStartDate: startOfWeek(todayISO(), 1),
+          blockStartedOn: todayISO(),
+          active: null,
+          restTimer: null,
         })),
 
       /* ------------------------------ profile --------------------------- */
@@ -167,6 +200,10 @@ export const useStore = create<AppState>()(
           const rest = s.measurements.filter((m) => m.date !== entry.date)
           return { measurements: [...rest, entry].sort((a, b) => a.date.localeCompare(b.date)) }
         }),
+      deleteMeasurement: (date) =>
+        set((s) => ({ measurements: s.measurements.filter((m) => m.date !== date) })),
+      deleteCheckIn: (id) => set((s) => ({ checkIns: s.checkIns.filter((c) => c.id !== id) })),
+
       addPhoto: (photo) => set((s) => ({ photos: [photo, ...s.photos] })),
       deletePhoto: (id) => set((s) => ({ photos: s.photos.filter((p) => p.id !== id) })),
       addCheckIn: (entry) =>
@@ -384,7 +421,7 @@ export const useStore = create<AppState>()(
       resetToSeed: () => set(() => ({ ...seedState(), onboarded: true })),
 
       clearAllData: () =>
-        set(() => ({
+        set((s) => ({
           ...seedState(),
           weighIns: [],
           measurements: [],
@@ -395,6 +432,11 @@ export const useStore = create<AppState>()(
           active: null,
           restTimer: null,
           onboarded: true,
+          // Deleting your data must not hand you the sample client's name,
+          // maxes and mid-block calendar back.
+          programStartDate: startOfWeek(todayISO(), 1),
+          blockStartedOn: todayISO(),
+          profile: { ...s.profile, name: s.profile.name },
         })),
 
       importState: (raw) => {
@@ -405,6 +447,7 @@ export const useStore = create<AppState>()(
           profile: { ...get().profile, ...candidate.profile },
           settings: { ...get().settings, ...(candidate.settings ?? {}) },
           programStartDate: candidate.programStartDate ?? get().programStartDate,
+          blockStartedOn: candidate.blockStartedOn ?? get().blockStartedOn,
           weighIns: candidate.weighIns ?? [],
           measurements: candidate.measurements ?? [],
           photos: candidate.photos ?? [],
@@ -426,6 +469,7 @@ export const useStore = create<AppState>()(
         profile: s.profile,
         settings: s.settings,
         programStartDate: s.programStartDate,
+        blockStartedOn: s.blockStartedOn,
         weighIns: s.weighIns,
         measurements: s.measurements,
         photos: s.photos,

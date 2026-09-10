@@ -88,20 +88,45 @@ export function nextSession(
   return schedule[schedule.length - 1]
 }
 
-/** A session that was scheduled before today and never logged. */
+/**
+ * Sessions scheduled before today and never logged.
+ *
+ * `since` is the day the client actually started, so a Thursday sign-up is not
+ * greeted with two overdue workouts from a Monday they had no account for.
+ */
 export function missedSessions(
   program: Program,
   logs: WorkoutLog[],
   today = todayISO(),
+  since?: string,
 ): ScheduledSession[] {
   const out: ScheduledSession[] = []
   const upTo = currentWeekIndex(program, today)
+  const floor = since ?? program.startDate
   for (let w = 1; w <= upTo; w++) {
     for (const s of weekSchedule(program, w, logs)) {
-      if (s.date < today && !s.log) out.push(s)
+      if (s.date < today && s.date >= floor && !s.log) out.push(s)
     }
   }
   return out
+}
+
+/** True once the block's last week is behind the client. */
+export function isBlockComplete(program: Program, today = todayISO()): boolean {
+  return daysBetween(program.startDate, today) >= program.weeks.length * 7
+}
+
+/** Everything the client did across the block, for the completion summary. */
+export function blockSummary(program: Program, logs: WorkoutLog[]) {
+  const end = addDays(program.startDate, program.weeks.length * 7 - 1)
+  const inBlock = logs.filter((l) => l.date >= program.startDate && l.date <= end)
+  const scheduled = program.weeks.reduce((n, w) => n + w.sessions.length, 0)
+  return {
+    sessions: inBlock.length,
+    scheduled,
+    sets: inBlock.reduce((n, l) => n + logSetCount(l), 0),
+    tonnage: inBlock.reduce((n, l) => n + logTonnage(l), 0),
+  }
 }
 
 /* ------------------------------- history -------------------------------- */

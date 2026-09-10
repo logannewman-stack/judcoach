@@ -1,6 +1,6 @@
 import { Screen } from '../../components/ios/Screen'
 import { ListSection, Row } from '../../components/ios/List'
-import { Card, CoachNote, SectionHeader } from '../../components/Bits'
+import { CoachNote } from '../../components/Bits'
 import { Pill } from '../../components/ios/Controls'
 import { Icon } from '../../components/Icon'
 import { useStore } from '../../store/useStore'
@@ -18,75 +18,74 @@ export function ProgramSettings() {
   const endDate = addDays(program.startDate, program.weeks.length * 7 - 1)
 
   return (
-    <Screen title="Programme" back={{ label: 'Settings', onPress: pop }} largeTitle={false}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 22, paddingTop: 12 }}>
-        <div className="gutter">
-          <h1 className="t-large-title" style={{ letterSpacing: -0.6 }}>{program.name}</h1>
-          <div className="t-subhead dim" style={{ marginTop: 2 }}>{program.subtitle}</div>
+    <Screen
+      title="Programme"
+      back={{ label: 'Settings', onPress: pop }}
+      titleAccessory={
+        <div className="gutter" style={{ margin: '-2px 0 24px' }}>
+          <div className="t-headline">{program.name}</div>
+          <div className="t-subhead dim" style={{ marginTop: 1 }}>{program.subtitle}</div>
         </div>
-
-        <div className="gutter">
-          <CoachNote>{program.goal}</CoachNote>
-        </div>
-
-        <ListSection header="Block">
-          <Row title="Coach" value={program.coach} />
-          <Row title="Started" value={formatMediumDate(program.startDate)} />
-          <Row title="Ends" value={formatMediumDate(endDate)} />
-          <Row title="Length" value={`${program.weeks.length} weeks`} />
-          <Row title="Days per week" value={String(program.daysPerWeek)} />
-        </ListSection>
-
-        <div>
-          <SectionHeader title="Every week" />
-          <div className="gutter" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {program.weeks.map((week) => {
-              const schedule = weekSchedule(program, week.index, logs)
-              const done = schedule.filter((s) => s.log).length
-              const isLive = week.index === live
-              const isPast = week.index < live
-              return (
-                <button
-                  key={week.id}
-                  type="button"
-                  className="card"
-                  onClick={() => push('session', { weekIndex: week.index, sessionId: week.sessions[0]!.id })}
-                  style={{
-                    margin: 0, padding: 13, width: '100%', textAlign: 'left',
-                    border: isLive ? '1.5px solid var(--accent)' : '1.5px solid transparent',
-                    opacity: isPast && done === 0 ? 0.55 : 1,
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                    <span className="t-headline" style={{ flex: 1, minWidth: 0 }}>{week.label}</span>
-                    {week.deload && <Pill>Deload</Pill>}
-                    {isLive && <Pill tone="tinted">Now</Pill>}
-                    {done === schedule.length && done > 0 && (
-                      <Icon name="check.circle.fill" size={17} color="var(--green)" />
-                    )}
-                  </div>
-                  <div className="t-footnote dim" style={{ marginTop: 3, lineHeight: '18px' }}>
-                    {week.emphasis}
-                  </div>
-                  <div className="t-caption1 dim mono-nums" style={{ marginTop: 6 }}>
-                    {done}/{schedule.length} sessions ·{' '}
-                    {formatMediumDate(addDays(program.startDate, (week.index - 1) * 7))}
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        <div className="gutter">
-          <Card style={{ margin: 0, width: '100%' }}>
-            <div className="t-footnote dim" style={{ lineHeight: '18px' }}>
-              Blocks are written by Jud, not editable here. If something needs to change — an injury, a
-              travel week, a gym that lacks a machine — send it in your check-in and he'll rewrite it.
-            </div>
-          </Card>
-        </div>
+      }
+    >
+      <div className="gutter" style={{ marginBottom: 32 }}>
+        <CoachNote>{program.goal}</CoachNote>
       </div>
+
+      <ListSection header="Block">
+        <Row title="Coach" value={program.coach} />
+        <Row title="Started" value={formatMediumDate(program.startDate)} />
+        <Row title="Ends" value={formatMediumDate(endDate)} />
+        <Row title="Length" value={`${program.weeks.length} weeks`} />
+        <Row title="Days per week" value={String(program.daysPerWeek)} />
+      </ListSection>
+
+      {/* Week cards keep their own surface, so this group borrows the list
+          section's header, footer and 32px rhythm rather than its container. */}
+      <section className="list-section">
+        <div className="list-header">Every week</div>
+        <div className="gutter" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {program.weeks.map((week) => {
+            const schedule = weekSchedule(program, week.index, logs)
+            const done = schedule.filter((s) => s.log).length
+            const isLive = week.index === live
+            const isPast = week.index < live
+            return (
+              <button
+                key={week.id}
+                type="button"
+                className="card"
+                onClick={() => push('session', { weekIndex: week.index, sessionId: week.sessions[0]!.id })}
+                style={{
+                  margin: 0, padding: 13, width: '100%', textAlign: 'left',
+                  border: isLive ? '1.5px solid var(--accent)' : '1.5px solid transparent',
+                  opacity: isPast && done === 0 ? 0.55 : 1,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                  <span className="t-headline" style={{ flex: 1, minWidth: 0 }}>{week.label}</span>
+                  {week.deload && <Pill>Deload</Pill>}
+                  {isLive && <Pill tone="tinted">Now</Pill>}
+                  {done === schedule.length && done > 0 && (
+                    <Icon name="check.circle.fill" size={17} color="var(--green)" />
+                  )}
+                </div>
+                <div className="t-footnote dim" style={{ marginTop: 3, lineHeight: '18px' }}>
+                  {week.emphasis}
+                </div>
+                <div className="t-caption1 dim mono-nums" style={{ marginTop: 6 }}>
+                  {done}/{schedule.length} sessions ·{' '}
+                  {formatMediumDate(addDays(program.startDate, (week.index - 1) * 7))}
+                </div>
+              </button>
+            )
+          })}
+        </div>
+        <div className="list-footer">
+          Blocks are written by Jud, not editable here. If something needs to change — an injury, a
+          travel week, a gym that lacks a machine — send it in your check-in and he'll rewrite it.
+        </div>
+      </section>
     </Screen>
   )
 }

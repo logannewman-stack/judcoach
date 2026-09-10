@@ -32,18 +32,19 @@ export function CheckIns() {
   return (
     <Screen
       title="Check-ins"
-      back={{ label: 'Weigh-In', onPress: pop }}
-      largeTitle={false}
-      right={{ icon: 'plus', onPress: () => setComposing(true), ariaLabel: 'New check-in' }}
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 22, paddingTop: 12 }}>
-        <div className="gutter">
-          <h1 className="t-large-title" style={{ letterSpacing: -0.6 }}>Check-ins</h1>
-          <div className="t-subhead dim" style={{ marginTop: 2 }}>
+      back={{ onPress: pop }}
+      titleAccessory={
+        <div className="gutter" style={{ marginTop: -6, marginBottom: 16 }}>
+          <div className="t-subhead dim">
             Sunday nights. This is what Jud reads before changing anything.
           </div>
         </div>
-
+      }
+      right={{ icon: 'plus', onPress: () => setComposing(true), ariaLabel: 'New check-in' }}
+    >
+      {/* One 32px rhythm between groups — the same figure `.list-section`
+          carries, so lists and cards space identically. */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
         <div className="gutter">
           <Button icon="pencil" onPress={() => setComposing(true)}>
             Write this week's check-in

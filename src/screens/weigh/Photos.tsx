@@ -62,18 +62,19 @@ export function Photos() {
   return (
     <Screen
       title="Progress photos"
-      back={{ label: 'Weigh-In', onPress: pop }}
-      largeTitle={false}
-      right={{ icon: 'camera', onPress: () => inputRef.current?.click(), ariaLabel: 'Add photo' }}
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, paddingTop: 12 }}>
-        <div className="gutter">
-          <h1 className="t-large-title" style={{ letterSpacing: -0.6 }}>Progress photos</h1>
-          <div className="t-subhead dim" style={{ marginTop: 2 }}>
+      back={{ onPress: pop }}
+      titleAccessory={
+        <div className="gutter" style={{ marginTop: -6, marginBottom: 16 }}>
+          <div className="t-subhead dim">
             Same light, same spot, same time of day. Stored on this device only.
           </div>
         </div>
-
+      }
+      right={{ icon: 'camera', onPress: () => inputRef.current?.click(), ariaLabel: 'Add photo' }}
+    >
+      {/* One 32px rhythm between groups — the same figure `.list-section`
+          carries, so lists and cards space identically. */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
         <div className="gutter">
           <Segmented options={POSES} value={pose} onChange={(v) => setPose(v as PhotoPose)} />
         </div>
@@ -94,53 +95,50 @@ export function Photos() {
             className="gutter"
             style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}
           >
+            {/* The options control is a sibling of the tile, never nested inside
+                it: a button within a button is invalid, and only a real button
+                answers to both Enter and Space. */}
             {filtered.map((photo) => (
-              <button
-                key={photo.id}
-                type="button"
-                onClick={() => setViewing(photo.id)}
-                style={{
-                  position: 'relative',
-                  borderRadius: 'var(--r-card)',
-                  overflow: 'hidden',
-                  background: 'var(--fill-4)',
-                  aspectRatio: '3 / 4',
-                  maxWidth: '100%',
-                }}
-              >
-                <img
-                  src={photo.dataUrl}
-                  alt={`${photo.pose} on ${formatMediumDate(photo.date)}`}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                />
-                <span
+              <div key={photo.id} style={{ position: 'relative', minWidth: 0 }}>
+                <button
+                  type="button"
+                  onClick={() => setViewing(photo.id)}
+                  aria-label={`View ${photo.pose} photo from ${formatMediumDate(photo.date)}`}
                   style={{
-                    position: 'absolute',
-                    left: 0, right: 0, bottom: 0,
-                    padding: '18px 10px 8px',
-                    background: 'linear-gradient(180deg, transparent, rgba(0,0,0,0.6))',
-                    color: '#fff',
-                    textAlign: 'left',
+                    position: 'relative',
+                    display: 'block',
+                    width: '100%',
+                    borderRadius: 'var(--r-card)',
+                    overflow: 'hidden',
+                    background: 'var(--fill-4)',
+                    aspectRatio: '3 / 4',
+                    maxWidth: '100%',
                   }}
-                  className="t-caption1 semibold"
                 >
-                  {formatMediumDate(photo.date)}
-                </span>
-                <span
-                  role="button"
-                  tabIndex={0}
-                  aria-label="Photo options"
+                  <img
+                    src={photo.dataUrl}
+                    alt=""
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                  <span
+                    style={{
+                      position: 'absolute',
+                      left: 0, right: 0, bottom: 0,
+                      padding: '18px 10px 8px',
+                      background: 'linear-gradient(180deg, transparent, rgba(0,0,0,0.6))',
+                      color: '#fff',
+                      textAlign: 'left',
+                    }}
+                    className="t-caption1 semibold"
+                  >
+                    {formatMediumDate(photo.date)}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Options for ${photo.pose} photo from ${formatMediumDate(photo.date)}`}
                   className="hit-expand"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setSelected(photo.id)
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.stopPropagation()
-                      setSelected(photo.id)
-                    }
-                  }}
+                  onClick={() => setSelected(photo.id)}
                   style={{
                     position: 'absolute', top: 6, right: 6,
                     width: 28, height: 28, borderRadius: '50%',
@@ -149,8 +147,8 @@ export function Photos() {
                   }}
                 >
                   <Icon name="ellipsis" size={16} color="#fff" />
-                </span>
-              </button>
+                </button>
+              </div>
             ))}
           </div>
         )}

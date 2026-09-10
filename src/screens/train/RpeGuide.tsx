@@ -29,16 +29,19 @@ export function RpeGuide() {
   }
 
   return (
-    <Screen title="RPE & RIR" back={{ label: 'Train', onPress: pop }} largeTitle={false}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 22, paddingTop: 12 }}>
-        <div className="gutter">
-          <h1 className="t-large-title" style={{ letterSpacing: -0.6 }}>RPE &amp; RIR</h1>
-          <div className="t-subhead dim" style={{ marginTop: 3, lineHeight: '21px' }}>
+    <Screen
+      title="RPE & RIR"
+      back={{ label: 'Train', onPress: pop }}
+      titleAccessory={
+        <div className="gutter" style={{ marginTop: -6, marginBottom: 18 }}>
+          <div className="t-subhead dim" style={{ lineHeight: '21px' }}>
             RPE is how hard a set was, on a scale that ends at ten. RIR is the same information said
             backwards: how many reps you left behind. RIR = 10 − RPE, always.
           </div>
         </div>
-
+      }
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
         {/* ------------------------------ the scale --------------------------- */}
         <div>
           <SectionHeader title="What each number means" />
@@ -160,7 +163,7 @@ export function RpeGuide() {
             <div className="t-caption1 dim" style={{ padding: '10px 14px 0' }}>
               Columns are reps. {mode === 'percent'
                 ? 'Values are percentages of a true one-rep max.'
-                : `Values use your ${MAIN_LIFTS.find((l) => l.id === liftId)?.name.toLowerCase()} training max of ${num(tm, 0)} ${profile.units}.`}
+                : `Values use your ${MAIN_LIFTS.find((l) => l.id === liftId)?.name.toLowerCase()} working max of ${num(tm, 0)} ${profile.units}.`}
             </div>
           </div>
         </div>

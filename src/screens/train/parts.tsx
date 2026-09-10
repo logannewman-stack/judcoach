@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../../components/Icon'
 import { Pill } from '../../components/ios/Controls'
 import type { LoggedSet, SetPrescription } from '../../domain/types'
@@ -6,6 +6,16 @@ import { describeReps, formatRir, formatRpe, rpeToRir } from '../../domain/stren
 import type { ResolvedSet } from '../../domain/strength'
 import { num } from '../../lib/format'
 import { relativeDay } from '../../lib/date'
+
+/* ------------------------------ layout rhythm ---------------------------- */
+
+/**
+ * Screens here set their group rhythm with a flex `gap` on the column wrapper.
+ * A `.list-section` also carries its own 32px bottom margin, which would add to
+ * that gap and leave inset lists sitting further apart than every other group.
+ * Spread this on a `ListSection` so the wrapper's gap stays the only spacing.
+ */
+export const flushSection: CSSProperties = { marginBottom: 0 }
 
 /* --------------------------- prescription display ------------------------ */
 

@@ -5,7 +5,7 @@ import { Card, EmptyState, SectionHeader, StatTile } from '../../components/Bits
 import { Icon } from '../../components/Icon'
 import { Pill, Segmented } from '../../components/ios/Controls'
 import { BarChart } from '../../components/Charts'
-import { LoggedSetChip } from './parts'
+import { LoggedSetChip, flushSection } from './parts'
 import { useStore } from '../../store/useStore'
 import {
   logSetCount, logTonnage, personalRecords, useProgram, volumeByMuscle,
@@ -58,29 +58,35 @@ export function History() {
   )
 
   return (
-    <Screen title="History" back={{ label: 'Train', onPress: pop }} largeTitle={false}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, paddingTop: 12 }}>
-        <div className="gutter">
-          <h1 className="t-large-title" style={{ letterSpacing: -0.6 }}>History</h1>
-        </div>
-
-        <div className="gutter" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-          <StatTile label="Sessions" value={totals.sessions} icon="dumbbell" />
-          <StatTile label="Working sets" value={totals.sets} icon="list" />
-          <StatTile label={`Volume (${profile.units})`} value={compact(totals.tonnage)} icon="chart.bar" />
-        </div>
-
-        <div className="gutter">
-          <Segmented
-            options={[
-              { value: 'sessions', label: 'Sessions' },
-              { value: 'volume', label: 'Volume' },
-            ]}
-            value={tab}
-            onChange={(v) => setTab(v as 'sessions' | 'volume')}
-          />
-        </div>
-
+    <Screen
+      title="History"
+      back={{ label: 'Train', onPress: pop }}
+      titleAccessory={
+        <>
+          <div
+            className="gutter"
+            style={{ marginTop: -2, marginBottom: 16, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}
+          >
+            <StatTile label="Sessions" value={totals.sessions} icon="dumbbell" />
+            <StatTile label="Hard sets" value={totals.sets} icon="list" />
+            <StatTile label={`Volume (${profile.units})`} value={compact(totals.tonnage)} icon="chart.bar" />
+          </div>
+          {/* The filter belongs to what's below it, so it sits closer to the
+              content than the groups sit to each other. */}
+          <div className="gutter" style={{ marginBottom: 20 }}>
+            <Segmented
+              options={[
+                { value: 'sessions', label: 'Sessions' },
+                { value: 'volume', label: 'Volume' },
+              ]}
+              value={tab}
+              onChange={(v) => setTab(v as 'sessions' | 'volume')}
+            />
+          </div>
+        </>
+      }
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
         {tab === 'sessions' ? (
           sorted.length === 0 ? (
             <EmptyState icon="calendar" title="No workouts logged" message="Finish a session and it lands here." />
@@ -109,9 +115,12 @@ export function History() {
           )
         ) : (
           <>
-            <div>
-              <SectionHeader title="Hard sets this week" />
-              <Card>
+            <ListSection
+              header="Hard sets this week"
+              footer="Dashed line marks ten hard sets — the weekly floor Jud aims for on each muscle group. Secondary involvement counts as half a set."
+              style={flushSection}
+            >
+              <div style={{ padding: 16 }}>
                 <BarChart
                   bars={Object.entries(weeklyVolume)
                     .sort((a, b) => b[1] - a[1])
@@ -123,26 +132,21 @@ export function History() {
                     }))}
                   height={170}
                 />
-                <div className="t-caption1 dim" style={{ marginTop: 8 }}>
-                  Dashed line marks ten hard sets — the weekly floor Jud aims for on each muscle group.
-                  Secondary involvement counts as half a set.
-                </div>
-              </Card>
-            </div>
+              </div>
+            </ListSection>
 
-            <div>
-              <SectionHeader title="Last four weeks" />
-              <Card>
+            <ListSection
+              header="Last four weeks"
+              footer="Working sets per week. A deload should visibly dip — if it doesn't, you didn't deload."
+            >
+              <div style={{ padding: 16 }}>
                 <BarChart
                   bars={lastFourWeeks.map((w) => ({ label: w.label, value: w.sets }))}
                   height={150}
                   formatValue={(v) => String(v)}
                 />
-                <div className="t-caption1 dim" style={{ marginTop: 8 }}>
-                  Working sets per week. A deload should visibly dip — if it doesn't, you didn't deload.
-                </div>
-              </Card>
-            </div>
+              </div>
+            </ListSection>
           </>
         )}
       </div>
@@ -171,11 +175,12 @@ export function LogDetail({ logId }: { logId: string }) {
   const week = program.weeks.find((w) => w.index === log.weekIndex)
 
   return (
-    <Screen title={log.sessionName} back={{ onPress: pop }} largeTitle={false}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, paddingTop: 12 }}>
-        <div className="gutter">
-          <div className="t-footnote dim">{formatMediumDate(log.date)}</div>
-          <h1 className="t-large-title" style={{ letterSpacing: -0.6, marginTop: 1 }}>{log.sessionName}</h1>
+    <Screen
+      title={log.sessionName}
+      back={{ onPress: pop }}
+      titleAccessory={
+        <div className="gutter" style={{ marginTop: -6, marginBottom: 18 }}>
+          <div className="t-subhead dim">{formatMediumDate(log.date)}</div>
           <div style={{ display: 'flex', gap: 7, marginTop: 10, flexWrap: 'wrap' }}>
             {week && <Pill tone="tinted">{week.label.split(' — ')[0]}</Pill>}
             {log.durationSec != null && <Pill icon="clock">{formatMinutes(log.durationSec)}</Pill>}
@@ -185,7 +190,9 @@ export function LogDetail({ logId }: { logId: string }) {
             )}
           </div>
         </div>
-
+      }
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
         <div className="gutter" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
           <StatTile label={`Volume (${profile.units})`} value={compact(logTonnage(log))} icon="chart.bar" />
           <StatTile label="Exercises" value={log.exercises.length} icon="dumbbell" />
@@ -261,16 +268,19 @@ export function PersonalRecordsScreen() {
   const otherRecords = records.filter((r) => !mainIds.has(r.exerciseId))
 
   return (
-    <Screen title="Records" back={{ label: 'Train', onPress: pop }} largeTitle={false}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, paddingTop: 12 }}>
-        <div className="gutter">
-          <h1 className="t-large-title" style={{ letterSpacing: -0.6 }}>Records</h1>
-          <div className="t-subhead dim" style={{ marginTop: 3, lineHeight: '21px' }}>
+    <Screen
+      title="Records"
+      back={{ label: 'Train', onPress: pop }}
+      titleAccessory={
+        <div className="gutter" style={{ marginTop: -6, marginBottom: 18 }}>
+          <div className="t-subhead dim" style={{ lineHeight: '21px' }}>
             Best estimated one-rep max for every movement you've logged, worked back from the load, reps
             and RPE of your best set.
           </div>
         </div>
-
+      }
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
         {records.length === 0 ? (
           <EmptyState icon="seal.fill" title="No records yet" message="Log a workout and they start stacking up." />
         ) : (
@@ -279,6 +289,7 @@ export function PersonalRecordsScreen() {
               <ListSection
                 header="Main lifts"
                 footer="Estimated maxes come from the RPE chart, not a tested single."
+                style={flushSection}
               >
                 {mainRecords.map((pr) => (
                   <RecordRow

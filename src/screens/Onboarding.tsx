@@ -10,7 +10,7 @@ import { useStore } from '../store/useStore'
 import { MAIN_LIFTS } from '../data/exercises'
 import { COACH } from '../data/seed'
 import {
-  DEFAULT_PLATES_KG, DEFAULT_PLATES_LB, e1RM, kgToLb, lbToKg, roundToIncrement,
+  DEFAULT_PLATES_KG, DEFAULT_PLATES_LB, e1RM, formatRpe, kgToLb, lbToKg, roundToIncrement,
 } from '../domain/strength'
 import type { Units } from '../domain/types'
 import { todayISO } from '../lib/date'
@@ -22,7 +22,7 @@ import { haptic } from '../lib/haptics'
 
    A brand moment, then the four things the programme genuinely cannot work
    without: what to call you, what units you count in, where your bodyweight is
-   headed, and the training maxes every percentage is a slice of.
+   headed, and the working maxes every percentage is a slice of.
    ========================================================================== */
 
 type Step = 'welcome' | 'name' | 'units' | 'weight' | 'maxes' | 'ready'
@@ -34,6 +34,8 @@ export function Onboarding() {
   const saveWeighIn = useStore((s) => s.saveWeighIn)
   const completeOnboarding = useStore((s) => s.completeOnboarding)
   const startFresh = useStore((s) => s.startFresh)
+  const resetToSeed = useStore((s) => s.resetToSeed)
+  const logs = useStore((s) => s.logs)
 
   const [step, setStep] = useState<Step>('welcome')
   const [direction, setDirection] = useState(1)
@@ -56,12 +58,22 @@ export function Onboarding() {
   const finish = () => {
     haptic('success')
     // Seed today's weigh-in so the trend has somewhere to start from.
-    saveWeighIn({ date: todayISO(), weight: profile.startWeight })
+    if (profile.startWeight > 0) saveWeighIn({ date: todayISO(), weight: profile.startWeight })
+    const rate = profile.weeklyRateTarget
+    updateProfile({
+      goalLabel:
+        Math.abs(rate) < 0.05
+          ? 'Maintaining'
+          : `${rate > 0 ? 'Lean gain' : 'Cut'} · ${Math.abs(rate)} ${profile.units} / week`,
+    })
     completeOnboarding()
   }
 
   const exploreDemo = () => {
     haptic('light')
+    // Backing out of setup clears the sample data, so restore it rather than
+    // opening an empty app under a button that promised sample data.
+    if (logs.length === 0) resetToSeed()
     completeOnboarding()
   }
 
@@ -306,6 +318,7 @@ function WeightStep({ onNext, onBack }: { onNext: () => void; onBack: () => void
   const profile = useStore((s) => s.profile)
   const updateProfile = useStore((s) => s.updateProfile)
   const [editing, setEditing] = useState<'start' | 'goal' | null>(null)
+  const needsWeight = profile.startWeight <= 0
 
   const direction = profile.goalWeight - profile.startWeight
   const rateOptions = profile.units === 'kg' ? [0.1, 0.2, 0.35, 0.5] : [0.25, 0.5, 0.75, 1]
@@ -330,11 +343,12 @@ function WeightStep({ onNext, onBack }: { onNext: () => void; onBack: () => void
       blurb="Everything on the weigh-in screen is measured against these two numbers."
       onNext={onNext}
       onBack={onBack}
+      nextDisabled={needsWeight}
     >
       <div className="onboarding-fields">
         <BigField
           label="Today"
-          value={fixed(profile.startWeight, 1)}
+          value={profile.startWeight > 0 ? fixed(profile.startWeight, 1) : '—'}
           unit={profile.units}
           onPress={() => setEditing('start')}
         />
@@ -343,7 +357,7 @@ function WeightStep({ onNext, onBack }: { onNext: () => void; onBack: () => void
         </span>
         <BigField
           label="Goal"
-          value={fixed(profile.goalWeight, 1)}
+          value={profile.goalWeight > 0 ? fixed(profile.goalWeight, 1) : '—'}
           unit={profile.units}
           onPress={() => setEditing('goal')}
         />
@@ -381,9 +395,12 @@ function WeightStep({ onNext, onBack }: { onNext: () => void; onBack: () => void
       <NumberPad
         open={editing === 'start'}
         onClose={() => setEditing(null)}
-        onSubmit={(v) => updateProfile({ startWeight: v })}
+        onSubmit={(v) =>
+          // Seed the goal from today's weight so the next field isn't a blank.
+          updateProfile({ startWeight: v, goalWeight: profile.goalWeight > 0 ? profile.goalWeight : v })
+        }
         title="Today's weight"
-        initial={profile.startWeight}
+        initial={profile.startWeight > 0 ? profile.startWeight : 180}
         unit={profile.units}
         steps={[-5, -1, 1, 5]}
       />
@@ -392,7 +409,7 @@ function WeightStep({ onNext, onBack }: { onNext: () => void; onBack: () => void
         onClose={() => setEditing(null)}
         onSubmit={(v) => updateProfile({ goalWeight: v })}
         title="Goal weight"
-        initial={profile.goalWeight}
+        initial={profile.goalWeight > 0 ? profile.goalWeight : profile.startWeight}
         unit={profile.units}
         steps={[-5, -1, 1, 5]}
       />
@@ -409,10 +426,11 @@ function MaxesStep({ onNext, onBack }: { onNext: () => void; onBack: () => void 
   return (
     <StepShell
       eyebrow="Step 4 of 5"
-      title="Your training maxes"
-      blurb="Roughly 90% of a true one-rep max. Not sure? Tap Work it out and enter your best recent set."
+      title="Your working maxes"
+      blurb="The most you can lift for one rep right now — every percentage in the programme is a slice of it. Not sure? Tap Work it out and enter your best recent set."
       onNext={onNext}
       onBack={onBack}
+      nextDisabled={MAIN_LIFTS.some((l) => !profile.trainingMaxes[l.id])}
     >
       <div className="onboarding-list">
         {MAIN_LIFTS.map((lift) => (
@@ -433,8 +451,14 @@ function MaxesStep({ onNext, onBack }: { onNext: () => void; onBack: () => void 
               className="onboarding-value mono-nums"
               onClick={() => setEditing(lift.id)}
             >
-              {num(profile.trainingMaxes[lift.id] ?? 0, 0)}
-              <span className="dim" style={{ fontWeight: 400 }}> {profile.units}</span>
+              {profile.trainingMaxes[lift.id] ? (
+                <>
+                  {num(profile.trainingMaxes[lift.id]!, 0)}
+                  <span className="dim" style={{ fontWeight: 400 }}> {profile.units}</span>
+                </>
+              ) : (
+                <span style={{ color: 'var(--accent)' }}>Add</span>
+              )}
             </button>
           </div>
         ))}
@@ -445,7 +469,7 @@ function MaxesStep({ onNext, onBack }: { onNext: () => void; onBack: () => void 
           open={!!editing}
           onClose={() => setEditing(null)}
           onSubmit={(v) => setTrainingMax(editing, roundToIncrement(v, profile.roundingIncrement))}
-          title={MAIN_LIFTS.find((l) => l.id === editing)?.name ?? 'Training max'}
+          title={MAIN_LIFTS.find((l) => l.id === editing)?.name ?? 'Working max'}
           initial={profile.trainingMaxes[editing] ?? 0}
           unit={profile.units}
           steps={[-10, -5, 5, 10]}
@@ -532,7 +556,7 @@ function BigField({
   )
 }
 
-/** Turn "the best set I've done lately" into a training max. */
+/** Turn "the best set I've done lately" into a working max. */
 function MaxCalculator({
   liftId, units, increment, onClose, onApply,
 }: {
@@ -549,7 +573,7 @@ function MaxCalculator({
 
   const lift = MAIN_LIFTS.find((l) => l.id === liftId)
   const estimate = useMemo(() => e1RM(weight, reps, rpe), [weight, reps, rpe])
-  const trainingMax = roundToIncrement(estimate * 0.9, increment)
+  const workingMax = roundToIncrement(estimate, increment)
 
   if (!liftId || !lift) return null
 
@@ -563,7 +587,7 @@ function MaxCalculator({
         label: 'Use',
         strong: true,
         disabled: weight <= 0,
-        onPress: () => onApply(liftId, trainingMax),
+        onPress: () => onApply(liftId, workingMax),
       }}
       detent={0.82}
     >
@@ -598,15 +622,15 @@ function MaxCalculator({
           }}
         >
           <div className="t-footnote" style={{ color: 'var(--accent)', fontWeight: 600 }}>
-            TRAINING MAX
+            WORKING MAX
           </div>
           <div className="mono-nums" style={{ fontSize: 34, fontWeight: 700, letterSpacing: -0.8 }}>
-            {weight > 0 ? num(trainingMax, 0) : '—'}
+            {weight > 0 ? num(workingMax, 0) : '—'}
             <span className="dim" style={{ fontSize: 17, fontWeight: 400 }}> {units}</span>
           </div>
           {weight > 0 && (
             <div className="t-caption1 dim">
-              Estimated max {num(estimate, 0)} {units}, taken at 90%
+              Worked back from {num(weight, 1)} × {reps} at {formatRpe(rpe)}
             </div>
           )}
         </div>

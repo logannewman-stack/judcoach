@@ -45,61 +45,66 @@ export function ProfileSettings() {
   const age = new Date().getFullYear() - profile.birthYear
 
   return (
-    <Screen title="Profile" back={{ label: 'Settings', onPress: pop }} largeTitle={false}>
-      <div style={{ paddingTop: 12 }}>
-        <div className="gutter" style={{ marginBottom: 20 }}>
-          <h1 className="t-large-title" style={{ letterSpacing: -0.6 }}>Profile</h1>
+    <Screen title="Profile" back={{ label: 'Settings', onPress: pop }}>
+      <ListSection header="You">
+        <Row title="Name" value={profile.name} chevron onPress={() => setNaming(true)} />
+        <Row title="Height" value={heightText} chevron onPress={() => setField('heightIn')} />
+        <Row title="Age" value={`${age}`} chevron onPress={() => setField('birthYear')} />
+        <Row
+          title="Sex"
+          trailing={
+            <div role="group" aria-label="Sex" style={{ flex: 'none' }}>
+              <Segmented
+                options={[
+                  { value: 'male', label: 'Male' },
+                  { value: 'female', label: 'Female' },
+                ]}
+                value={profile.sex}
+                onChange={(v) => updateProfile({ sex: v })}
+                style={{ width: 152 }}
+              />
+            </div>
+          }
+        />
+      </ListSection>
+
+      <ListSection header="Units" footer="Changing units converts every weight in the app, including your working maxes and plate inventory.">
+        <div style={{ padding: '10px var(--gutter)' }}>
+          <Segmented
+            options={[
+              { value: 'lb', label: 'Pounds' },
+              { value: 'kg', label: 'Kilograms' },
+            ]}
+            value={profile.units}
+            onChange={(v) => changeUnits(v as Units)}
+          />
         </div>
+      </ListSection>
 
-        <ListSection header="You">
-          <Row title="Name" value={profile.name} chevron onPress={() => setNaming(true)} />
-          <Row title="Height" value={heightText} chevron onPress={() => setField('heightIn')} />
-          <Row title="Age" value={`${age}`} chevron onPress={() => setField('birthYear')} />
-          <Row
-            title="Sex"
-            value={profile.sex === 'male' ? 'Male' : 'Female'}
-            onPress={() => updateProfile({ sex: profile.sex === 'male' ? 'female' : 'male' })}
-          />
-        </ListSection>
-
-        <ListSection header="Units" footer="Changing units converts every weight in the app, including your training maxes and plate inventory.">
-          <div style={{ padding: '10px var(--gutter)' }}>
-            <Segmented
-              options={[
-                { value: 'lb', label: 'Pounds' },
-                { value: 'kg', label: 'Kilograms' },
-              ]}
-              value={profile.units}
-              onChange={(v) => changeUnits(v as Units)}
-            />
-          </div>
-        </ListSection>
-
-        <ListSection
-          header="Bodyweight goal"
-          footer="Jud compares your 7-day average against this rate every week. It is the number that decides whether calories move."
-        >
-          <Row
-            title="Starting weight"
-            value={`${fixed(profile.startWeight, 1)} ${profile.units}`}
-            chevron
-            onPress={() => setField('startWeight')}
-          />
-          <Row
-            title="Goal weight"
-            value={`${fixed(profile.goalWeight, 1)} ${profile.units}`}
-            chevron
-            onPress={() => setField('goalWeight')}
-          />
-          <Row
-            title="Target rate"
-            value={`${profile.weeklyRateTarget > 0 ? '+' : ''}${num(profile.weeklyRateTarget, 2)} ${profile.units}/wk`}
-            chevron
-            onPress={() => setField('weeklyRateTarget')}
-          />
-          <Row title="Goal label" value={profile.goalLabel} />
-        </ListSection>
-      </div>
+      <ListSection
+        header="Bodyweight goal"
+        footer="Jud compares your 7-day average against this rate every week. It is the number that decides whether calories move."
+      >
+        <Row
+          title="Starting weight"
+          value={`${fixed(profile.startWeight, 1)} ${profile.units}`}
+          chevron
+          onPress={() => setField('startWeight')}
+        />
+        <Row
+          title="Goal weight"
+          value={`${fixed(profile.goalWeight, 1)} ${profile.units}`}
+          chevron
+          onPress={() => setField('goalWeight')}
+        />
+        <Row
+          title="Target rate"
+          value={`${profile.weeklyRateTarget > 0 ? '+' : ''}${num(profile.weeklyRateTarget, 2)} ${profile.units}/wk`}
+          chevron
+          onPress={() => setField('weeklyRateTarget')}
+        />
+        <Row title="Goal label" value={profile.goalLabel} />
+      </ListSection>
 
       <NumberPad
         open={field === 'startWeight'}

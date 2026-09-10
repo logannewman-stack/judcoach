@@ -40,12 +40,13 @@ export function MealDetail({ mealId, date }: { mealId: string; date: string }) {
   const skipped = day.skippedMeals.includes(meal.id)
 
   return (
-    <Screen title={meal.name} back={{ label: 'Meals', onPress: pop }} largeTitle={false}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 22, paddingTop: 12 }}>
-        <div className="gutter">
-          <div className="t-footnote dim">{relativeDay(date)} · {formatClock(meal.time)}</div>
-          <h1 className="t-large-title" style={{ letterSpacing: -0.6, marginTop: 2 }}>{meal.name}</h1>
-          {meal.note && <div className="t-subhead dim" style={{ marginTop: 3 }}>{meal.note}</div>}
+    <Screen
+      title={meal.name}
+      back={{ onPress: pop }}
+      titleAccessory={
+        <div className="gutter" style={{ marginTop: -6, marginBottom: 16 }}>
+          <div className="t-subhead dim">{relativeDay(date)} · {formatClock(meal.time)}</div>
+          {meal.note && <div className="t-subhead dim" style={{ marginTop: 2 }}>{meal.note}</div>}
           <div style={{ display: 'flex', gap: 7, marginTop: 12, flexWrap: 'wrap' }}>
             <Pill tone="tinted">{totals.kcal} kcal</Pill>
             <Pill>P {totals.protein}g</Pill>
@@ -53,21 +54,26 @@ export function MealDetail({ mealId, date }: { mealId: string; date: string }) {
             <Pill>F {totals.fat}g</Pill>
           </div>
         </div>
-
+      }
+    >
+      {/* One 32px rhythm between groups — the same figure `.list-section`
+          carries, so lists and cards space identically. */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
         <div>
           <SectionHeader title="Foods" />
+          {/* No extra padding around the rows: FoodLine owns the 44pt pitch
+              that keeps the touch targets from colliding. */}
           <Card>
             {meal.items.map((item) => (
-              <div key={item.id} style={{ padding: '2px 0' }}>
-                <FoodLine
-                  item={item}
-                  portion={portionOf(day, item.id)}
-                  checked={!!day.checked[item.id]}
-                  onToggle={() => toggleFood(date, item.id)}
-                  onSwap={() => setSwapping(item)}
-                  onPortion={() => setPortioning(item)}
-                />
-              </div>
+              <FoodLine
+                key={item.id}
+                item={item}
+                portion={portionOf(day, item.id)}
+                checked={!!day.checked[item.id]}
+                onToggle={() => toggleFood(date, item.id)}
+                onSwap={() => setSwapping(item)}
+                onPortion={() => setPortioning(item)}
+              />
             ))}
           </Card>
           <div className="list-footer">

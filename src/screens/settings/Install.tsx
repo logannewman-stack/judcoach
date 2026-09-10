@@ -1,5 +1,5 @@
 import { Screen } from '../../components/ios/Screen'
-import { Card, SectionHeader } from '../../components/Bits'
+import { ListSection, Row } from '../../components/ios/List'
 import { Icon } from '../../components/Icon'
 import { GritTile, Wordmark } from '../../components/Logo'
 import { useNav } from '../../nav/nav'
@@ -10,6 +10,10 @@ const STEPS = [
   { icon: 'check' as const, title: 'Tap Add', body: 'GRIT lands on your Home Screen with its own icon.' },
 ]
 
+const LOCAL_NOTE =
+  'GRIT stores everything locally, so installing also means your logs survive a Safari clear of '
+  + 'browsing history. Export from Data & privacy for a copy you can keep.'
+
 export function Install() {
   const pop = useNav((s) => s.pop)
   const standalone =
@@ -19,71 +23,58 @@ export function Install() {
 
   return (
     <Screen title="Home Screen" back={{ label: 'Settings', onPress: pop }} largeTitle={false} inlineTitle>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 22, paddingTop: 12 }}>
-        <div
-          className="gutter"
-          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, textAlign: 'center' }}
-        >
-          <GritTile size={82} />
-          <Wordmark size={26} align="center" />
-        </div>
+      {/* The logo hero is this screen's title treatment, so the bar keeps the
+          pinned inline title instead of a large one. */}
+      <div
+        className="gutter"
+        style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
+          textAlign: 'center', paddingTop: 12, paddingBottom: 24,
+        }}
+      >
+        <GritTile size={82} />
+        <Wordmark size={26} align="center" />
+        {!standalone && (
+          <div className="t-subhead dim" style={{ lineHeight: '21px' }}>
+            Installed, GRIT runs full screen with no browser bar, keeps you logged in between
+            sessions, and opens straight to Today.
+          </div>
+        )}
+      </div>
 
-        {standalone ? (
-          <div className="gutter">
-            <Card style={{ margin: 0, width: '100%' }}>
-              <div style={{ display: 'flex', gap: 11, alignItems: 'center' }}>
-                <Icon name="check.circle.fill" size={24} color="var(--green)" />
-                <div>
-                  <div className="t-headline">You're already installed</div>
-                  <div className="t-footnote dim">GRIT is running from your Home Screen.</div>
+      {standalone ? (
+        <ListSection footer={LOCAL_NOTE}>
+          <Row
+            title="You're already installed"
+            subtitle="GRIT is running from your Home Screen."
+            icon="check"
+            iconColor="var(--green)"
+          />
+        </ListSection>
+      ) : (
+        <ListSection header="Three taps" footer={LOCAL_NOTE}>
+          <div style={{ padding: '10px var(--gutter) 13px' }}>
+            {STEPS.map((step, i) => (
+              <div key={i} style={{ display: 'flex', gap: 12, padding: '10px 0', alignItems: 'center' }}>
+                <span
+                  style={{
+                    width: 34, height: 34, borderRadius: 10, flex: 'none',
+                    background: 'var(--accent-soft)', display: 'grid', placeItems: 'center',
+                  }}
+                >
+                  <Icon name={step.icon} size={18} weight={2.2} color="var(--accent)" />
+                </span>
+                <div style={{ minWidth: 0 }}>
+                  <div className="t-subhead semibold">
+                    {i + 1}. {step.title}
+                  </div>
+                  <div className="t-footnote dim">{step.body}</div>
                 </div>
               </div>
-            </Card>
+            ))}
           </div>
-        ) : (
-          <>
-            <div className="gutter">
-              <div className="t-subhead dim" style={{ lineHeight: '21px', textAlign: 'center' }}>
-                Installed, GRIT runs full screen with no browser bar, keeps you logged in between
-                sessions, and opens straight to Today.
-              </div>
-            </div>
-
-            <div>
-              <SectionHeader title="Three taps" />
-              <Card>
-                {STEPS.map((step, i) => (
-                  <div key={i} style={{ display: 'flex', gap: 12, padding: '10px 0', alignItems: 'center' }}>
-                    <span
-                      style={{
-                        width: 34, height: 34, borderRadius: 10, flex: 'none',
-                        background: 'var(--accent-soft)', display: 'grid', placeItems: 'center',
-                      }}
-                    >
-                      <Icon name={step.icon} size={18} weight={2.2} color="var(--accent)" />
-                    </span>
-                    <div style={{ minWidth: 0 }}>
-                      <div className="t-subhead semibold">
-                        {i + 1}. {step.title}
-                      </div>
-                      <div className="t-footnote dim">{step.body}</div>
-                    </div>
-                  </div>
-                ))}
-              </Card>
-            </div>
-          </>
-        )}
-
-        <div className="gutter">
-          <Card style={{ margin: 0, width: '100%' }}>
-            <div className="t-footnote dim" style={{ lineHeight: '18px' }}>
-              GRIT stores everything locally, so installing also means your logs survive a Safari clear
-              of browsing history. Export from Data &amp; privacy for a copy you can keep.
-            </div>
-          </Card>
-        </div>
-      </div>
+        </ListSection>
+      )}
     </Screen>
   )
 }

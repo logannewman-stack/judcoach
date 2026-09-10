@@ -44,26 +44,24 @@ export function SessionDetail({ weekIndex, sessionId }: { weekIndex: number; ses
     <Screen
       title={session.name}
       back={{ label: 'Train', onPress: pop }}
-      largeTitle={false}
-      right={log ? { label: 'Log', onPress: () => push('logDetail', { logId: log.id }) } : undefined}
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 22, paddingTop: 12 }}>
-        {/* ------------------------------- header ------------------------------ */}
-        <div className="gutter">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 5 }}>
+      titleAccessory={
+        <div className="gutter" style={{ marginTop: -6, marginBottom: 18 }}>
+          <div className="t-subhead dim">{session.focus}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginTop: 10 }}>
             <Pill tone="tinted">{week.label.split(' — ')[0]}</Pill>
             {week.deload && <Pill>Deload</Pill>}
             {log && <Pill tone="good" icon="check">Completed</Pill>}
           </div>
-          <h1 className="t-large-title" style={{ letterSpacing: -0.6 }}>{session.name}</h1>
-          <div className="t-subhead dim" style={{ marginTop: 2 }}>{session.focus}</div>
           <div style={{ display: 'flex', gap: 14, marginTop: 10, flexWrap: 'wrap' }}>
             <Meta icon="calendar" text={formatMediumDate(date)} />
             <Meta icon="clock" text={formatMinutes(session.estMinutes * 60)} />
             <Meta icon="list" text={`${session.blocks.length} exercises · ${totalSets} sets`} />
           </div>
         </div>
-
+      }
+      right={log ? { label: 'Log', onPress: () => push('logDetail', { logId: log.id }) } : undefined}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
         {session.coachNote && (
           <div className="gutter">
             <CoachNote>{session.coachNote}</CoachNote>

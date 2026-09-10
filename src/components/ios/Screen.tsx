@@ -1,6 +1,8 @@
 import { useCallback, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Icon } from '../Icon'
+import { useNav } from '../../nav/nav'
+import { ROUTE_TITLES } from '../../screens/registry'
 
 /* ============================================================================
    Screen chrome: a translucent nav bar whose inline title fades in exactly as
@@ -27,6 +29,7 @@ interface ScreenProps {
   inlineTitle?: boolean
   /** Sits under the large title — a subtitle, segmented control, etc. */
   titleAccessory?: ReactNode
+  /** Omit `label` to name the screen you actually came from. */
   back?: { label?: string; onPress: () => void }
   left?: NavAction
   right?: NavAction | NavAction[]
@@ -53,6 +56,16 @@ function NavButton({ action }: { action: NavAction }) {
   )
 }
 
+/** The previous route's short title, so Back always names where it goes. */
+function useBackLabel(explicit?: string): string {
+  const tab = useNav((s) => s.tab)
+  const stack = useNav((s) => s.stacks[s.tab])
+  if (explicit) return explicit
+  const previous = stack[stack.length - 2]
+  if (!previous) return ROUTE_TITLES[tab] ?? 'Back'
+  return ROUTE_TITLES[previous.key] ?? 'Back'
+}
+
 export function Screen({
   title,
   largeTitle = true,
@@ -77,7 +90,9 @@ export function Screen({
     const top = e.currentTarget.scrollTop
     requestAnimationFrame(() => {
       setScrolled((prev) => {
-        const next = top > (largeTitle ? 32 : 4)
+        // The large-title block is ~53px tall; flipping at 32 crossfaded the
+        // inline title while the last of it was still sliding under the bar.
+        const next = top > (largeTitle ? 46 : 4)
         return prev === next ? prev : next
       })
       ticking.current = false
@@ -85,6 +100,7 @@ export function Screen({
   }, [largeTitle])
 
   const rights = right ? (Array.isArray(right) ? right : [right]) : []
+  const backLabel = useBackLabel(back?.label)
 
   return (
     <div className="screen">
@@ -94,7 +110,7 @@ export function Screen({
             {back ? (
               <button className="nav-btn" onClick={back.onPress} type="button" aria-label="Back">
                 <Icon name="chevron.left" size={20} weight={2.6} />
-                {back.label ?? 'Back'}
+                {backLabel}
               </button>
             ) : left ? (
               <NavButton action={left} />

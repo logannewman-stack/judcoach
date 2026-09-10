@@ -18,13 +18,19 @@ export function Guidelines() {
   const proteinPerLb = training.protein / Math.max(1, profile.startWeight)
 
   return (
-    <Screen title="Plan guidelines" back={{ label: 'Meals', onPress: pop }} largeTitle={false}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 22, paddingTop: 12 }}>
-        <div className="gutter">
-          <h1 className="t-large-title" style={{ letterSpacing: -0.6 }}>{MEAL_PLAN.name}</h1>
-          <div className="t-subhead dim" style={{ marginTop: 2 }}>{MEAL_PLAN.subtitle}</div>
+    <Screen
+      title={MEAL_PLAN.name}
+      back={{ onPress: pop }}
+      titleAccessory={
+        <div className="gutter" style={{ marginTop: -6, marginBottom: 16 }}>
+          <div className="t-subhead dim">{MEAL_PLAN.subtitle}</div>
         </div>
-
+      }
+    >
+      {/* One 32px rhythm between groups — the same figure `.list-section`
+          carries, so lists and cards space identically. Headers are all
+          SectionHeader; iOS never mixes header styles inside one screen. */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
         <div className="gutter">
           <CoachNote>
             Percentages set the floor, protein sets the ceiling. If a day goes sideways, protect the
@@ -54,24 +60,33 @@ export function Guidelines() {
         </div>
 
         {/* ------------------------------ targets ---------------------------- */}
-        <ListSection header="Training day" footer={`Macros total ${kcalFromMacros(training)} kcal.`}>
-          <Row title="Calories" value={`${training.kcal} kcal`} />
-          <Row title="Protein" value={`${training.protein} g`} />
-          <Row title="Carbohydrate" value={`${training.carbs} g`} />
-          <Row title="Fat" value={`${training.fat} g`} />
-          <Row title="Fibre" value={`${training.fiber} g`} />
-          <Row title="Water" value={`${training.waterOz} oz`} />
-        </ListSection>
+        <div>
+          <SectionHeader title="Training day" />
+          <ListSection
+            footer={`Macros total ${kcalFromMacros(training)} kcal.`}
+            style={{ marginBottom: 0 }}
+          >
+            <Row title="Calories" value={`${training.kcal} kcal`} />
+            <Row title="Protein" value={`${training.protein} g`} />
+            <Row title="Carbohydrate" value={`${training.carbs} g`} />
+            <Row title="Fat" value={`${training.fat} g`} />
+            <Row title="Fibre" value={`${training.fiber} g`} />
+            <Row title="Water" value={`${training.waterOz} oz`} />
+          </ListSection>
+        </div>
 
-        <ListSection
-          header="Rest day"
-          footer={`${training.carbs - rest.carbs} g fewer carbs. Protein and fat are unchanged.`}
-        >
-          <Row title="Calories" value={`${rest.kcal} kcal`} />
-          <Row title="Protein" value={`${rest.protein} g`} />
-          <Row title="Carbohydrate" value={`${rest.carbs} g`} />
-          <Row title="Fat" value={`${rest.fat} g`} />
-        </ListSection>
+        <div>
+          <SectionHeader title="Rest day" />
+          <ListSection
+            footer={`${training.carbs - rest.carbs} g fewer carbs. Protein and fat are unchanged.`}
+            style={{ marginBottom: 0 }}
+          >
+            <Row title="Calories" value={`${rest.kcal} kcal`} />
+            <Row title="Protein" value={`${rest.protein} g`} />
+            <Row title="Carbohydrate" value={`${rest.carbs} g`} />
+            <Row title="Fat" value={`${rest.fat} g`} />
+          </ListSection>
+        </div>
 
         {/* ------------------------------- rules ----------------------------- */}
         <div>

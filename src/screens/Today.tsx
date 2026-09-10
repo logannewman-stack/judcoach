@@ -8,17 +8,17 @@ import { RingStack, MACRO_COLORS } from '../components/Rings'
 import { Sparkline } from '../components/Charts'
 import { useStore, emptyDay } from '../store/useStore'
 import {
-  currentWeekIndex, getWeek, missedSessions, nextSession, sessionsThisWeek,
-  trainingStreak, useProgram, weekSchedule,
+  blockSummary, currentWeekIndex, getWeek, isBlockComplete, missedSessions, nextSession,
+  sessionsThisWeek, trainingStreak, useProgram, weekSchedule,
 } from '../store/selectors'
 import { MEAL_PLAN } from '../data/mealPlan'
-import type { ExercisePrescription, Profile } from '../domain/types'
+import type { ExercisePrescription, Profile, WorkoutLog } from '../domain/types'
 import { getExercise } from '../data/exercises'
 import { consumedTotals } from '../domain/nutrition'
 import { describeReps, formatRpe, resolveSet } from '../domain/strength'
 import { rollingSeries, summarizeTrend, weighInStreak } from '../domain/weight'
 import { formatLongDate, relativeDay, timeOfDayGreeting, todayISO, addDays } from '../lib/date'
-import { fixed, num, signed } from '../lib/format'
+import { compact, fixed, num, signed } from '../lib/format'
 import { navPresent, navPush, navSwitchTab, useNav } from '../nav/nav'
 import { NumberPad } from '../components/NumberPad'
 import { toast } from '../components/ios/Toast'
@@ -39,13 +39,20 @@ export function TodayScreen() {
   const weekIndex = currentWeekIndex(program, today)
   const week = getWeek(program, weekIndex)
   const next = useMemo(() => nextSession(program, logs, today), [program, logs, today])
-  const missed = useMemo(() => missedSessions(program, logs, today), [program, logs, today])
+  const blockStartedOn = useStore((s) => s.blockStartedOn)
+  const missed = useMemo(
+    () => missedSessions(program, logs, today, blockStartedOn),
+    [program, logs, today, blockStartedOn],
+  )
   const weekProgress = sessionsThisWeek(program, logs, today)
+  const blockDone = isBlockComplete(program, today)
+  const startNextBlock = useStore((s) => s.startNextBlock)
   const streak = trainingStreak(program, logs, today)
 
   const day = nutrition[today] ?? emptyDay(today)
   const totals = consumedTotals(MEAL_PLAN, day)
   const targets = MEAL_PLAN.targets
+  const over = totals.kcal - targets.kcal
 
   const trend = useMemo(() => summarizeTrend(weighIns, 28), [weighIns])
   const series = useMemo(() => rollingSeries(weighIns, 7).slice(-21), [weighIns])
@@ -73,7 +80,16 @@ export function TodayScreen() {
               {timeOfDayGreeting()}, {profile.name.split(' ')[0]}
             </div>
           </div>
-          {active ? (
+          {blockDone ? (
+            <BlockCompleteCard
+              program={program}
+              logs={logs}
+              onStart={() => {
+                startNextBlock()
+                toast('New block started', { icon: 'check.circle.fill', tone: 'good' })
+              }}
+            />
+          ) : active ? (
             <ResumeCard />
           ) : todaysLog ? (
             <CompletedCard name={todaysLog.sessionName} onPress={() => push('logDetail', { logId: todaysLog.id })} />
@@ -121,8 +137,13 @@ export function TodayScreen() {
                 <MacroLine label="Protein" value={totals.protein} target={targets.protein} color={MACRO_COLORS.protein} />
                 <MacroLine label="Carbs" value={totals.carbs} target={targets.carbs} color={MACRO_COLORS.carbs} />
                 <MacroLine label="Fat" value={totals.fat} target={targets.fat} color={MACRO_COLORS.fat} />
-                <div className="t-caption1 dim" style={{ marginTop: 1 }}>
-                  {Math.max(0, Math.round(targets.kcal - totals.kcal))} kcal left today
+                <div
+                  className="t-caption1"
+                  style={{ marginTop: 1, color: over > 0 ? 'var(--orange)' : 'var(--label-2)' }}
+                >
+                  {over > 0
+                    ? `${Math.round(over)} kcal over target`
+                    : `${Math.round(-over)} kcal left today`}
                 </div>
               </div>
             </div>
@@ -293,11 +314,17 @@ export function TodayScreen() {
 
 function MacroLine({ label, value, target, color }: { label: string; value: number; target: number; color: string }) {
   const pct = target > 0 ? Math.min((value / target) * 100, 100) : 0
+  // Past the target the bar fills and the number turns, so an overshoot reads
+  // as an overshoot rather than as a completed goal.
+  const over = target > 0 && value > target * 1.02
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
         <span className="t-caption1 semibold dim">{label}</span>
-        <span className="t-caption1 mono-nums semibold">
+        <span
+          className="t-caption1 mono-nums semibold"
+          style={over ? { color: 'var(--orange)' } : undefined}
+        >
           {Math.round(value)}
           <span className="dim" style={{ fontWeight: 400 }}>/{Math.round(target)}g</span>
         </span>
@@ -305,11 +332,55 @@ function MacroLine({ label, value, target, color }: { label: string; value: numb
       <div className="track" style={{ height: 5, marginTop: 3 }}>
         <motion.div
           className="track-fill"
-          style={{ background: color }}
+          style={{ background: over ? 'var(--orange)' : color }}
           initial={{ width: 0 }}
           animate={{ width: `${pct}%` }}
           transition={{ type: 'spring', stiffness: 120, damping: 20 }}
         />
+      </div>
+    </div>
+  )
+}
+
+/** Shown once the block's last week is behind them, so the app doesn't simply
+    run out and pin every client on week eight forever. */
+function BlockCompleteCard({
+  program, logs, onStart,
+}: {
+  program: ReturnType<typeof useProgram>
+  logs: WorkoutLog[]
+  onStart: () => void
+}) {
+  const summary = blockSummary(program, logs)
+  return (
+    <div
+      className="card"
+      style={{
+        padding: 16,
+        background: 'linear-gradient(155deg, color-mix(in srgb, var(--green) 88%, #000) 0%, color-mix(in srgb, var(--teal) 82%, #000) 100%)',
+        color: '#fff',
+      }}
+    >
+      <div className="t-caption1 semibold" style={{ opacity: 0.86, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+        Block complete
+      </div>
+      <div style={{ fontSize: 26, lineHeight: '31px', fontWeight: 700, letterSpacing: -0.5, marginTop: 2 }}>
+        {program.name}
+      </div>
+      <div className="t-subhead" style={{ opacity: 0.88, marginTop: 3 }}>
+        {summary.sessions} of {summary.scheduled} sessions · {summary.sets} working sets ·{' '}
+        {compact(summary.tonnage)} lb moved
+      </div>
+      <button
+        type="button"
+        className="btn"
+        style={{ background: '#fff', color: 'var(--green)', marginTop: 14, minHeight: 46 }}
+        onClick={onStart}
+      >
+        Start the next block
+      </button>
+      <div className="t-caption1" style={{ opacity: 0.82, marginTop: 9 }}>
+        Update your working maxes in Settings first if you tested a new single.
       </div>
     </div>
   )

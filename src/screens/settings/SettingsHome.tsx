@@ -63,7 +63,7 @@ export function SettingsHome() {
             onPress={() => push('programSettings')}
           />
           <Row
-            title="Training maxes"
+            title="Working maxes"
             subtitle="What every percentage is calculated from"
             icon="chart.bar"
             iconColor="var(--blue)"

@@ -46,18 +46,17 @@ export function Measurements() {
   return (
     <Screen
       title="Measurements"
-      back={{ label: 'Weigh-In', onPress: pop }}
-      largeTitle={false}
+      back={{ onPress: pop }}
+      titleAccessory={
+        <div className="gutter" style={{ marginTop: -6, marginBottom: 16 }}>
+          <div className="t-subhead dim">The tape catches what the scale misses.</div>
+        </div>
+      }
       right={{ icon: 'plus', onPress: () => setAdding(true), ariaLabel: 'Add measurements' }}
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 22, paddingTop: 12 }}>
-        <div className="gutter">
-          <h1 className="t-large-title" style={{ letterSpacing: -0.6 }}>Measurements</h1>
-          <div className="t-subhead dim" style={{ marginTop: 2 }}>
-            The tape catches what the scale misses.
-          </div>
-        </div>
-
+      {/* One 32px rhythm between groups — the same figure `.list-section`
+          carries, so lists and cards space identically. */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
         {measurements.length === 0 ? (
           <EmptyState
             icon="ruler"
@@ -111,7 +110,7 @@ export function Measurements() {
               <div className="t-caption1 dim" style={{ marginTop: 4 }}>{meta.hint}</div>
             </Card>
 
-            <ListSection header="History">
+            <ListSection header="History" style={{ marginBottom: 0 }}>
               {[...measurements].reverse().map((entry) => (
                 <Row
                   key={entry.date}

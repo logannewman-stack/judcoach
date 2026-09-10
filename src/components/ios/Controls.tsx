@@ -12,11 +12,14 @@ export function Segmented<T extends string>({
   value,
   onChange,
   style,
+  label,
 }: {
   options: { value: T; label: string }[]
   value: T
   onChange: (value: T) => void
   style?: CSSProperties
+  /** Names the control for assistive tech, as Switch already does. */
+  label?: string
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const [thumb, setThumb] = useState<{ left: number; width: number } | null>(null)
@@ -39,7 +42,7 @@ export function Segmented<T extends string>({
   }, [index, options.length])
 
   return (
-    <div className="segmented" ref={ref} style={style} role="tablist">
+    <div className="segmented" ref={ref} style={style} role="group" aria-label={label}>
       {thumb && (
         <motion.div
           className="segmented-thumb"
@@ -53,8 +56,7 @@ export function Segmented<T extends string>({
         <button
           key={o.value}
           type="button"
-          role="tab"
-          aria-selected={o.value === value}
+          aria-pressed={o.value === value}
           className="segment"
           data-active={o.value === value}
           onClick={() => {

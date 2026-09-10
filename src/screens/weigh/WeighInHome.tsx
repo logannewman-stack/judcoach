@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { motion } from 'framer-motion'
 import { Screen } from '../../components/ios/Screen'
 import { ListSection, Row } from '../../components/ios/List'
 import { Card, EmptyState, StatTile } from '../../components/Bits'
 import { Button, Pill, Segmented } from '../../components/ios/Controls'
 import { SwipeRow, useSwipeGroup } from '../../components/ios/SwipeRow'
+import { ActionSheet } from '../../components/ios/Sheet'
 import { NumberPad } from '../../components/NumberPad'
 import { LineChart } from '../../components/Charts'
 import { toast } from '../../components/ios/Toast'
@@ -18,6 +20,17 @@ import { useNav } from '../../nav/nav'
 
 type Range = '30' | '90' | 'all'
 
+/**
+ * SwipeRow's wrapper element breaks the stylesheet's `.row + .row` hairline, so
+ * rows inside one paint their own — at the same inset the sheet would use.
+ */
+const ROW_SEPARATOR: CSSProperties = {
+  backgroundImage: 'linear-gradient(var(--sep), var(--sep))',
+  backgroundRepeat: 'no-repeat',
+  backgroundPosition: 'right top',
+  backgroundSize: 'calc(100% - var(--row-sep-inset, var(--gutter))) var(--hairline)',
+}
+
 export function WeighInHome() {
   const today = todayISO()
   const push = useNav((s) => s.push)
@@ -29,7 +42,15 @@ export function WeighInHome() {
 
   const [range, setRange] = useState<Range>('90')
   const [logging, setLogging] = useState(false)
+  // Tapping a row opens the same actions the swipe reveals, so deleting works
+  // for keyboard, Switch Control and VoiceOver — none of which can swipe.
+  const [acting, setActing] = useState<string | null>(null)
   const swipe = useSwipeGroup()
+
+  const removeEntry = (date: string) => {
+    deleteWeighIn(date)
+    toast('Entry deleted', { icon: 'trash', tone: 'bad' })
+  }
 
   const series = useMemo(() => rollingSeries(weighIns, 7), [weighIns])
   const trend = useMemo(() => summarizeTrend(weighIns, 28), [weighIns])
@@ -48,13 +69,26 @@ export function WeighInHome() {
 
   if (weighIns.length === 0) {
     return (
-      <Screen title="Weigh-In">
-        <EmptyState
-          icon="scale"
-          title="No weigh-ins yet"
-          message="Step on the scale first thing, after the bathroom, before food or water. Same conditions every day."
-          action={<Button small onPress={() => setLogging(true)}>Log your first weigh-in</Button>}
-        />
+      <Screen
+        title="Weigh-In"
+        titleAccessory={
+          <div className="gutter" style={{ marginTop: -6, marginBottom: 16 }}>
+            <div className="t-subhead dim">{profile.goalLabel}</div>
+          </div>
+        }
+        right={{ icon: 'plus', onPress: () => setLogging(true), ariaLabel: 'Log weigh-in' }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+          <EmptyState
+            icon="scale"
+            title="No weigh-ins yet"
+            message="Step on the scale first thing, after the bathroom, before food or water. Same conditions every day."
+            action={<Button small onPress={() => setLogging(true)}>Log your first weigh-in</Button>}
+          />
+          {/* Measurements, photos and check-ins don't need a weigh-in first —
+              they'd be unreachable if the empty state stood alone. */}
+          <TrackMoreSection push={push} />
+        </div>
         <LogSheet
           open={logging}
           onClose={() => setLogging(false)}
@@ -76,7 +110,9 @@ export function WeighInHome() {
       }
       right={{ icon: 'plus', onPress: () => setLogging(true), ariaLabel: 'Log weigh-in' }}
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* One 32px rhythm between groups — the same figure `.list-section`
+          carries, so lists and cards space identically. */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
         {/* -------------------------------- hero ----------------------------- */}
         <Card>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
@@ -224,37 +260,13 @@ export function WeighInHome() {
         )}
 
         {/* ------------------------------ more ------------------------------- */}
-        <ListSection header="Track more">
-          <Row
-            title="Body measurements"
-            subtitle="Waist, chest, arms, thighs"
-            icon="ruler"
-            iconColor="var(--indigo)"
-            chevron
-            onPress={() => push('measurements')}
-          />
-          <Row
-            title="Progress photos"
-            subtitle="Same light, same pose, same time"
-            icon="camera"
-            iconColor="var(--pink)"
-            chevron
-            onPress={() => push('photos')}
-          />
-          <Row
-            title="Weekly check-ins"
-            subtitle="What Jud reads before adjusting anything"
-            icon="note"
-            iconColor="var(--green)"
-            chevron
-            onPress={() => push('checkIns')}
-          />
-        </ListSection>
+        <TrackMoreSection push={push} />
 
         {/* ----------------------------- history ----------------------------- */}
         <ListSection
           header="Recent entries"
-          footer="Swipe an entry left to delete it."
+          footer="Tap an entry for its options, or swipe it left to delete."
+          style={{ marginBottom: 0 }}
         >
           {[...weighIns]
             .slice(-14)
@@ -273,37 +285,58 @@ export function WeighInHome() {
                       label: 'Delete',
                       icon: 'trash',
                       destructive: true,
-                      onPress: () => {
-                        deleteWeighIn(entry.date)
-                        toast('Entry deleted', { icon: 'trash', tone: 'bad' })
-                      },
+                      onPress: () => removeEntry(entry.date),
                     },
                   ]}
                 >
-                  <Row
-                    title={relativeDay(entry.date, today)}
-                    subtitle={formatMediumDate(entry.date)}
-                    value={
-                      <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 8 }}>
-                        {prev && (
-                          <span
-                            className="t-footnote mono-nums"
-                            style={{ color: delta > 0 ? 'var(--orange)' : delta < 0 ? 'var(--green)' : 'var(--label-3)' }}
-                          >
-                            {signed(delta, 1)}
+                  <TapGuard>
+                    <Row
+                      title={relativeDay(entry.date, today)}
+                      subtitle={formatMediumDate(entry.date)}
+                      onPress={() => setActing(entry.date)}
+                      style={i > 0 ? ROW_SEPARATOR : undefined}
+                      value={
+                        <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 8 }}>
+                          {prev && (
+                            <span
+                              className="t-footnote mono-nums"
+                              style={{ color: delta > 0 ? 'var(--orange)' : delta < 0 ? 'var(--green)' : 'var(--label-3)' }}
+                            >
+                              {signed(delta, 1)}
+                            </span>
+                          )}
+                          <span className="mono-nums" style={{ color: 'var(--label)' }}>
+                            {fixed(entry.weight, decimals)} {profile.units}
                           </span>
-                        )}
-                        <span className="mono-nums" style={{ color: 'var(--label)' }}>
-                          {fixed(entry.weight, decimals)} {profile.units}
                         </span>
-                      </span>
-                    }
-                  />
+                      }
+                    />
+                  </TapGuard>
                 </SwipeRow>
               )
             })}
         </ListSection>
       </div>
+
+      <ActionSheet
+        open={!!acting}
+        onClose={() => setActing(null)}
+        title={acting ? relativeDay(acting, today) : undefined}
+        message={
+          acting
+            ? `${fixed(weighIns.find((w) => w.date === acting)?.weight ?? 0, decimals)} ${profile.units} · ${formatMediumDate(acting)}`
+            : undefined
+        }
+        items={[
+          {
+            label: 'Delete entry',
+            destructive: true,
+            onPress: () => {
+              if (acting) removeEntry(acting)
+            },
+          },
+        ]}
+      />
 
       <LogSheet
         open={logging}
@@ -317,6 +350,64 @@ export function WeighInHome() {
       />
 
     </Screen>
+  )
+}
+
+/**
+ * A press that turned into a swipe must not also fire the row's own action:
+ * the gesture and the tap ride the same pointer sequence. Keyboard activation
+ * (`detail === 0`) is never suppressed.
+ */
+function TapGuard({ children }: { children: ReactNode }) {
+  const from = useRef<{ x: number; y: number } | null>(null)
+  return (
+    <div
+      onPointerDownCapture={(e) => {
+        from.current = { x: e.clientX, y: e.clientY }
+      }}
+      onClickCapture={(e) => {
+        const start = from.current
+        if (!start || e.detail === 0) return
+        if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > 8) {
+          e.preventDefault()
+          e.stopPropagation()
+        }
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
+/** The rest of the body-tracking tab — reachable with or without a weigh-in. */
+function TrackMoreSection({ push }: { push: (key: string) => void }) {
+  return (
+    <ListSection header="Track more" style={{ marginBottom: 0 }}>
+      <Row
+        title="Body measurements"
+        subtitle="Waist, chest, arms, thighs"
+        icon="ruler"
+        iconColor="var(--indigo)"
+        chevron
+        onPress={() => push('measurements')}
+      />
+      <Row
+        title="Progress photos"
+        subtitle="Same light, same pose, same time"
+        icon="camera"
+        iconColor="var(--pink)"
+        chevron
+        onPress={() => push('photos')}
+      />
+      <Row
+        title="Weekly check-ins"
+        subtitle="What Jud reads before adjusting anything"
+        icon="note"
+        iconColor="var(--green)"
+        chevron
+        onPress={() => push('checkIns')}
+      />
+    </ListSection>
   )
 }
 

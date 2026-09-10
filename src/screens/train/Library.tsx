@@ -5,7 +5,7 @@ import { Card, EmptyState, SectionHeader } from '../../components/Bits'
 import { Pill, Segmented } from '../../components/ios/Controls'
 import { SearchField } from '../../components/ios/SearchField'
 import { LineChart, Sparkline } from '../../components/Charts'
-import { LoggedSetChip } from './parts'
+import { LoggedSetChip, flushSection } from './parts'
 import { useStore } from '../../store/useStore'
 import { e1rmSeries, performanceHistory, personalRecords } from '../../store/selectors'
 import { EQUIPMENT_LABELS, EXERCISES, MUSCLE_LABELS, getExercise } from '../../data/exercises'
@@ -42,26 +42,49 @@ export function ExerciseLibrary() {
     })
   }, [query, group])
 
+  // Every row wants a sparkline, so the trend for the whole library is built in
+  // one pass over the logs. Asking for a series per row meant re-scanning,
+  // copying and sorting the full history fifty-odd times per keystroke.
+  const trends = useMemo(() => {
+    const byExercise = new Map<string, number[]>()
+    const chronological = [...logs].sort((a, b) => a.date.localeCompare(b.date))
+    for (const log of chronological) {
+      const seen = new Set<string>()
+      for (const entry of log.exercises) {
+        // One point per exercise per session, matching e1rmSeries().
+        if (entry.sets.length === 0 || seen.has(entry.exerciseId)) continue
+        seen.add(entry.exerciseId)
+        const value = bestE1RM(entry.sets)
+        if (value <= 0) continue
+        const series = byExercise.get(entry.exerciseId)
+        if (series) series.push(value)
+        else byExercise.set(entry.exerciseId, [value])
+      }
+    }
+    return byExercise
+  }, [logs])
+
   return (
-    <Screen title="Exercises" back={{ label: 'Train', onPress: pop }} largeTitle={false}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 18, paddingTop: 12 }}>
-        <div className="gutter">
-          <h1 className="t-large-title" style={{ letterSpacing: -0.6 }}>Exercises</h1>
-          <div className="t-subhead dim" style={{ marginTop: 2 }}>
+    <Screen
+      title="Exercises"
+      back={{ label: 'Train', onPress: pop }}
+      titleAccessory={
+        <div className="gutter" style={{ marginTop: -6, marginBottom: 16 }}>
+          <div className="t-subhead dim">
             {pluralize(EXERCISES.length, 'movement')} with Jud's cues on every one.
           </div>
         </div>
-
-        <div className="gutter">
+      }
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+        {/* Search and filter are one control cluster, so they stay tight. */}
+        <div className="gutter" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <SearchField
             value={query}
             onChange={setQuery}
-            placeholder="Search 55 movements"
+            placeholder={`Search ${EXERCISES.length} movements`}
             label="Search exercises"
           />
-        </div>
-
-        <div className="gutter">
           <Segmented
             options={GROUPS.map((g) => ({ value: g.key, label: g.label }))}
             value={group}
@@ -74,15 +97,15 @@ export function ExerciseLibrary() {
         ) : (
           <ListSection>
             {results.map((exercise) => {
-              const series = e1rmSeries(logs, exercise.id)
+              const series = trends.get(exercise.id)
               return (
                 <Row
                   key={exercise.id}
                   title={exercise.name}
                   subtitle={`${exercise.primary.map((m) => MUSCLE_LABELS[m]).join(', ')} · ${EQUIPMENT_LABELS[exercise.equipment]}`}
                   trailing={
-                    series.length > 2 ? (
-                      <Sparkline values={series.slice(-10).map((p) => p.value)} width={44} height={20} />
+                    series && series.length > 2 ? (
+                      <Sparkline values={series.slice(-10)} width={44} height={20} />
                     ) : undefined
                   }
                   chevron
@@ -124,21 +147,20 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
   const tm = profile.trainingMaxes[exercise.id]
 
   return (
-    <Screen title={exercise.name} back={{ onPress: pop }} largeTitle={false}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 22, paddingTop: 12 }}>
-        <div className="gutter">
-          <h1 className="t-large-title" style={{ letterSpacing: -0.6, lineHeight: '40px' }}>
-            {exercise.name}
-          </h1>
-          <div style={{ display: 'flex', gap: 7, marginTop: 10, flexWrap: 'wrap' }}>
-            <Pill tone="tinted">{EQUIPMENT_LABELS[exercise.equipment]}</Pill>
-            {exercise.primary.map((m) => (
-              <Pill key={m}>{MUSCLE_LABELS[m]}</Pill>
-            ))}
-            {exercise.isMainLift && <Pill tone="warn" icon="bolt.fill">Main lift</Pill>}
-          </div>
+    <Screen
+      title={exercise.name}
+      back={{ onPress: pop }}
+      titleAccessory={
+        <div className="gutter" style={{ marginTop: 2, marginBottom: 18, display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+          <Pill tone="tinted">{EQUIPMENT_LABELS[exercise.equipment]}</Pill>
+          {exercise.primary.map((m) => (
+            <Pill key={m}>{MUSCLE_LABELS[m]}</Pill>
+          ))}
+          {exercise.isMainLift && <Pill tone="warn" icon="bolt.fill">Main lift</Pill>}
         </div>
-
+      }
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
         {/* --------------------------------- PR ----------------------------- */}
         {pr && (
           <div className="gutter">
@@ -160,7 +182,7 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
                   <div className="mono-nums t-title3">{num(pr.topWeight, 0)}</div>
                   {tm && (
                     <>
-                      <div className="t-footnote dim" style={{ marginTop: 6 }}>Training max</div>
+                      <div className="t-footnote dim" style={{ marginTop: 6 }}>Working max</div>
                       <div className="mono-nums t-title3">{num(tm, 0)}</div>
                     </>
                   )}
@@ -214,21 +236,24 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
 
         {/* ----------------------------- substitutes ------------------------ */}
         {exercise.substituteIds && exercise.substituteIds.length > 0 && (
-          <ListSection header="If it's taken or it hurts">
-            {exercise.substituteIds.map((id) => {
-              const sub = getExercise(id)
-              if (!sub) return null
-              return (
-                <Row
-                  key={id}
-                  title={sub.name}
-                  subtitle={`${sub.primary.map((m) => MUSCLE_LABELS[m]).join(', ')} · ${EQUIPMENT_LABELS[sub.equipment]}`}
-                  chevron
-                  onPress={() => push('exerciseDetail', { exerciseId: id })}
-                />
-              )
-            })}
-          </ListSection>
+          <div>
+            <SectionHeader title="If it's taken or it hurts" />
+            <ListSection style={flushSection}>
+              {exercise.substituteIds.map((id) => {
+                const sub = getExercise(id)
+                if (!sub) return null
+                return (
+                  <Row
+                    key={id}
+                    title={sub.name}
+                    subtitle={`${sub.primary.map((m) => MUSCLE_LABELS[m]).join(', ')} · ${EQUIPMENT_LABELS[sub.equipment]}`}
+                    chevron
+                    onPress={() => push('exerciseDetail', { exerciseId: id })}
+                  />
+                )
+              })}
+            </ListSection>
+          </div>
         )}
 
         {/* ------------------------------ history --------------------------- */}

@@ -69,3 +69,40 @@ export const SCREENS: ScreenRegistry = {
   programSettings: ProgramSettings,
   install: Install,
 }
+
+/**
+ * Short titles for the back button, which names the screen you came *from*.
+ * Hard-coding the label at each screen mislabels every second entry point —
+ * Today → Coach → Check-ins used to offer a "Weigh-In" button that went to
+ * Coach.
+ */
+export const ROUTE_TITLES: Record<string, string> = {
+  today: 'Today',
+  train: 'Train',
+  meals: 'Meals',
+  weigh: 'Weigh-In',
+  settings: 'Settings',
+  session: 'Session',
+  history: 'History',
+  logDetail: 'Workout',
+  exerciseLibrary: 'Exercises',
+  exerciseDetail: 'Exercise',
+  rpeGuide: 'RPE',
+  prs: 'Records',
+  mealDetail: 'Meal',
+  grocery: 'Grocery',
+  guidelines: 'Plan',
+  measurements: 'Measure',
+  photos: 'Photos',
+  checkIns: 'Check-ins',
+  profileSettings: 'Profile',
+  trainingMaxes: 'Maxes',
+  equipment: 'Equipment',
+  appearance: 'Appearance',
+  workoutSettings: 'Workout',
+  notifications: 'Alerts',
+  dataSettings: 'Data',
+  coach: 'Coach',
+  programSettings: 'Programme',
+  install: 'Home Screen',
+}
