@@ -15,6 +15,7 @@ import { useTheme, useWakeLock } from './lib/useTheme'
 import { useStore } from './store/useStore'
 import { useCoach } from './store/coach'
 import { unreadFrom } from './domain/coach'
+import { SeatBar } from './components/SeatBar'
 import { onStorageProblem } from './store/persist'
 
 export function App() {
@@ -30,7 +31,8 @@ export function App() {
   const dragControls = useDragControls()
   const dismiss = useNav((s) => s.dismiss)
   // Jud writing to a client is worth a badge; they should not have to go looking.
-  const unreadFromCoach = useCoach((s) => unreadFrom(s.notes).length)
+  const unreadMessages = useCoach((s) => unreadFrom(s.notes, s.viewAs).length)
+  const coachSeat = useCoach((s) => s.viewAs === 'coach')
   useWakeLock(keepAwake && !!active)
 
   /* A full disk used to throw out of the store and into whichever component
@@ -72,13 +74,23 @@ export function App() {
       <DeviceFrame>
         <div className="app">
           <div className="app-content" data-receded={sheetDepth > 0}>
-            <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
+            <SeatBar />
+            <div
+              style={{
+                position: 'relative',
+                flex: 1,
+                minHeight: 0,
+                // The seat bar has already taken the notch, so the nav bars
+                // below it must not pad for it a second time.
+                ...(coachSeat ? { ['--sa-top' as string]: '0px' } : null),
+              }}
+            >
               {TABS.map((key) => (
                 <Stack key={key} tab={key} registry={SCREENS} active={tab === key} />
               ))}
             </div>
 
-            <TabBar badges={{ settings: unreadFromCoach }} />
+            <TabBar badges={{ settings: unreadMessages }} />
 
             <AnimatePresence>
               {fullScreen && FullScreenComponent && (

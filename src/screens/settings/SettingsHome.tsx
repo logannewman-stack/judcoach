@@ -20,8 +20,9 @@ export function SettingsHome() {
   const program = useProgram()
   const week = currentWeekIndex(program, todayISO())
   const notes = useCoach((s) => s.notes)
-  const unread = unreadFrom(notes).length
-  const lastFromCoach = byTime(notes.filter((n) => n.author === 'coach')).at(-1)
+  const viewAs = useCoach((s) => s.viewAs)
+  const unread = unreadFrom(notes, viewAs).length
+  const last = byTime(notes).at(-1)
 
   return (
     <Screen title="Settings">
@@ -62,7 +63,9 @@ export function SettingsHome() {
           <Row
             title="Messages"
             subtitle={
-              lastFromCoach ? `${COACH.name}: ${lastFromCoach.body}` : `Ask ${COACH.name} anything`
+              last
+                ? `${last.author === viewAs ? 'You' : COACH.name}: ${last.body}`
+                : `Ask ${COACH.name} anything`
             }
             icon="message"
             iconColor="var(--accent)"

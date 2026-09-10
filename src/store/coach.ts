@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import type { CoachNote, NoteAnchor } from '../domain/coach'
+import type { CoachAuthor, CoachNote, NoteAnchor } from '../domain/coach'
 import { anchorKey, byTime, sameAnchor, unreadFrom } from '../domain/coach'
 import { createResilientStorage } from './persist'
 import { seedCoachThread } from '../data/coachSeed'
@@ -21,11 +21,17 @@ import { uid } from '../lib/id'
 
 export interface CoachState {
   notes: CoachNote[]
-  /** Whether the client has ever opened the thread — drives the first-run badge. */
+  /**
+   * Whose side of the conversation the app is showing. There is no server and
+   * no second device, so the demo switches seats instead: in `coach` the
+   * outgoing messages are Jud's and every reply box writes as him.
+   */
+  viewAs: CoachAuthor
+  setViewAs: (who: CoachAuthor) => void
+  /** Sends as whoever is currently holding the phone. */
   send: (anchor: NoteAnchor, body: string) => void
-  /** Demo only: lets the prototype show Jud replying. */
-  replyAsCoach: (anchor: NoteAnchor, body: string) => void
   remove: (id: string) => void
+  /** Marks what the other side has said as read. */
   markRead: (anchor?: NoteAnchor) => void
   resetToSeed: () => void
   clear: () => void
@@ -46,6 +52,9 @@ export const useCoach = create<CoachState>()(
   persist(
     (set) => ({
       notes: seed(),
+      viewAs: 'client',
+
+      setViewAs: (who) => set({ viewAs: who }),
 
       send: (anchor, body) =>
         set((s) => {
@@ -54,18 +63,16 @@ export const useCoach = create<CoachState>()(
           return {
             notes: [
               ...s.notes,
-              { id: uid('note'), anchor, author: 'client', body: text, sentAt: new Date().toISOString() },
+              {
+                id: uid('note'),
+                anchor,
+                author: s.viewAs,
+                body: text,
+                sentAt: new Date().toISOString(),
+              },
             ],
           }
         }),
-
-      replyAsCoach: (anchor, body) =>
-        set((s) => ({
-          notes: [
-            ...s.notes,
-            { id: uid('note'), anchor, author: 'coach', body, sentAt: new Date().toISOString() },
-          ],
-        })),
 
       remove: (id) => set((s) => ({ notes: s.notes.filter((n) => n.id !== id) })),
 
@@ -75,7 +82,8 @@ export const useCoach = create<CoachState>()(
           const now = new Date().toISOString()
           let changed = false
           const notes = s.notes.map((n) => {
-            if (n.author !== 'coach' || n.readAt) return n
+            // You cannot read your own message, only the other side's.
+            if (n.author === s.viewAs || n.readAt) return n
             if (anchor && !sameAnchor(n.anchor, anchor)) return n
             changed = true
             return { ...n, readAt: now }
@@ -85,13 +93,13 @@ export const useCoach = create<CoachState>()(
           return changed ? { notes } : s
         }),
 
-      resetToSeed: () => set({ notes: seed() }),
-      clear: () => set({ notes: [] }),
+      resetToSeed: () => set({ notes: seed(), viewAs: 'client' }),
+      clear: () => set({ notes: [], viewAs: 'client' }),
     }),
     {
       name: 'grit-coach-v1',
       storage: createJSONStorage(createResilientStorage),
-      partialize: (s) => ({ notes: s.notes }),
+      partialize: (s) => ({ notes: s.notes, viewAs: s.viewAs }),
     },
   ),
 )
@@ -103,10 +111,10 @@ export function notesFor(notes: CoachNote[], anchor: NoteAnchor): CoachNote[] {
   return byTime(notes.filter((n) => sameAnchor(n.anchor, anchor)))
 }
 
-/** Unread coach messages, by what they are attached to. */
-export function unreadByAnchor(notes: CoachNote[]): Record<string, number> {
+/** Unread messages from the other side, by what they are attached to. */
+export function unreadByAnchor(notes: CoachNote[], viewer: CoachAuthor): Record<string, number> {
   const out: Record<string, number> = {}
-  for (const note of unreadFrom(notes)) {
+  for (const note of unreadFrom(notes, viewer)) {
     const key = anchorKey(note.anchor)
     out[key] = (out[key] ?? 0) + 1
   }

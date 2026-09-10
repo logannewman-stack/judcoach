@@ -1,25 +1,27 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Screen } from '../../components/ios/Screen'
 import { CoachAvatar } from '../../components/Bits'
+import { ActionSheet } from '../../components/ios/Sheet'
 import { Icon } from '../../components/Icon'
 import type { IconName } from '../../components/Icon'
 import { useCoach } from '../../store/coach'
 import { useStore } from '../../store/useStore'
-import { ANCHOR_LABEL, anchorKey, groupNotes, byTime } from '../../domain/coach'
-import type { AnchorKind, CoachNote, NoteAnchor, NoteGroup } from '../../domain/coach'
+import { ANCHOR_LABEL, anchorKey, byTime, groupNotes, unreadFrom } from '../../domain/coach'
+import type { AnchorKind, CoachAuthor, CoachNote, NoteAnchor, NoteGroup } from '../../domain/coach'
 import { COACH } from '../../data/seed'
 import { getExercise } from '../../data/exercises'
 import { formatMediumDate, relativeDay, todayISO } from '../../lib/date'
 import { haptic } from '../../lib/haptics'
 import { useNav } from '../../nav/nav'
+import { Composer } from './Composer'
 
 /* ============================================================================
-   The conversation with Jud.
+   The conversation, from whichever seat the app is currently in.
 
-   Reads as one thread whether a message stands alone or is attached to a
-   session, a weigh-in or a photo. An attached one carries a card naming what it
-   is about, which opens the record — so "you had one more rep in that" is one
-   tap from the set it is talking about.
+   A message can stand alone or be attached to one specific record. An attached
+   one carries a card naming what it is about, which opens the record — so "you
+   had one more rep in that" is one tap from the set it is talking about.
    ========================================================================== */
 
 const ANCHOR_ICON: Record<AnchorKind, IconName> = {
@@ -37,79 +39,81 @@ const time = (iso: string) =>
 export function Messages() {
   const pop = useNav((s) => s.pop)
   const notes = useCoach((s) => s.notes)
+  const viewAs = useCoach((s) => s.viewAs)
   const send = useCoach((s) => s.send)
+  const remove = useCoach((s) => s.remove)
   const markRead = useCoach((s) => s.markRead)
+  const clientName = useStore((s) => s.profile.name)
   const scrollRef = useRef<HTMLDivElement>(null)
-  const [draft, setDraft] = useState('')
+  const [atBottom, setAtBottom] = useState(true)
+  const [acting, setActing] = useState<CoachNote | null>(null)
 
-  // Opening the thread is reading it. Run once per visit, not per keystroke.
-  useEffect(() => { markRead() }, [markRead])
+  const them = viewAs === 'client' ? COACH.name : (clientName.split(' ')[0] || 'your client')
+  const themFull = viewAs === 'client' ? COACH.fullName : clientName
 
-  const days = useMemo(() => byDay(notes), [notes])
+  /* The line the newest unread sits under, frozen on entry so it does not jump
+     out from under the reader the instant the screen marks itself read. */
+  const firstUnread = useMemo(
+    () => byTime(unreadFrom(notes, viewAs))[0]?.id,
+    // Deliberately only on arrival and on switching seats.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [viewAs],
+  )
+
+  // Opening the thread is reading it. Changing seats while it is already open
+  // is not: that would consume the other side's unread badge before it showed.
+  const enteredAs = useRef(viewAs)
+  useEffect(() => {
+    if (enteredAs.current !== viewAs) return
+    markRead()
+  }, [markRead, viewAs])
+
+  const days = useMemo(() => byDay(notes, viewAs), [notes, viewAs])
+  const count = notes.length
 
   // Land at the newest message the way a messages app does, without animating
-  // the whole history past on the way.
+  // the whole history past on the way in.
   useLayoutEffect(() => {
     const el = scrollRef.current
     if (el) el.scrollTop = el.scrollHeight
-  }, [days.length])
+  }, [viewAs])
 
-  const submit = () => {
-    const body = draft.trim()
-    if (!body) return
-    send({ kind: 'thread' }, body)
-    setDraft('')
-    haptic('light')
-    requestAnimationFrame(() => {
-      const el = scrollRef.current
-      if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
-    })
+  // Afterwards, follow new messages only if the reader is already at the end.
+  useEffect(() => {
+    const el = scrollRef.current
+    if (el && atBottom) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    // atBottom is read, not tracked: a new message should not re-run this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [count])
+
+  const toBottom = (smooth = true) => {
+    const el = scrollRef.current
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' })
   }
 
   return (
     <Screen
-      title={COACH.name}
+      title={them}
       inlineTitle
       back={{ onPress: pop }}
       scrollRef={scrollRef}
-      // The compose bar already separates the thread from the tab bar; the
-      // usual bottom pad would leave the newest message stranded above it.
+      // The composer already separates the thread from the tab bar; the usual
+      // bottom pad would leave the newest message stranded above it.
       padBottom={false}
+      onScroll={(top, el) => setAtBottom(el.scrollHeight - top - el.clientHeight < 48)}
       footer={
-        <div className="compose">
-          <textarea
-            className="compose-field"
-            value={draft}
-            rows={1}
-            placeholder={`Message ${COACH.name}`}
-            aria-label={`Message ${COACH.name}`}
-            onChange={(e) => {
-              setDraft(e.target.value)
-              // Grow with the text, up to the CSS max-height.
-              e.target.style.height = 'auto'
-              e.target.style.height = `${e.target.scrollHeight}px`
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                submit()
-              }
-            }}
-          />
-          <button
-            type="button"
-            className="compose-send"
-            disabled={draft.trim().length === 0}
-            aria-label="Send"
-            onClick={submit}
-          >
-            <Icon name="send.fill" size={19} weight={2.6} />
-          </button>
-        </div>
+        <Composer
+          placeholder={`Message ${them}`}
+          onSend={(body) => {
+            send({ kind: 'thread' }, body)
+            haptic('light')
+            requestAnimationFrame(() => toBottom())
+          }}
+        />
       }
     >
       <div className="thread">
-        <CoachIntro />
+        <ThreadIntro name={themFull} caption={viewAs === 'client' ? COACH.responseWindow : 'Block 3 · week 5 of 8'} />
         {days.map(({ date, groups }, di) => (
           <div key={date} style={{ display: 'contents' }}>
             <div className="thread-day">{dayLabel(date)}</div>
@@ -117,12 +121,14 @@ export function Messages() {
               <Group
                 key={`${date}-${i}`}
                 group={group}
+                outgoing={group.author === viewAs}
                 // The card names what a run of messages is about, so it belongs
                 // once at the top of that run rather than above every reply.
                 showCard={group.showCard}
-                // Only the very last thing said, and only if it was the client.
+                newFrom={firstUnread}
+                onHold={(note) => note.author === viewAs && setActing(note)}
                 delivered={
-                  group.author === 'client'
+                  group.author === viewAs
                   && di === days.length - 1
                   && i === groups.length - 1
                 }
@@ -131,54 +137,114 @@ export function Messages() {
           </div>
         ))}
       </div>
+
+      <AnimatePresence>
+        {!atBottom && (
+          <motion.button
+            type="button"
+            className="jump-latest"
+            aria-label="Jump to the newest message"
+            initial={{ opacity: 0, y: 8, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.9 }}
+            transition={{ type: 'spring', stiffness: 520, damping: 34 }}
+            onClick={() => toBottom()}
+          >
+            <Icon name="chevron.down" size={17} weight={2.6} />
+          </motion.button>
+        )}
+      </AnimatePresence>
+
+      <ActionSheet
+        open={acting != null}
+        onClose={() => setActing(null)}
+        items={[
+          { label: 'Copy', onPress: () => { navigator.clipboard?.writeText(acting?.body ?? '') } },
+          {
+            label: 'Delete message',
+            destructive: true,
+            onPress: () => { if (acting) remove(acting.id) },
+          },
+        ]}
+      />
     </Screen>
   )
 }
 
 /** Who you are talking to, above the first message. */
-function CoachIntro() {
+function ThreadIntro({ name, caption }: { name: string; caption: string }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '6px 0 2px' }}>
-      <CoachAvatar size={62} />
+    <div className="thread-intro">
+      <CoachAvatar size={62} name={name} />
       <div style={{ textAlign: 'center' }}>
-        <div className="t-headline">{COACH.fullName}</div>
-        <div className="t-caption1 dim" style={{ marginTop: 1 }}>{COACH.responseWindow}</div>
+        <div className="t-headline">{name}</div>
+        <div className="t-caption1 dim" style={{ marginTop: 1 }}>{caption}</div>
       </div>
     </div>
   )
 }
 
 function Group({
-  group, showCard, delivered,
-}: { group: NoteGroup; showCard?: boolean; delivered?: boolean }) {
+  group, outgoing, showCard, delivered, newFrom, onHold,
+}: {
+  group: NoteGroup
+  outgoing: boolean
+  showCard?: boolean
+  delivered?: boolean
+  newFrom?: string
+  onHold: (note: CoachNote) => void
+}) {
   const last = group.notes.at(-1)!
   return (
-    <div className="msg-group" data-from={group.author}>
-      {showCard && <AnchorCard anchor={group.notes[0]!.anchor} />}
-      {group.notes.map((note, i) => (
-        <Bubble key={note.id} note={note} tail={i === group.notes.length - 1} />
-      ))}
-      <div className="msg-meta">
-        {time(last.sentAt)}
-        {delivered && ' · Delivered'}
+    <>
+      {group.notes.some((n) => n.id === newFrom) && (
+        <div className="thread-new"><span>New</span></div>
+      )}
+      <div className="msg-group" data-from={outgoing ? 'me' : 'them'}>
+        {showCard && <AnchorCard anchor={group.notes[0]!.anchor} />}
+        {group.notes.map((note, i) => (
+          <Bubble
+            key={note.id}
+            note={note}
+            tail={i === group.notes.length - 1}
+            onHold={() => onHold(note)}
+          />
+        ))}
+        <div className="msg-meta">
+          {time(last.sentAt)}
+          {delivered && (last.readAt ? ' · Read' : ' · Delivered')}
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 
-function Bubble({ note, tail }: { note: CoachNote; tail: boolean }) {
+function Bubble({ note, tail, onHold }: { note: CoachNote; tail: boolean; onHold: () => void }) {
+  const timer = useRef<number>()
+  const hold = () => { timer.current = window.setTimeout(() => { haptic('medium'); onHold() }, 450) }
+  const release = () => window.clearTimeout(timer.current)
+
   return (
-    <>
-      <div className={`bubble${tail ? ' tail' : ''}`}>
-        {note.body}
-        {note.highlight && (
-          <div className="msg-highlight">
-            <span>{note.highlight.label}</span>
-            <span className="msg-highlight-value">{note.highlight.value}</span>
-          </div>
-        )}
-      </div>
-    </>
+    <motion.div
+      className={`bubble${tail ? ' tail' : ''}`}
+      layout="position"
+      initial={{ opacity: 0, scale: 0.86 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ type: 'spring', stiffness: 560, damping: 36, mass: 0.7 }}
+      onPointerDown={hold}
+      onPointerUp={release}
+      onPointerCancel={release}
+      onPointerLeave={release}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      {note.body}
+      {note.highlight && (
+        <div className="msg-highlight">
+          <span>{note.highlight.label}</span>
+          <span className="msg-highlight-value">{note.highlight.value}</span>
+        </div>
+      )}
+    </motion.div>
   )
 }
 
@@ -188,6 +254,7 @@ export function AnchorCard({ anchor }: { anchor: NoteAnchor }) {
   const switchTab = useNav((s) => s.switchTab)
   const logs = useStore((s) => s.logs)
   const weighIns = useStore((s) => s.weighIns)
+  const units = useStore((s) => s.profile.units)
 
   if (anchor.kind === 'thread') return null
 
@@ -196,11 +263,13 @@ export function AnchorCard({ anchor }: { anchor: NoteAnchor }) {
 
   if (anchor.kind === 'workout') {
     const log = logs.find((l) => l.id === anchor.id)
-    title = log ? `${log.sessionName} · ${formatMediumDate(log.date)}` : 'Workout no longer in your history'
+    title = log ? `${log.sessionName} · ${formatMediumDate(log.date)}` : 'No longer in your history'
     if (log) open = () => { switchTab('train'); push('logDetail', { logId: log.id }) }
   } else if (anchor.kind === 'weighIn') {
     const entry = weighIns.find((w) => w.date === anchor.id)
-    title = entry ? `${entry.weight} lb · ${formatMediumDate(entry.date)}` : formatMediumDate(anchor.id)
+    title = entry
+      ? `${entry.weight} ${units} · ${formatMediumDate(entry.date)}`
+      : formatMediumDate(anchor.id)
     open = () => switchTab('weigh')
   } else if (anchor.kind === 'checkIn') {
     title = 'Weekly check-in'
@@ -209,8 +278,7 @@ export function AnchorCard({ anchor }: { anchor: NoteAnchor }) {
     title = 'Progress photo'
     open = () => { switchTab('weigh'); push('photos') }
   } else if (anchor.kind === 'exercise') {
-    const exercise = getExercise(anchor.id)
-    title = exercise?.name ?? 'Movement'
+    title = getExercise(anchor.id)?.name ?? 'Movement'
     open = () => { switchTab('train'); push('exerciseDetail', { exerciseId: anchor.id }) }
   }
 
@@ -220,8 +288,8 @@ export function AnchorCard({ anchor }: { anchor: NoteAnchor }) {
         <Icon name={ANCHOR_ICON[anchor.kind]} size={17} weight={2} color="var(--accent)" />
       </span>
       <span className="msg-card-body">
-        <span className="msg-card-kind" style={{ display: 'block' }}>{ANCHOR_LABEL[anchor.kind]}</span>
-        <span className="msg-card-title truncate" style={{ display: 'block' }}>{title}</span>
+        <span className="msg-card-kind">{ANCHOR_LABEL[anchor.kind]}</span>
+        <span className="msg-card-title truncate">{title}</span>
       </span>
       {open && <Icon name="chevron.right" size={13} weight={2.6} color="var(--label-3)" />}
     </>
@@ -242,7 +310,7 @@ interface DayGroup extends NoteGroup {
   showCard: boolean
 }
 
-function byDay(notes: CoachNote[]): { date: string; groups: DayGroup[] }[] {
+function byDay(notes: CoachNote[], viewer: CoachAuthor): { date: string; groups: DayGroup[] }[] {
   const days = new Map<string, CoachNote[]>()
   for (const note of byTime(notes)) {
     const date = note.sentAt.slice(0, 10)
@@ -250,8 +318,9 @@ function byDay(notes: CoachNote[]): { date: string; groups: DayGroup[] }[] {
     if (bucket) bucket.push(note)
     else days.set(date, [note])
   }
-  // The run continues across the day break, so the key is tracked outside it.
+  // A run continues across a day break, so the key is tracked outside the loop.
   let previousAnchor = 'thread'
+  void viewer
   return [...days.entries()].map(([date, forDay]) => ({
     date,
     groups: groupNotes(forDay).map((group) => {

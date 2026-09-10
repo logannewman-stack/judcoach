@@ -2,13 +2,14 @@ import { Screen } from '../../components/ios/Screen'
 import { ListSection, Row } from '../../components/ios/List'
 import { CoachAvatar } from '../../components/Bits'
 import { Icon } from '../../components/Icon'
-import { Pill } from '../../components/ios/Controls'
+import { Pill, Switch } from '../../components/ios/Controls'
 import { COACH } from '../../data/seed'
 import { useStore } from '../../store/useStore'
 import { useCoach } from '../../store/coach'
 import { byTime, unreadFrom } from '../../domain/coach'
 import { useProgram, currentWeekIndex } from '../../store/selectors'
 import { formatMediumDate, todayISO } from '../../lib/date'
+import { haptic } from '../../lib/haptics'
 import { useNav } from '../../nav/nav'
 
 export function Coach() {
@@ -19,8 +20,10 @@ export function Coach() {
   const week = currentWeekIndex(program, todayISO())
   const lastCheckIn = [...checkIns].sort((a, b) => b.date.localeCompare(a.date))[0]
   const notes = useCoach((s) => s.notes)
-  const unread = unreadFrom(notes).length
-  const lastFromCoach = byTime(notes.filter((n) => n.author === 'coach')).at(-1)
+  const viewAs = useCoach((s) => s.viewAs)
+  const setViewAs = useCoach((s) => s.setViewAs)
+  const unread = unreadFrom(notes, viewAs).length
+  const last = byTime(notes).at(-1)
 
   return (
     <Screen
@@ -67,9 +70,9 @@ export function Coach() {
         <Row
           title="Messages"
           subtitle={
-            lastFromCoach
-              ? `${COACH.name}: ${lastFromCoach.body}`
-              : `Anything you want to ask, any time`
+            last
+              ? `${last.author === viewAs ? 'You' : COACH.name}: ${last.body}`
+              : 'Anything you want to ask, any time'
           }
           icon="message"
           iconColor="var(--accent)"
@@ -98,6 +101,28 @@ export function Coach() {
           onPress={() => {
             window.location.href = `mailto:${COACH.email}?subject=GRIT check-in`
           }}
+        />
+      </ListSection>
+
+      <ListSection
+        header="Demo"
+        footer={
+          `There is no second device here, so the app swaps seats. Turn this on to `
+          + `write as ${COACH.name} on any workout, weigh-in or check-in, then turn it `
+          + `off to see what the client sees.`
+        }
+      >
+        <Row
+          title={`Reply as ${COACH.name}`}
+          icon="person"
+          iconColor="var(--purple)"
+          trailing={
+            <Switch
+              checked={viewAs === 'coach'}
+              onChange={(on) => { haptic('light'); setViewAs(on ? 'coach' : 'client') }}
+              label={`Reply as ${COACH.name}`}
+            />
+          }
         />
       </ListSection>
 

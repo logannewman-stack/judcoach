@@ -22,6 +22,35 @@
 }
 .thread-day:first-child { margin-top: 4px; }
 
+.thread-intro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0 2px;
+}
+
+/* Where the reader left off, so a long unread run does not have to be counted
+   backwards from the bottom. */
+.thread-new {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0 2px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.thread-new::before,
+.thread-new::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--accent);
+  opacity: 0.34;
+}
+
 /* --------------------------------- groups -------------------------------- */
 
 .msg-group {
@@ -31,8 +60,8 @@
   margin-top: 10px;
   max-width: 82%;
 }
-.msg-group[data-from='coach'] { align-self: flex-start; align-items: flex-start; }
-.msg-group[data-from='client'] { align-self: flex-end; align-items: flex-end; }
+.msg-group[data-from='them'] { align-self: flex-start; align-items: flex-start; }
+.msg-group[data-from='me'] { align-self: flex-end; align-items: flex-end; }
 
 .bubble {
   position: relative;
@@ -46,11 +75,11 @@
   /* A bubble is a shape, not a card: no shadow, no border. */
 }
 
-.msg-group[data-from='coach'] .bubble {
+.msg-group[data-from='them'] .bubble {
   background: var(--fill-3);
   color: var(--label);
 }
-.msg-group[data-from='client'] .bubble {
+.msg-group[data-from='me'] .bubble {
   background: var(--accent);
   color: #fff;
 }
@@ -66,25 +95,25 @@
   height: 21px;
   pointer-events: none;
 }
-.msg-group[data-from='client'] .bubble.tail::before {
+.msg-group[data-from='me'] .bubble.tail::before {
   right: -7px;
   width: 20px;
   background: var(--accent);
   border-bottom-left-radius: 16px 14px;
 }
-.msg-group[data-from='client'] .bubble.tail::after {
+.msg-group[data-from='me'] .bubble.tail::after {
   right: -20px;
   width: 20px;
   background: var(--grouped);
   border-bottom-left-radius: 10px;
 }
-.msg-group[data-from='coach'] .bubble.tail::before {
+.msg-group[data-from='them'] .bubble.tail::before {
   left: -7px;
   width: 20px;
   background: var(--fill-3);
   border-bottom-right-radius: 16px 14px;
 }
-.msg-group[data-from='coach'] .bubble.tail::after {
+.msg-group[data-from='them'] .bubble.tail::after {
   left: -20px;
   width: 20px;
   background: var(--grouped);
@@ -148,7 +177,7 @@
   border-top: 1px solid rgba(255, 255, 255, 0.24);
   font-size: 13px;
 }
-.msg-group[data-from='coach'] .msg-highlight { border-top-color: var(--sep); }
+.msg-group[data-from='them'] .msg-highlight { border-top-color: var(--sep); }
 .msg-highlight-value { font-weight: 600; font-variant-numeric: tabular-nums; }
 
 /* -------------------------------- compose -------------------------------- */
@@ -157,7 +186,35 @@
   display: flex;
   align-items: flex-end;
   gap: 8px;
-  padding: 8px var(--gutter) 8px;
+  padding: 8px var(--gutter);
+}
+.compose.compact { padding: 0; }
+
+.compose-cancel {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--fill-3);
+  color: var(--label-2);
+}
+
+/* Back to the newest message, without scrolling the whole way by hand. */
+.jump-latest {
+  position: absolute;
+  right: var(--gutter);
+  bottom: calc(var(--tab-h) + var(--sa-bottom) + 62px);
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--elevated);
+  color: var(--accent);
+  box-shadow: var(--shadow-float);
 }
 
 .compose-field {
@@ -208,7 +265,7 @@
   gap: 10px;
   align-items: flex-start;
 }
-.note[data-from='client'] { flex-direction: row-reverse; }
+.note[data-from='me'] { flex-direction: row-reverse; }
 
 .note-body {
   flex: 1;
@@ -221,12 +278,12 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.note[data-from='coach'] .note-body {
+.note[data-from='them'] .note-body {
   background: var(--fill-3);
   color: var(--label);
   border-top-left-radius: 5px;
 }
-.note[data-from='client'] .note-body {
+.note[data-from='me'] .note-body {
   /* No avatar on this side, so the body takes the avatar's column back.
      Indenting keeps both sides reading as one conversation. */
   margin-left: 40px;
@@ -235,23 +292,37 @@
   border-top-right-radius: 5px;
 }
 
-.note-name {
-  margin-bottom: 3px;
-  font-size: 12px;
+/* ------------------------------- coach seat ------------------------------- */
+
+/* Above everything and part of the layout, so it pushes the app down instead of
+   floating over whatever a screen has pinned to its own bottom. */
+.seat-bar {
+  flex: none;
+  z-index: 60;
+  overflow: hidden;
+  background: var(--purple);
+  color: #fff;
+}
+.seat-bar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 6px var(--gutter) 7px;
+  padding-top: calc(var(--sa-top) + 6px);
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: -0.08px;
-  color: var(--label-2);
 }
-.note[data-from='client'] .note-name { text-align: right; color: rgba(255, 255, 255, 0.72); }
-
-.note-unread {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  margin-left: 6px;
-  border-radius: 50%;
-  background: var(--accent);
-  vertical-align: 1px;
+.seat-bar-exit {
+  flex: none;
+  min-height: 26px;
+  padding: 0 11px;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.24);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 @media (prefers-reduced-motion: reduce) {

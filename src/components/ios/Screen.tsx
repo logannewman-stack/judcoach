@@ -39,6 +39,8 @@ interface ScreenProps {
   /** Extra bottom padding so content clears the tab bar. */
   padBottom?: boolean
   scrollRef?: React.RefObject<HTMLDivElement>
+  /** Every scroll frame, for screens that track position themselves. */
+  onScroll?: (top: number, el: HTMLDivElement) => void
 }
 
 function NavButton({ action }: { action: NavAction }) {
@@ -78,6 +80,7 @@ export function Screen({
   footer,
   padBottom = true,
   scrollRef,
+  onScroll: onScrollProp,
 }: ScreenProps) {
   const [scrolled, setScrolled] = useState(false)
   const ticking = useRef(false)
@@ -87,7 +90,9 @@ export function Screen({
   const onScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     if (ticking.current) return
     ticking.current = true
-    const top = e.currentTarget.scrollTop
+    const el = e.currentTarget
+    const top = el.scrollTop
+    onScrollProp?.(top, el)
     requestAnimationFrame(() => {
       setScrolled((prev) => {
         // The large-title block is ~53px tall; flipping at 32 crossfaded the
@@ -97,7 +102,7 @@ export function Screen({
       })
       ticking.current = false
     })
-  }, [largeTitle])
+  }, [largeTitle, onScrollProp])
 
   const rights = right ? (Array.isArray(right) ? right : [right]) : []
   const backLabel = useBackLabel(back?.label)

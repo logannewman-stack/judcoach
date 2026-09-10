@@ -50,8 +50,9 @@ export function byTime(notes: CoachNote[]): CoachNote[] {
   return [...notes].sort((a, b) => a.sentAt.localeCompare(b.sentAt))
 }
 
-export function unreadFrom(notes: CoachNote[]): CoachNote[] {
-  return notes.filter((n) => n.author === 'coach' && !n.readAt)
+/** What the other side has said and this one has not seen. */
+export function unreadFrom(notes: CoachNote[], viewer: CoachAuthor = 'client'): CoachNote[] {
+  return notes.filter((n) => n.author !== viewer && !n.readAt)
 }
 
 /**
