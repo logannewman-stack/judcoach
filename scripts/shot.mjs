@@ -5,7 +5,7 @@ const out = process.argv[3] ?? '/tmp/claude-0/-home-user-judcoach/7ad0c1e1-11ae-
 const scheme = process.argv[4] ?? 'light'
 const steps = process.argv[5] ? JSON.parse(process.argv[5]) : []
 
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' })
+const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined })
 const ctx = await browser.newContext({
   viewport: { width: 393, height: 852 },        // iPhone 15 Pro
   deviceScaleFactor: 2,

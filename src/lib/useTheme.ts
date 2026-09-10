@@ -2,6 +2,10 @@ import { useEffect } from 'react'
 import { useStore } from '../store/useStore'
 import { setHapticsEnabled } from './haptics'
 
+/** Whatever theme the embedding host stamped before this script ran, if any. */
+const HOST_THEME =
+  typeof document !== 'undefined' ? document.documentElement.getAttribute('data-theme') : null
+
 /**
  * Applies the user's appearance choices to the document, and keeps the iOS
  * status-bar style in step so a home-screen install never shows black text on
@@ -14,12 +18,22 @@ export function useTheme() {
 
   useEffect(() => {
     const root = document.documentElement
-    if (theme === 'system') root.removeAttribute('data-theme')
-    else root.setAttribute('data-theme', theme)
+    if (theme === 'system') {
+      // A host may have stamped data-theme before our JS ran (the Artifact
+      // viewer does this for an explicit light/dark choice). "System" means
+      // defer to that stamp, not clobber it.
+      if (HOST_THEME) root.setAttribute('data-theme', HOST_THEME)
+      else root.removeAttribute('data-theme')
+    } else {
+      root.setAttribute('data-theme', theme)
+    }
 
     const isDark =
       theme === 'dark'
-      || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+      || (theme === 'system'
+        && (HOST_THEME
+          ? HOST_THEME === 'dark'
+          : window.matchMedia('(prefers-color-scheme: dark)').matches))
 
     const statusBar = document.getElementById('ios-status-bar')
     if (statusBar) statusBar.setAttribute('content', isDark ? 'black-translucent' : 'default')
@@ -45,7 +59,7 @@ export function useTheme() {
 
   // A system-theme user who flips their phone's appearance should update live.
   useEffect(() => {
-    if (theme !== 'system') return
+    if (theme !== 'system' || HOST_THEME) return
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
     const onChange = () => {
       const statusBar = document.getElementById('ios-status-bar')

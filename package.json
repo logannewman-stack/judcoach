@@ -9,6 +9,9 @@
     "build:app": "vite build",
     "build:single": "VITE_SINGLE_FILE=1 SINGLE_FILE=1 vite build",
     "preview": "vite preview",
+    "icons": "node scripts/make-icons.mjs",
+    "artifact": "npm run build:single && node scripts/make-artifact.mjs",
+    "walk": "node scripts/walk.mjs ./.walk",
     "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {

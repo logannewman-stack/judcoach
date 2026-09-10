@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Screen } from '../../components/ios/Screen'
 import { ListSection, Row } from '../../components/ios/List'
 import { Card, SectionHeader } from '../../components/Bits'
 import { Icon } from '../../components/Icon'
-import { Segmented, Switch } from '../../components/ios/Controls'
-import { Alert } from '../../components/ios/Sheet'
+import { Button, Segmented, Switch } from '../../components/ios/Controls'
+import { Alert, Sheet } from '../../components/ios/Sheet'
 import { toast } from '../../components/ios/Toast'
 import { GritTile } from '../../components/Logo'
 import { useStore, exportSnapshot } from '../../store/useStore'
@@ -245,6 +245,9 @@ export function DataSettings() {
   const clearAllData = useStore((s) => s.clearAllData)
   const importState = useStore((s) => s.importState)
   const [confirm, setConfirm] = useState<'reset' | 'clear' | null>(null)
+  const [exporting, setExporting] = useState(false)
+  // Rebuilt each time the sheet opens so the copy always matches current data.
+  const snapshot = useMemo(() => (exporting ? exportSnapshot() : ''), [exporting])
   // Select primitives, not a fresh object — zustand v5 snapshots must be stable
   // or useSyncExternalStore re-renders forever.
   const weighInCount = useStore((s) => s.weighIns.length)
@@ -252,15 +255,24 @@ export function DataSettings() {
   const photoCount = useStore((s) => s.photos.length)
   const checkInCount = useStore((s) => s.checkIns.length)
 
-  const doExport = () => {
-    const blob = new Blob([exportSnapshot()], { type: 'application/json' })
+  const saveFile = () => {
+    const blob = new Blob([snapshot], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
     a.download = `grit-export-${new Date().toISOString().slice(0, 10)}.json`
     a.click()
     setTimeout(() => URL.revokeObjectURL(url), 1000)
-    toast('Export ready', { icon: 'share', tone: 'good' })
+    toast('Export saved', { icon: 'share', tone: 'good' })
+  }
+
+  const copyJson = async () => {
+    try {
+      await navigator.clipboard.writeText(snapshot)
+      toast('Copied to clipboard', { icon: 'check.circle.fill', tone: 'good' })
+    } catch {
+      toast('Select the text below and copy it', { icon: 'info' })
+    }
   }
 
   const doImport = () => {
@@ -304,10 +316,10 @@ export function DataSettings() {
         <ListSection header="Transfer">
           <Row
             title="Export everything"
-            subtitle="A single JSON file"
+            subtitle="Save a file or copy it to send Jud"
             icon="share"
             iconColor="var(--blue)"
-            onPress={doExport}
+            onPress={() => setExporting(true)}
             tinted
           />
           <Row
@@ -338,6 +350,46 @@ export function DataSettings() {
           <GritTile size={44} />
         </div>
       </div>
+
+      <Sheet
+        open={exporting}
+        onClose={() => setExporting(false)}
+        title="Export"
+        left={{ label: 'Done', onPress: () => setExporting(false) }}
+        detent={0.82}
+      >
+        <div style={{ padding: '4px 16px 16px' }}>
+          <div className="t-footnote dim" style={{ marginBottom: 14 }}>
+            {weighInCount} weigh-ins, {logCount} workouts, {checkInCount} check-ins and{' '}
+            {photoCount} photos — {(snapshot.length / 1024).toFixed(0)} KB of JSON.
+          </div>
+
+          <div style={{ display: 'flex', gap: 9 }}>
+            <Button variant="filled" icon="share" onPress={saveFile} style={{ flex: 1 }}>
+              Save file
+            </Button>
+            <Button variant="tinted" icon="note" onPress={() => void copyJson()} style={{ flex: 1 }}>
+              Copy
+            </Button>
+          </div>
+
+          <div className="t-caption1 dim semibold" style={{ margin: '18px 0 7px' }}>
+            OR SELECT AND COPY IT YOURSELF
+          </div>
+          <textarea
+            readOnly
+            value={snapshot}
+            rows={9}
+            onFocus={(e) => e.currentTarget.select()}
+            aria-label="Export data"
+            style={{
+              width: '100%', padding: '11px 13px', borderRadius: 12, border: 'none',
+              background: 'var(--fill-3)', resize: 'none', lineHeight: '18px',
+              fontSize: 11, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+            }}
+          />
+        </div>
+      </Sheet>
 
       <Alert
         open={confirm === 'reset'}

@@ -37,7 +37,7 @@ const ROUTES = [
   ['settings', 'install', null],
 ]
 
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' })
+const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined })
 const ctx = await browser.newContext({
   viewport: { width: 393, height: 852 },
   deviceScaleFactor: 1,
@@ -50,7 +50,7 @@ const problems = []
 page.on('console', (m) => { if (m.type() === 'error') problems.push(`[console] ${m.text()}`) })
 page.on('pageerror', (e) => problems.push(`[pageerror] ${String(e)}`))
 
-await page.goto('http://127.0.0.1:5177/', { waitUntil: 'networkidle' })
+await page.goto(process.env.APP_URL ?? 'http://127.0.0.1:5177/', { waitUntil: 'networkidle' })
 await page.waitForTimeout(700)
 
 for (const [tab, key, rawParams] of ROUTES) {
