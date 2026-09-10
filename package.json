@@ -16,7 +16,8 @@
     "typecheck": "tsc -b --noEmit",
     "persist": "node scripts/persist.mjs",
     "recover": "node scripts/recover.mjs",
-    "offline": "npm run build:app && node scripts/offline.mjs"
+    "offline": "npm run build:app && node scripts/offline.mjs",
+    "gesture": "node scripts/gesture.mjs"
   },
   "dependencies": {
     "framer-motion": "^11.11.17",

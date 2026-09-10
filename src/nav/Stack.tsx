@@ -1,17 +1,21 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ComponentType } from 'react'
-import { AnimatePresence, motion, useMotionValue, useTransform } from 'framer-motion'
+import { AnimatePresence, animate, motion, useMotionValue, useTransform } from 'framer-motion'
 import { useNav } from './nav'
 import type { Route, TabKey } from './nav'
 import { haptic } from '../lib/haptics'
 
-/** UIKit's push curve. */
-export const IOS_PUSH = { duration: 0.42, ease: [0.32, 0.72, 0, 1] as const }
+/** UIKit's push: 0.35s on the navigation controller's own curve. */
+const IOS_EASE = [0.32, 0.72, 0, 1] as const
+export const IOS_PUSH = { duration: 0.35, ease: IOS_EASE }
 
 export type ScreenRegistry = Record<string, ComponentType<any>>
 
 const EDGE_WIDTH = 24
+/** Fraction of the screen a slow drag must cover to count as a back. */
 const SWIPE_COMPLETE = 0.32
+/** Rightward speed, in px/s, that counts as a flick regardless of distance. */
+const FLICK = 320
 
 export function Stack({
   tab,
@@ -50,6 +54,18 @@ export function Stack({
     const startX = e.clientX
     const startY = e.clientY
     let engaged = false
+    dragX.set(0)
+    // A short trail of samples, so release can read the speed of the gesture
+    // rather than only how far it got. iOS pops on a flick from a tenth of the
+    // way across; distance alone made every quick back feel like it was ignored.
+    const trail: { x: number; t: number }[] = [{ x: startX, t: performance.now() }]
+
+    const speed = () => {
+      const now = performance.now()
+      const from = trail.find((s) => now - s.t < 90) ?? trail[0]!
+      const dt = now - from.t
+      return dt > 8 ? ((trail.at(-1)!.x - from.x) / dt) * 1000 : 0
+    }
 
     const cleanup = () => {
       window.removeEventListener('pointermove', move)
@@ -66,16 +82,35 @@ export function Stack({
           setSwiping(true)
         } else return
       }
+      trail.push({ x: ev.clientX, t: performance.now() })
+      if (trail.length > 8) trail.shift()
       dragX.set(Math.max(0, dx))
     }
     function up(ev: PointerEvent) {
-      const dx = ev.clientX - startX
       cleanup()
-      setSwiping(false)
-      dragX.set(0)
-      if (engaged && width && dx / width > SWIPE_COMPLETE) {
+      if (!engaged || !width) {
+        setSwiping(false)
+        return
+      }
+      const dx = Math.max(0, ev.clientX - startX)
+      const v = speed()
+      // A leftward flick cancels even past the distance threshold, the way
+      // pulling a page back onto the screen does on iOS.
+      const done = v > FLICK || (v > -FLICK && dx / width > SWIPE_COMPLETE)
+
+      if (done) {
         haptic('light')
+        // Hand the screen straight to the exit animation. Carrying it the rest
+        // of the way on dragX first reads better, but the element has to be
+        // unbound from dragX for AnimatePresence to remove it, and unbinding
+        // after a release cancels the exit and leaves the popped screen mounted
+        // on top of the live one.
+        setSwiping(false)
+        dragX.set(0)
         pop()
+      } else {
+        animate(dragX, 0, { type: 'spring', stiffness: 520, damping: 46, velocity: v })
+          .then(() => setSwiping(false))
       }
     }
     window.addEventListener('pointermove', move)
