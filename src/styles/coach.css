@@ -294,6 +294,27 @@
   border-top-right-radius: 5px;
 }
 
+/* `.btn` is width: 100% by design, which in a row makes both children fight for
+   the same space and squashes the labelled one to three lines. */
+.note-actions { display: flex; gap: 10px; }
+.note-actions .btn { min-height: 44px; width: auto; }
+.note-actions .note-reply { flex: 1; min-width: 0; }
+.note-actions .note-open { flex: none; width: 52px; padding: 0; }
+
+/* Arriving here from a tap on the note itself: hold the eye for a beat so the
+   record it is attached to registers as the reason you are here. */
+@keyframes note-spotlight {
+  0%, 12% { box-shadow: 0 0 0 6px var(--accent-soft); }
+  100% { box-shadow: 0 0 0 6px transparent; }
+}
+.note-strip.spotlight {
+  border-radius: 14px;
+  animation: note-spotlight 1.8s ease-out 0.45s both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .note-strip.spotlight { animation: none; }
+}
+
 /* ------------------------- the coach on the plan -------------------------- */
 
 .coach-quote {

@@ -43,7 +43,9 @@ export function useAnchorTarget(anchor: NoteAnchor): AnchorTarget {
     return {
       ...base,
       title: log ? `${log.sessionName} · ${formatMediumDate(log.date)}` : 'No longer in your history',
-      open: log ? () => { switchTab('train'); push('logDetail', { logId: log.id }) } : undefined,
+      open: log
+        ? () => { switchTab('train'); push('logDetail', { logId: log.id, focus: 'notes' }) }
+        : undefined,
     }
   }
   if (anchor.kind === 'weighIn') {
@@ -60,7 +62,7 @@ export function useAnchorTarget(anchor: NoteAnchor): AnchorTarget {
     return {
       ...base,
       title: 'Weekly check-in',
-      open: () => { switchTab('weigh'); push('checkIns') },
+      open: () => { switchTab('weigh'); push('checkIns', { focus: 'notes' }) },
     }
   }
   if (anchor.kind === 'photo') {

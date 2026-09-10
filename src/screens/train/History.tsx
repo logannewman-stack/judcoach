@@ -158,7 +158,7 @@ export function History() {
 
 /* ------------------------------- log detail ------------------------------ */
 
-export function LogDetail({ logId }: { logId: string }) {
+export function LogDetail({ logId, focus }: { logId: string; focus?: string }) {
   const pop = useNav((s) => s.pop)
   const push = useNav((s) => s.push)
   const logs = useStore((s) => s.logs)
@@ -255,6 +255,7 @@ export function LogDetail({ logId }: { logId: string }) {
           <SectionHeader title={`From ${COACH.name}`} />
           <div className="gutter">
             <CoachNotes
+              spotlight={focus === 'notes'}
               anchor={{ kind: 'workout', id: log.id }}
               empty={`${COACH.name} hasn't looked at this one yet.`}
             />

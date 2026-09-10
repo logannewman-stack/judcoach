@@ -31,9 +31,16 @@ export function CoachNotes({
   anchor,
   /** Shown when nothing has been said about this record yet. */
   empty,
+  /**
+   * Set when the screen was opened *because* of these notes. The record they
+   * are about is usually a long scroll, so arriving at the top of it and
+   * hunting for the comment you tapped is the wrong end of the journey.
+   */
+  spotlight,
 }: {
   anchor: NoteAnchor
   empty?: string
+  spotlight?: boolean
 }) {
   const all = useCoach((s) => s.notes)
   const viewAs = useCoach((s) => s.viewAs)
@@ -43,6 +50,7 @@ export function CoachNotes({
   const push = useNav((s) => s.push)
   const notes = useMemo(() => notesFor(all, anchor), [all, anchor])
   const [replying, setReplying] = useState(false)
+  const strip = useRef<HTMLDivElement>(null)
 
   const key = anchor.kind === 'thread' ? 'thread' : anchor.id
   const them = viewAs === 'client' ? COACH.name : (clientName.split(' ')[0] || 'your client')
@@ -58,6 +66,16 @@ export function CoachNotes({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unread, markRead, viewAs, anchor.kind, key])
 
+  useEffect(() => {
+    if (!spotlight) return
+    // After the push settles, or the animation carries it back out of view.
+    const id = window.setTimeout(
+      () => strip.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }),
+      420,
+    )
+    return () => window.clearTimeout(id)
+  }, [spotlight])
+
   const label = (author: string) => (author === viewAs
     ? 'You'
     : viewAs === 'client' ? COACH.name : (clientName.split(' ')[0] || 'Client'))
@@ -65,7 +83,7 @@ export function CoachNotes({
   if (notes.length === 0 && !empty) return null
 
   return (
-    <div className="note-strip">
+    <div className={`note-strip${spotlight ? ' spotlight' : ''}`} ref={strip}>
       {notes.length === 0 ? (
         <div className="t-footnote dim" style={{ padding: '2px 2px 0' }}>{empty}</div>
       ) : (
@@ -106,11 +124,10 @@ export function CoachNotes({
           }}
         />
       ) : (
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div className="note-actions">
           <button
             type="button"
-            className="btn btn-gray"
-            style={{ minHeight: 44, flex: 1 }}
+            className="btn btn-gray note-reply"
             onClick={() => setReplying(true)}
           >
             <Icon name="message" size={17} weight={2} />
@@ -119,8 +136,7 @@ export function CoachNotes({
           {notes.length > 0 && (
             <button
               type="button"
-              className="btn btn-gray"
-              style={{ minHeight: 44, flex: 'none', paddingInline: 16 }}
+              className="btn btn-gray note-open"
               aria-label="Open the full conversation"
               onClick={() => push('messages')}
             >

@@ -20,7 +20,7 @@ const SCALES = [
   { key: 'soreness' as const, label: 'Soreness', low: 'None', high: 'Beaten up' },
 ]
 
-export function CheckIns() {
+export function CheckIns({ focus }: { focus?: string } = {}) {
   const pop = useNav((s) => s.pop)
   const checkIns = useStore((s) => s.checkIns)
   const addCheckIn = useStore((s) => s.addCheckIn)
@@ -71,7 +71,7 @@ export function CheckIns() {
             <div>
               <SectionHeader title="History" />
               <div className="gutter" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {sorted.map((entry) => (
+                {sorted.map((entry, i) => (
                   <div key={entry.id} className="card" style={{ margin: 0, padding: 14 }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
                       <span className="t-headline">{relativeDay(entry.date)}</span>
@@ -100,6 +100,7 @@ export function CheckIns() {
                     {/* Jud's reply is a real message, so the client can answer it. */}
                     <div style={{ marginTop: 12 }}>
                       <CoachNotes
+                        spotlight={focus === 'notes' && i === 0}
                         anchor={{ kind: 'checkIn', id: entry.id }}
                         empty={`Waiting on ${COACH.name}.`}
                       />
