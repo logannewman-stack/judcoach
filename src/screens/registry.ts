@@ -1,27 +1,71 @@
 import type { ScreenRegistry } from '../nav/Stack'
+
 import { TodayScreen } from './Today'
+
 import { TrainHome } from './train/TrainHome'
 import { SessionDetail } from './train/SessionDetail'
 import { Runner } from './train/Runner'
-import { makePlaceholder } from './Placeholder'
+import { RpeGuide } from './train/RpeGuide'
+import { ExerciseLibrary, ExerciseDetail } from './train/Library'
+import { History, LogDetail, PersonalRecordsScreen } from './train/History'
+
+import { MealsHome } from './meals/MealsHome'
+import { MealDetail } from './meals/MealDetail'
+import { Grocery } from './meals/Grocery'
+import { Guidelines } from './meals/Guidelines'
+
+import { WeighInHome } from './weigh/WeighInHome'
+import { Measurements } from './weigh/Measurements'
+import { Photos } from './weigh/Photos'
+import { CheckIns } from './weigh/CheckIns'
+
+import { SettingsHome } from './settings/SettingsHome'
+import { ProfileSettings } from './settings/ProfileSettings'
+import { TrainingMaxes } from './settings/TrainingMaxes'
+import { Equipment } from './settings/Equipment'
+import { Appearance, WorkoutSettings, Notifications, DataSettings } from './settings/Preferences'
+import { Coach } from './settings/Coach'
+import { ProgramSettings } from './settings/ProgramSettings'
+import { Install } from './settings/Install'
 
 /** Route key → screen. Every `push`/`present` key must appear here. */
 export const SCREENS: ScreenRegistry = {
+  // tab roots
   today: TodayScreen,
   train: TrainHome,
-  meals: makePlaceholder('Meals'),
-  weigh: makePlaceholder('Weigh-In'),
-  settings: makePlaceholder('Settings'),
+  meals: MealsHome,
+  weigh: WeighInHome,
+  settings: SettingsHome,
 
+  // training
   session: SessionDetail,
   runner: Runner,
+  history: History,
+  logDetail: LogDetail,
+  exerciseLibrary: ExerciseLibrary,
+  exerciseDetail: ExerciseDetail,
+  rpeGuide: RpeGuide,
+  prs: PersonalRecordsScreen,
 
-  coach: makePlaceholder('Coach'),
-  logDetail: makePlaceholder('Workout'),
-  history: makePlaceholder('History'),
-  exerciseLibrary: makePlaceholder('Exercises'),
-  exerciseDetail: makePlaceholder('Exercise'),
-  rpeGuide: makePlaceholder('RPE & RIR'),
-  prs: makePlaceholder('Records'),
-  trainingMaxes: makePlaceholder('Training Maxes'),
+  // nutrition
+  mealDetail: MealDetail,
+  grocery: Grocery,
+  guidelines: Guidelines,
+
+  // body
+  measurements: Measurements,
+  photos: Photos,
+  checkIns: CheckIns,
+
+  // settings
+  profileSettings: ProfileSettings,
+  trainingMaxes: TrainingMaxes,
+  equipment: Equipment,
+  appearance: Appearance,
+  workoutSettings: WorkoutSettings,
+  notifications: Notifications,
+  dataSettings: DataSettings,
+  coach: Coach,
+  programSettings: ProgramSettings,
+  install: Install,
 }

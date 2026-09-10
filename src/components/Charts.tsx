@@ -82,9 +82,19 @@ export function LineChart({
   const geom = useMemo(() => {
     if (!width || data.length === 0) return null
     const all = [...data.map((d) => d.y), ...(secondary?.map((d) => d.y) ?? [])]
-    if (goal) all.push(goal.value)
     let min = Math.min(...all)
     let max = Math.max(...all)
+    const dataSpan = max - min || Math.max(1, Math.abs(max) * 0.05)
+
+    // A goal far outside the data would squash the whole trend into a corner,
+    // so it only joins the scale when it is close enough to be worth showing.
+    const goalInScale =
+      goal != null && goal.value >= min - dataSpan * 0.6 && goal.value <= max + dataSpan * 0.6
+    if (goalInScale) {
+      min = Math.min(min, goal!.value)
+      max = Math.max(max, goal!.value)
+    }
+
     const span = max - min || Math.max(1, Math.abs(max) * 0.05)
     min -= span * padFraction
     max += span * padFraction
@@ -101,7 +111,7 @@ export function LineChart({
       .filter((d) => indexOf.has(d.x))
       .map((d) => ({ x: sx(indexOf.get(d.x)!, data.length), y: sy(d.y), raw: d }))
 
-    return { primary, trend, sy, min, max, innerH }
+    return { primary, trend, sy, min, max, innerH, goalInScale }
   }, [width, data, secondary, goal, height, padFraction])
 
   const active = hover != null && geom ? geom.primary[hover] : null
@@ -143,7 +153,7 @@ export function LineChart({
             </linearGradient>
           </defs>
 
-          {goal && (
+          {goal && geom.goalInScale && (
             <>
               <line
                 x1={PAD_L} x2={width - PAD_R}

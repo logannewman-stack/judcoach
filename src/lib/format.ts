@@ -7,6 +7,12 @@ export function num(value: number, maxDecimals = 1): string {
   return String(rounded)
 }
 
+/** Always shows `decimals` places, so a column of weights stays aligned. */
+export function fixed(value: number, decimals = 1): string {
+  if (!Number.isFinite(value)) return '—'
+  return value.toFixed(decimals)
+}
+
 export function signed(value: number, maxDecimals = 1): string {
   const n = num(Math.abs(value), maxDecimals)
   if (Math.abs(value) < Math.pow(10, -maxDecimals) / 2) return n

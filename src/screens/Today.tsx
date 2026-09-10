@@ -18,7 +18,7 @@ import { consumedTotals } from '../domain/nutrition'
 import { describeReps, formatRpe, resolveSet } from '../domain/strength'
 import { rollingSeries, summarizeTrend, weighInStreak } from '../domain/weight'
 import { formatLongDate, relativeDay, timeOfDayGreeting, todayISO, addDays } from '../lib/date'
-import { num, signed } from '../lib/format'
+import { fixed, num, signed } from '../lib/format'
 import { navPresent, navPush, navSwitchTab, useNav } from '../nav/nav'
 import { COACH } from '../data/seed'
 
@@ -137,7 +137,7 @@ export function TodayScreen() {
                 <div className="t-footnote dim">7-day average</div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
                   <span className="mono-nums" style={{ fontSize: 30, fontWeight: 700, letterSpacing: -0.7 }}>
-                    {trend ? num(trend.current, 1) : '—'}
+                    {trend ? fixed(trend.current, 1) : '—'}
                   </span>
                   <span className="t-callout dim">{profile.units}</span>
                 </div>

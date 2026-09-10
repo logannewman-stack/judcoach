@@ -365,7 +365,7 @@ export function buildProgram(startDate: string): Program {
     id: 'block-3-strength-hypertrophy',
     name: 'Block 3 · Strength + Size',
     subtitle: '8 weeks · 4 days · upper/lower',
-    goal: 'Add 20 lb to the squat and bench totals while holding bodyweight steady.',
+    goal: 'Add 20 lb across the big three while gaining at 0.4 lb a week — strength up, waist flat.',
     coach: 'Jud',
     startDate,
     daysPerWeek: 4,
