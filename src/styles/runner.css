@@ -1,6 +1,10 @@
 /* ============================================================================
    Workout runner.
 
+   Press states key off `data-pressed`, not `:active` — see lib/press.ts. On
+   touch the browser withholds `:active` until it knows the gesture is not a
+   scroll, which is a quarter of a second after the finger landed.
+
    Kept out of base.css because none of this is a shared primitive: it is the
    chrome of the one screen a client stares at for an hour, and most of it exists
    to buy that screen vertical space or a bigger target.
@@ -33,7 +37,7 @@
   border-radius: 12px 12px 0 0;
   text-align: center;
 }
-.runner-quant-read:active { background: var(--fill-3); }
+.runner-quant-read[data-pressed] { background: var(--fill-3); }
 
 .runner-quant-steps {
   display: grid;
@@ -49,7 +53,7 @@
 }
 .runner-step:first-child { border-radius: 0 0 0 12px; }
 .runner-step:last-child { border-radius: 0 0 12px 0; }
-.runner-step:active { background: var(--fill-3); }
+.runner-step[data-pressed] { background: var(--fill-3); }
 .runner-step:disabled { opacity: 0.3; }
 
 .runner-step-sep { background: var(--sep); }
@@ -94,7 +98,7 @@ h1.runner-title {
   background: var(--fill-3);
   color: var(--label);
 }
-.runner-tool:active { opacity: 0.86; }
+.runner-tool[data-pressed] { opacity: 0.86; }
 .runner-tool.icon-only { width: 44px; padding: 0; }
 
 /* Narrower than any shipping iPhone, where the word "Swap" is the difference
