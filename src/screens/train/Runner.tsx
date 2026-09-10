@@ -4,11 +4,14 @@ import { Icon } from '../../components/Icon'
 import { Button, Pill } from '../../components/ios/Controls'
 import { ActionSheet, Alert, Sheet } from '../../components/ios/Sheet'
 import { NumberPad, RpePicker } from '../../components/NumberPad'
+import { SearchField } from '../../components/ios/SearchField'
 import { toast } from '../../components/ios/Toast'
 import { CoachNote } from '../../components/Bits'
-import { LastTimeLine, PlateRow, WarmupList } from './parts'
+import { LastTimeLine } from './parts'
+import { Barbell } from '../../components/Barbell'
+import { WarmupRamp } from './WarmupRamp'
 import { useStore } from '../../store/useStore'
-import { findSession, isPrSet, lastPerformance, useProgram } from '../../store/selectors'
+import { bestHistoricalE1RM, findSession, lastPerformance, useProgram } from '../../store/selectors'
 import { EXERCISES, getExercise } from '../../data/exercises'
 import type { LoggedSet, SetPrescription } from '../../domain/types'
 import {
@@ -32,6 +35,8 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
   const removeLoggedSet = useStore((s) => s.removeLoggedSet)
   const setCurrentBlock = useStore((s) => s.setCurrentBlock)
   const swapExercise = useStore((s) => s.swapExercise)
+  const setBlockNote = useStore((s) => s.setBlockNote)
+  const setWarmupsDone = useStore((s) => s.setWarmupsDone)
   const startRest = useStore((s) => s.startRest)
   const finishSession = useStore((s) => s.finishSession)
   const discardSession = useStore((s) => s.discardSession)
@@ -57,6 +62,7 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
   const [showFinish, setShowFinish] = useState(false)
   const [showDiscard, setShowDiscard] = useState(false)
   const [showSwap, setShowSwap] = useState(false)
+  const [showNote, setShowNote] = useState(false)
   const [editing, setEditing] = useState<LoggedSet | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -74,6 +80,17 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
 
   const totalSets = session.blocks.reduce((n, b) => n + b.sets.length, 0)
   const doneSets = Object.values(active.entries).reduce((n, sets) => n + sets.length, 0)
+
+  // A set is a record only if it beats everything before it — history *and*
+  // whatever has already been put on the bar this session.
+  const historicalBest = bestHistoricalE1RM(logs, exerciseId)
+  let runningBest = historicalBest
+  const prFlags = logged.map((set) => {
+    const est = e1RM(set.weight, set.reps, set.rpe)
+    const isPr = est > runningBest + 0.01
+    if (isPr) runningBest = est
+    return isPr
+  })
 
   const tm = profile.trainingMaxes[exerciseId]
   const resolved = resolveSet(prescription, {
@@ -182,15 +199,29 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
       <div className="scroll" ref={scrollRef}>
         <div style={{ padding: '16px 0 0', display: 'flex', flexDirection: 'column', gap: 18 }}>
           <div className="gutter">
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+            <h1 className="t-title1" style={{ letterSpacing: -0.5, textWrap: 'balance' }}>
+              {exercise?.name ?? exerciseId}
+            </h1>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                marginTop: 6,
+              }}
+            >
               <div style={{ flex: 1, minWidth: 0 }}>
-                <h1 className="t-title1" style={{ letterSpacing: -0.5 }}>
-                  {exercise?.name ?? exerciseId}
-                </h1>
-                <div style={{ marginTop: 4 }}>
-                  <LastTimeLine performance={last} units={profile.units} />
-                </div>
+                <LastTimeLine performance={last} units={profile.units} />
               </div>
+              <button
+                type="button"
+                className="btn btn-gray btn-sm"
+                aria-label="Note for this exercise"
+                onClick={() => setShowNote(true)}
+                style={{ padding: '0 11px', flex: 'none' }}
+              >
+                <Icon name="pencil" size={15} weight={2.2} />
+              </button>
               <button
                 type="button"
                 className="btn btn-gray btn-sm"
@@ -206,12 +237,30 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
                 <Pill tone="tinted">Superset {block.supersetGroup} — alternate with the next movement</Pill>
               </div>
             )}
+            {active.notes[block.id] && (
+              <button
+                type="button"
+                onClick={() => setShowNote(true)}
+                style={{
+                  display: 'flex', gap: 8, alignItems: 'flex-start', width: '100%',
+                  marginTop: 10, padding: '9px 11px', borderRadius: 10,
+                  background: 'var(--fill-4)', textAlign: 'left',
+                }}
+              >
+                <Icon name="pencil" size={13} weight={2.2} color="var(--label-3)" style={{ marginTop: 2 }} />
+                <span className="t-footnote" style={{ lineHeight: '18px' }}>{active.notes[block.id]}</span>
+              </button>
+            )}
           </div>
 
           {/* ---------------------------- target card -------------------------- */}
           {!isBlockDone && (
             <div className="gutter">
-              <div
+              <motion.div
+                key={`${block.id}-${setIndex}`}
+                initial={{ opacity: 0, y: 10, scale: 0.985 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 460, damping: 34 }}
                 className="card"
                 style={{
                   margin: 0,
@@ -259,25 +308,32 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
                 </div>
 
                 {settings.showPlateMath && exercise?.barLoaded && resolved.targetWeight != null && (
-                  <div style={{ marginTop: 11 }}>
-                    <PlateRow target={resolved.targetWeight} profile={profile} />
+                  <div
+                    style={{
+                      marginTop: 13,
+                      paddingTop: 13,
+                      borderTop: 'var(--hairline) solid var(--sep)',
+                    }}
+                  >
+                    <Barbell target={resolved.targetWeight} profile={profile} />
                   </div>
                 )}
 
                 {prescription.note && (
                   <div className="t-footnote dim" style={{ marginTop: 10 }}>{prescription.note}</div>
                 )}
-              </div>
+              </motion.div>
             </div>
           )}
 
           {/* ----------------------------- warm-up ---------------------------- */}
-          {blockIndex === 0 && logged.length === 0 && exercise?.barLoaded && resolved.targetWeight != null && (
+          {logged.length === 0 && exercise?.barLoaded && resolved.targetWeight != null && (
             <div className="gutter">
-              <div className="t-caption1 dim semibold" style={{ marginBottom: 6 }}>WARM-UP RAMP</div>
-              <WarmupList
+              <WarmupRamp
                 sets={buildWarmup(resolved.targetWeight, profile.barWeight, profile.roundingIncrement)}
                 units={profile.units}
+                done={active.warmups?.[block.id] ?? 0}
+                onChange={(count) => setWarmupsDone(block.id, count)}
               />
             </div>
           )}
@@ -319,13 +375,16 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
               <div className="card" style={{ margin: 0 }}>
                 {logged.map((s, i) => {
                   const target = block.sets[i]
-                  const pr = isPrSet(logs, exerciseId, s)
+                  const pr = prFlags[i]
                   return (
-                    <button
+                    <motion.button
                       key={s.id}
                       type="button"
                       className="row"
                       onClick={() => setEditing(s)}
+                      initial={{ opacity: 0, x: -14 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ type: 'spring', stiffness: 480, damping: 34 }}
                       style={{ ['--row-sep-inset' as string]: '16px' }}
                     >
                       <span
@@ -349,7 +408,7 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
                       </span>
                       {pr && <Pill tone="warn" icon="seal.fill">PR</Pill>}
                       <Icon name="pencil" size={15} color="var(--label-3)" weight={2} />
-                    </button>
+                    </motion.button>
                   )
                 })}
               </div>
@@ -408,6 +467,14 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
       </div>
 
       {/* ------------------------------- overlays ---------------------------- */}
+      <NoteSheet
+        open={showNote}
+        onClose={() => setShowNote(false)}
+        exerciseName={exercise?.name ?? exerciseId}
+        value={active.notes[block.id] ?? ''}
+        onSave={(text) => setBlockNote(block.id, text)}
+      />
+
       <SwapSheet
         open={showSwap}
         onClose={() => setShowSwap(false)}
@@ -478,7 +545,16 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
 
   function logRawSet(set: SetPrescription, weight: number, reps: number, rpe?: number) {
     logSet(block.id, { prescriptionId: set.id, weight, reps, rpe })
-    haptic('success')
+    const est = e1RM(weight, reps, rpe)
+    if (est > runningBest + 0.01 && historicalBest > 0) {
+      haptic('heavy')
+      toast(`New best — ${num(est, 0)} ${profile.units} estimated max`, {
+        icon: 'seal.fill',
+        tone: 'good',
+      })
+    } else {
+      haptic('success')
+    }
     if (settings.restTimerAuto) {
       const rest = set.restSec ?? exercise?.defaultRestSec ?? 120
       startRest(rest, `${exercise?.shortName ?? exercise?.name ?? 'Rest'} · set ${logged.length + 1}`)
@@ -779,19 +855,9 @@ function SwapSheet({
           Equipment taken or something hurts? Pick a substitute that trains the same pattern.
         </div>
 
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search all exercises"
-          style={{
-            width: '100%',
-            padding: '10px 13px',
-            borderRadius: 10,
-            border: 'none',
-            background: 'var(--fill-3)',
-            marginBottom: 14,
-          }}
-        />
+        <div style={{ marginBottom: 14 }}>
+          <SearchField value={query} onChange={setQuery} placeholder="Search all exercises" />
+        </div>
 
         {(query.trim() ? results : [original, ...suggested].filter(Boolean)).map((ex) => {
           if (!ex) return null
@@ -1000,5 +1066,58 @@ function SummaryTile({ label, value }: { label: string; value: string }) {
         {value}
       </div>
     </div>
+  )
+}
+
+/* -------------------------------- note sheet ----------------------------- */
+
+function NoteSheet({
+  open, onClose, exerciseName, value, onSave,
+}: {
+  open: boolean
+  onClose: () => void
+  exerciseName: string
+  value: string
+  onSave: (text: string) => void
+}) {
+  const [draft, setDraft] = useState(value)
+  useEffect(() => {
+    if (open) setDraft(value)
+  }, [open, value])
+
+  return (
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title="Note"
+      left={{ label: 'Cancel', onPress: onClose }}
+      right={{
+        label: 'Save',
+        strong: true,
+        onPress: () => {
+          onSave(draft.trim())
+          onClose()
+        },
+      }}
+      detent={0.6}
+    >
+      <div style={{ padding: '8px 16px 16px' }}>
+        <div className="t-footnote dim" style={{ marginBottom: 10 }}>
+          Anything about {exerciseName} that Jud should see with this session — a pinch, a cue that
+          clicked, a machine that was set differently.
+        </div>
+        <textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          rows={5}
+          autoFocus
+          placeholder="Left knee felt off on the first set…"
+          style={{
+            width: '100%', padding: '11px 13px', borderRadius: 12, border: 'none',
+            background: 'var(--fill-3)', resize: 'none', lineHeight: '22px',
+          }}
+        />
+      </div>
+    </Sheet>
   )
 }

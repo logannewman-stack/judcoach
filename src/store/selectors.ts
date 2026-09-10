@@ -203,6 +203,21 @@ export function personalRecords(logs: WorkoutLog[]): PersonalRecord[] {
   return [...byExercise.values()].sort((a, b) => b.e1rm - a.e1rm)
 }
 
+/** Best estimated max ever logged for one movement. */
+export function bestHistoricalE1RM(logs: WorkoutLog[], exerciseId: string): number {
+  let best = 0
+  for (const log of logs) {
+    for (const ex of log.exercises) {
+      if (ex.exerciseId !== exerciseId) continue
+      for (const set of ex.sets) {
+        if (set.warmup) continue
+        best = Math.max(best, e1RM(set.weight, set.reps, set.rpe))
+      }
+    }
+  }
+  return best
+}
+
 /** True when this set beats every previous estimated max for the movement. */
 export function isPrSet(logs: WorkoutLog[], exerciseId: string, set: LoggedSet): boolean {
   const est = e1RM(set.weight, set.reps, set.rpe)

@@ -125,14 +125,20 @@ export function LastTimeLine({
     return <span className="t-footnote dim">No history yet — this is set one.</span>
   }
   const best = performance.sets.reduce((b, s) => (s.weight > b.weight ? s : b))
+  // One continuous text run — as flex items the date used to wrap onto its own
+  // line with a gap in front of it.
   return (
-    <span className="t-footnote dim" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-      <Icon name="clock" size={12} weight={2.2} color="var(--label-3)" />
-      <span className="mono-nums">
-        Last time {num(best.weight, 1)} {units} × {best.reps}
-        {best.rpe != null ? ` @ ${formatRpe(best.rpe)}` : ''}
-      </span>
-      <span className="dim3">· {relativeDay(performance.date)}</span>
+    <span className="t-footnote dim mono-nums">
+      <Icon
+        name="clock"
+        size={12}
+        weight={2.2}
+        color="var(--label-3)"
+        style={{ display: 'inline-block', verticalAlign: -1, marginRight: 5 }}
+      />
+      Last {num(best.weight, 1)} {units} × {best.reps}
+      {best.rpe != null ? ` @ ${formatRpe(best.rpe)}` : ''}
+      <span className="dim3"> · {relativeDay(performance.date)}</span>
     </span>
   )
 }

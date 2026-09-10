@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { haptic } from '../../lib/haptics'
+import { useKeyboardInset } from '../../lib/useKeyboardInset'
 
 /** iOS sheet spring: settles fast, no visible bounce. */
 export const SHEET_SPRING = { type: 'spring' as const, stiffness: 420, damping: 40, mass: 0.9 }
@@ -45,6 +46,7 @@ export function Sheet({
   grabber?: boolean
 }) {
   useLockedScroll(open)
+  const keyboard = useKeyboardInset()
 
   useEffect(() => {
     if (!open) return
@@ -69,7 +71,11 @@ export function Sheet({
           />
           <motion.div
             className="sheet"
-            style={{ maxHeight: `${detent * 100}%` }}
+            style={{
+              // Sit on top of the keyboard rather than behind it.
+              maxHeight: keyboard > 0 ? `calc(${detent * 100}% - ${keyboard}px)` : `${detent * 100}%`,
+              bottom: keyboard,
+            }}
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}

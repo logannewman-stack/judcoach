@@ -155,6 +155,8 @@ export interface ActiveSession {
   /** prescriptionId -> exercise substituted in for the prescribed one. */
   swaps: Record<string, string>
   notes: Record<string, string>
+  /** prescriptionId -> how many warm-up rungs have been ticked off. */
+  warmups: Record<string, number>
   currentBlockIndex: number
 }
 

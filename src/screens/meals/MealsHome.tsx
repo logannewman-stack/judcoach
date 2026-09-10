@@ -6,6 +6,7 @@ import { Card, SectionHeader } from '../../components/Bits'
 import { Icon } from '../../components/Icon'
 import { Pill, Segmented } from '../../components/ios/Controls'
 import { Sheet } from '../../components/ios/Sheet'
+import { SwipeRow, useSwipeGroup } from '../../components/ios/SwipeRow'
 import { RingStack, MACRO_COLORS } from '../../components/Rings'
 import { toast } from '../../components/ios/Toast'
 import { useStore, emptyDay } from '../../store/useStore'
@@ -50,6 +51,7 @@ export function MealsHome() {
   const adherence = adherencePercent(MEAL_PLAN, day)
   const protein = proteinStatus(targets, totals)
   const [quickAdd, setQuickAdd] = useState(false)
+  const swipe = useSwipeGroup()
 
   return (
     <Screen
@@ -200,20 +202,34 @@ export function MealsHome() {
           footer="Anything off-plan. Log it honestly — it's what tells Jud whether the plan is working."
         >
           {day.extras.map((food) => (
-            <Row
+            <SwipeRow
               key={food.id}
-              title={food.name}
-              subtitle={`${food.kcal} kcal · P${food.protein} C${food.carbs} F${food.fat}`}
-              trailing={
-                <button
-                  type="button"
-                  aria-label={`Remove ${food.name}`}
-                  onClick={() => removeExtraFood(date, food.id)}
-                >
-                  <Icon name="xmark.circle.fill" size={20} color="var(--label-3)" />
-                </button>
-              }
-            />
+              id={food.id}
+              openId={swipe.openId}
+              onOpenChange={swipe.onOpenChange}
+              actions={[
+                {
+                  label: 'Remove',
+                  icon: 'trash',
+                  destructive: true,
+                  onPress: () => removeExtraFood(date, food.id),
+                },
+              ]}
+            >
+              <Row
+                title={food.name}
+                subtitle={`${food.kcal} kcal · P${food.protein} C${food.carbs} F${food.fat}`}
+                trailing={
+                  <button
+                    type="button"
+                    aria-label={`Remove ${food.name}`}
+                    onClick={() => removeExtraFood(date, food.id)}
+                  >
+                    <Icon name="xmark.circle.fill" size={20} color="var(--label-3)" />
+                  </button>
+                }
+              />
+            </SwipeRow>
           ))}
           <Row
             title="Add food"

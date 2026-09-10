@@ -3,7 +3,8 @@ import { Screen } from '../../components/ios/Screen'
 import { Card, CoachNote, SectionHeader } from '../../components/Bits'
 import { Icon } from '../../components/Icon'
 import { Button, Pill } from '../../components/ios/Controls'
-import { BlockHeading, LastTimeLine, LoggedSetChip, PlateRow, TargetSummary, WarmupList, setLabel } from './parts'
+import { BlockHeading, LastTimeLine, LoggedSetChip, TargetSummary, WarmupList, setLabel } from './parts'
+import { Barbell } from '../../components/Barbell'
 import { useStore } from '../../store/useStore'
 import { findSession, lastPerformance, sessionDate, useProgram } from '../../store/selectors'
 import { getExercise } from '../../data/exercises'
@@ -157,8 +158,8 @@ export function SessionDetail({ weekIndex, sessionId }: { weekIndex: number; ses
                   </div>
 
                   {showPlates && exercise?.barLoaded && heaviest.targetWeight && (
-                    <div style={{ marginTop: 12, marginLeft: 31 }}>
-                      <PlateRow target={heaviest.targetWeight} profile={profile} />
+                    <div style={{ marginTop: 13, marginLeft: 31 }}>
+                      <Barbell target={heaviest.targetWeight} profile={profile} height={52} />
                     </div>
                   )}
 

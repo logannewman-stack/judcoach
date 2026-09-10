@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react'
 import { Screen } from '../../components/ios/Screen'
 import { ListSection, Row } from '../../components/ios/List'
 import { Card, EmptyState, SectionHeader } from '../../components/Bits'
-import { Icon } from '../../components/Icon'
 import { Pill, Segmented } from '../../components/ios/Controls'
+import { SearchField } from '../../components/ios/SearchField'
 import { LineChart, Sparkline } from '../../components/Charts'
 import { LoggedSetChip } from './parts'
 import { useStore } from '../../store/useStore'
@@ -53,24 +53,12 @@ export function ExerciseLibrary() {
         </div>
 
         <div className="gutter">
-          <div style={{ position: 'relative' }}>
-            <span style={{ position: 'absolute', left: 11, top: 11, pointerEvents: 'none' }}>
-              <Icon name="search" size={17} weight={2.2} color="var(--label-3)" />
-            </span>
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search"
-              aria-label="Search exercises"
-              style={{
-                width: '100%',
-                padding: '10px 13px 10px 36px',
-                borderRadius: 10,
-                border: 'none',
-                background: 'var(--fill-3)',
-              }}
-            />
-          </div>
+          <SearchField
+            value={query}
+            onChange={setQuery}
+            placeholder="Search 55 movements"
+            label="Search exercises"
+          />
         </div>
 
         <div className="gutter">

@@ -50,6 +50,7 @@ export interface AppState {
   removeLoggedSet: (prescriptionId: string, setId: string) => void
   swapExercise: (prescriptionId: string, exerciseId: string) => void
   setBlockNote: (prescriptionId: string, note: string) => void
+  setWarmupsDone: (prescriptionId: string, count: number) => void
   finishSession: (meta: { sessionName: string; sessionRpe?: number; notes?: string }) => void
   discardSession: () => void
 
@@ -153,6 +154,7 @@ export const useStore = create<AppState>()(
             entries: {},
             swaps: {},
             notes: {},
+            warmups: {},
             currentBlockIndex: 0,
           },
         })),
@@ -218,6 +220,19 @@ export const useStore = create<AppState>()(
         set((s) =>
           s.active
             ? { active: { ...s.active, notes: { ...s.active.notes, [prescriptionId]: note } } }
+            : {},
+        ),
+
+      setWarmupsDone: (prescriptionId, count) =>
+        set((s) =>
+          s.active
+            ? {
+                active: {
+                  ...s.active,
+                  // A session persisted before warm-up tracking existed has no map.
+                  warmups: { ...(s.active.warmups ?? {}), [prescriptionId]: Math.max(0, count) },
+                },
+              }
             : {},
         ),
 

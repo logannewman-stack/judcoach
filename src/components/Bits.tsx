@@ -54,6 +54,7 @@ export function StatTile({
     <Tag
       onClick={onPress}
       type={onPress ? 'button' : undefined}
+      className={onPress ? 'pressable' : undefined}
       style={{
         background: 'var(--grouped-2)',
         borderRadius: 'var(--r-card)',

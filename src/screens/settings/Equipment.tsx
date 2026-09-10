@@ -5,7 +5,7 @@ import { Card, SectionHeader } from '../../components/Bits'
 import { Icon } from '../../components/Icon'
 import { Segmented } from '../../components/ios/Controls'
 import { NumberPad } from '../../components/NumberPad'
-import { PlateRow } from '../train/parts'
+import { Barbell } from '../../components/Barbell'
 import { useStore } from '../../store/useStore'
 import { DEFAULT_PLATES_KG, DEFAULT_PLATES_LB } from '../../domain/strength'
 import { num } from '../../lib/format'
@@ -116,7 +116,7 @@ export function Equipment() {
                     {num(target, 1)} {profile.units}
                     <span className="dim" style={{ fontWeight: 400 }}> · {Math.round(pct * 100)}% of TM</span>
                   </div>
-                  <PlateRow target={target} profile={profile} />
+                  <Barbell target={target} profile={profile} height={50} />
                 </div>
               )
             })}

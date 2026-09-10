@@ -7,6 +7,7 @@ import { ToastHost } from './components/ios/Toast'
 import { RestTimerBar } from './components/RestTimer'
 import { useTheme, useWakeLock } from './lib/useTheme'
 import { useStore } from './store/useStore'
+import { DeviceFrame } from './components/DeviceFrame'
 
 export function App() {
   useTheme()
@@ -19,7 +20,8 @@ export function App() {
   const FullScreenComponent = fullScreen ? SCREENS[fullScreen.key] : null
 
   return (
-    <div className="app">
+    <DeviceFrame>
+      <div className="app">
       <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
         {TABS.map((key) => (
           <Stack key={key} tab={key} registry={SCREENS} active={tab === key} />
@@ -46,6 +48,7 @@ export function App() {
       </AnimatePresence>
 
       <ToastHost />
-    </div>
+      </div>
+    </DeviceFrame>
   )
 }

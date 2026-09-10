@@ -4,7 +4,7 @@ import { Screen } from '../../components/ios/Screen'
 import { ListSection, Row } from '../../components/ios/List'
 import { Card, EmptyState, StatTile } from '../../components/Bits'
 import { Button, Pill, Segmented } from '../../components/ios/Controls'
-import { ActionSheet } from '../../components/ios/Sheet'
+import { SwipeRow, useSwipeGroup } from '../../components/ios/SwipeRow'
 import { NumberPad } from '../../components/NumberPad'
 import { LineChart } from '../../components/Charts'
 import { toast } from '../../components/ios/Toast'
@@ -29,7 +29,7 @@ export function WeighInHome() {
 
   const [range, setRange] = useState<Range>('90')
   const [logging, setLogging] = useState(false)
-  const [selected, setSelected] = useState<string | null>(null)
+  const swipe = useSwipeGroup()
 
   const series = useMemo(() => rollingSeries(weighIns, 7), [weighIns])
   const trend = useMemo(() => summarizeTrend(weighIns, 28), [weighIns])
@@ -241,7 +241,7 @@ export function WeighInHome() {
         {/* ----------------------------- history ----------------------------- */}
         <ListSection
           header="Recent entries"
-          footer="Tap any entry to correct or delete it."
+          footer="Swipe an entry left to delete it."
         >
           {[...weighIns]
             .slice(-14)
@@ -250,27 +250,43 @@ export function WeighInHome() {
               const prev = arr[i + 1]
               const delta = prev ? entry.weight - prev.weight : 0
               return (
-                <Row
+                <SwipeRow
                   key={entry.date}
-                  title={relativeDay(entry.date, today)}
-                  subtitle={formatMediumDate(entry.date)}
-                  value={
-                    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 8 }}>
-                      {prev && (
-                        <span
-                          className="t-footnote mono-nums"
-                          style={{ color: delta > 0 ? 'var(--orange)' : delta < 0 ? 'var(--green)' : 'var(--label-3)' }}
-                        >
-                          {signed(delta, 1)}
+                  id={entry.date}
+                  openId={swipe.openId}
+                  onOpenChange={swipe.onOpenChange}
+                  actions={[
+                    {
+                      label: 'Delete',
+                      icon: 'trash',
+                      destructive: true,
+                      onPress: () => {
+                        deleteWeighIn(entry.date)
+                        toast('Entry deleted', { icon: 'trash', tone: 'bad' })
+                      },
+                    },
+                  ]}
+                >
+                  <Row
+                    title={relativeDay(entry.date, today)}
+                    subtitle={formatMediumDate(entry.date)}
+                    value={
+                      <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 8 }}>
+                        {prev && (
+                          <span
+                            className="t-footnote mono-nums"
+                            style={{ color: delta > 0 ? 'var(--orange)' : delta < 0 ? 'var(--green)' : 'var(--label-3)' }}
+                          >
+                            {signed(delta, 1)}
+                          </span>
+                        )}
+                        <span className="mono-nums" style={{ color: 'var(--label)' }}>
+                          {fixed(entry.weight, decimals)} {profile.units}
                         </span>
-                      )}
-                      <span className="mono-nums" style={{ color: 'var(--label)' }}>
-                        {fixed(entry.weight, decimals)} {profile.units}
                       </span>
-                    </span>
-                  }
-                  onPress={() => setSelected(entry.date)}
-                />
+                    }
+                  />
+                </SwipeRow>
               )
             })}
         </ListSection>
@@ -287,27 +303,6 @@ export function WeighInHome() {
         }}
       />
 
-      <ActionSheet
-        open={!!selected}
-        onClose={() => setSelected(null)}
-        title={selected ? formatMediumDate(selected) : undefined}
-        message={
-          selected
-            ? `${fixed(weighIns.find((w) => w.date === selected)?.weight ?? 0, decimals)} ${profile.units}`
-            : undefined
-        }
-        items={[
-          {
-            label: 'Delete entry',
-            destructive: true,
-            onPress: () => {
-              if (selected) deleteWeighIn(selected)
-              toast('Entry deleted', { icon: 'trash', tone: 'bad' })
-              setSelected(null)
-            },
-          },
-        ]}
-      />
     </Screen>
   )
 }
