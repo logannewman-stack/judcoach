@@ -122,17 +122,32 @@ function chunk(type, data) {
   return Buffer.concat([len, body, crc])
 }
 
-function encodePNG(size, rgba) {
+/**
+ * `up` selects PNG filter type 2 for every row but the first. A launch image is
+ * a vertical gradient, so each row is nearly identical to the one above it and
+ * the filtered bytes are almost all zero — a 1320x2868 splash lands in single-
+ * digit kilobytes instead of megabytes.
+ */
+function encodePNG(w, h, rgba, { up = false } = {}) {
   const ihdr = Buffer.alloc(13)
-  ihdr.writeUInt32BE(size, 0)
-  ihdr.writeUInt32BE(size, 4)
+  ihdr.writeUInt32BE(w, 0)
+  ihdr.writeUInt32BE(h, 4)
   ihdr[8] = 8
   ihdr[9] = 6
-  const stride = size * 4 + 1
-  const raw = Buffer.alloc(size * stride)
-  for (let y = 0; y < size; y++) {
-    raw[y * stride] = 0
-    rgba.copy(raw, y * stride + 1, y * size * 4, (y + 1) * size * 4)
+  const row = w * 4
+  const stride = row + 1
+  const raw = Buffer.alloc(h * stride)
+  for (let y = 0; y < h; y++) {
+    const at = y * stride
+    if (up && y > 0) {
+      raw[at] = 2
+      for (let i = 0; i < row; i++) {
+        raw[at + 1 + i] = (rgba[y * row + i] - rgba[(y - 1) * row + i]) & 0xff
+      }
+    } else {
+      raw[at] = 0
+      rgba.copy(raw, at + 1, y * row, (y + 1) * row)
+    }
   }
   return Buffer.concat([
     Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
@@ -143,8 +158,174 @@ function encodePNG(size, rgba) {
 }
 
 for (const size of [180, 512]) {
-  writeFileSync(new URL(`../public/icon-${size}.png`, import.meta.url), encodePNG(size, renderIcon(size)))
+  writeFileSync(new URL(`../public/icon-${size}.png`, import.meta.url), encodePNG(size, size, renderIcon(size)))
   console.log(`public/icon-${size}.png`)
 }
-writeFileSync(new URL('../public/favicon-64.png', import.meta.url), encodePNG(64, renderIcon(64, { rounded: true })))
+writeFileSync(new URL('../public/favicon-64.png', import.meta.url), encodePNG(64, 64, renderIcon(64, { rounded: true })))
 console.log('public/favicon-64.png')
+
+/* ------------------------------ vector icon ------------------------------ */
+
+/** Point on a circle at angle `deg`, measured anticlockwise from +x with y up. */
+function onCircle(r, deg) {
+  const a = deg * DEG
+  return [G.cx + r * Math.cos(a), G.cy - r * Math.sin(a)]
+}
+
+const f = (n) => Number(n.toFixed(4))
+const pt = ([x, y]) => `${f(x)} ${f(y)}`
+
+/**
+ * The same mark as the raster icons, as real geometry. A browser tab renders the
+ * favicon at whatever size it likes and on whatever background, so the vector is
+ * the one that stays crisp.
+ */
+function iconSvg() {
+  const rO = G.rMid + G.half
+  const rI = G.rMid - G.half
+  const end = G.gapFrom + 360
+
+  // Ring: outer edge anticlockwise from the gap's far side all the way round,
+  // then back along the inner edge. sweep-flag 0 is anticlockwise on screen
+  // because the y axis points down.
+  const ring = [
+    `M ${pt(onCircle(rO, G.gapTo))}`,
+    `A ${f(rO)} ${f(rO)} 0 1 0 ${pt(onCircle(rO, end))}`,
+    `L ${pt(onCircle(rI, end))}`,
+    `A ${f(rI)} ${f(rI)} 0 1 1 ${pt(onCircle(rI, G.gapTo))}`,
+    'Z',
+  ].join(' ')
+
+  // Flat-capped spur closing the letter, centre out to the ring's outer edge.
+  const spur = `M ${f(G.cx)} ${f(G.cy - G.half)} H ${f(G.cx + rO)} V ${f(G.cy + G.half)} H ${f(G.cx)} Z`
+
+  // Matches renderIcon's shear: a point is evaluated at x + shear * (y - cy).
+  const lean = `matrix(1 0 ${f(-G.shear)} 1 ${f(G.shear * G.cy)} 0)`
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#18181b"/>
+      <stop offset="1" stop-color="#0b0b0d"/>
+    </linearGradient>
+    <radialGradient id="s" cx="0.28" cy="0.16" r="0.95">
+      <stop offset="0" stop-color="#0a84ff" stop-opacity="0.34"/>
+      <stop offset="1" stop-color="#0a84ff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="s2" cx="0.82" cy="1.02" r="0.8">
+      <stop offset="0" stop-color="#5e5aeb" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#5e5aeb" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="c"><rect width="1" height="1" rx="0.2237"/></clipPath>
+  </defs>
+  <g clip-path="url(#c)">
+    <rect width="1" height="1" fill="url(#g)"/>
+    <rect width="1" height="1" fill="url(#s)"/>
+    <rect width="1" height="1" fill="url(#s2)"/>
+    <g transform="${lean}" fill="#fff">
+      <path d="${ring}"/>
+      <path d="${spur}"/>
+    </g>
+  </g>
+</svg>
+`
+}
+
+writeFileSync(new URL('../public/icon.svg', import.meta.url), iconSvg())
+console.log('public/icon.svg')
+
+/* ----------------------------- launch screens ---------------------------- */
+
+/* Without these iOS shows a blank white page while a home-screen app boots,
+   which is the single loudest tell that something is a web app. Portrait only —
+   the manifest locks orientation.
+
+   Each entry is [css width, css height, dpr]; the pixel size is the product. */
+const DEVICES = [
+  [440, 956, 3], // iPhone 16 Pro Max
+  [430, 932, 3], // 15 Pro Max, 14 Pro Max
+  [428, 926, 3], // 12/13/14 Pro Max
+  [402, 874, 3], // 16 Pro
+  [393, 852, 3], // 15 Pro, 14 Pro
+  [390, 844, 3], // 12/13/14, 16e
+  [375, 812, 3], // X, XS, 11 Pro, 13 mini
+  [414, 896, 3], // XS Max, 11 Pro Max
+  [414, 896, 2], // XR, 11
+  [375, 667, 2], // SE
+]
+
+/** Signed distance to the mark, so the splash antialiases without supersampling. */
+function markCoverage(x, y, span) {
+  const px = x + G.shear * (y - G.cy)
+  const dx = px - G.cx
+  const dy = G.cy - y
+  const r = Math.hypot(dx, dy)
+
+  let ang = Math.atan2(dy, dx) / DEG
+  if (ang < 0) ang += 360
+  const inGap = ang > G.gapFrom && ang < G.gapTo
+  // Distance to the ring band, treating the gap as absent.
+  let d = inGap ? 1 : Math.abs(r - G.rMid) - G.half
+  // Distance to the spur: a rectangle from the centre to the outer radius.
+  const qx = Math.max(G.cx - px, px - (G.cx + G.rOuter))
+  const qy = Math.abs(y - G.cy) - G.half
+  const spur = Math.min(Math.max(qx, qy), 0) + Math.hypot(Math.max(qx, 0), Math.max(qy, 0))
+  d = Math.min(d, spur)
+
+  return clamp01(0.5 - d / span)
+}
+
+function renderSplash(w, h) {
+  const px = Buffer.alloc(w * h * 4)
+  // The mark sits a touch above centre, the way a launch screen usually does.
+  const markSize = Math.round(Math.min(w, h) * 0.26)
+  const markX = (w - markSize) / 2
+  const markY = h * 0.5 - markSize * 0.62
+  const span = 1 / markSize // one pixel, in mark space
+
+  for (let y = 0; y < h; y++) {
+    // Row-constant background, which is what makes the Up filter pay off.
+    const v = y / (h - 1)
+    const br = Math.round(clamp01(mix(0.094, 0.043, v)) * 255)
+    const bg = Math.round(clamp01(mix(0.094, 0.043, v)) * 255)
+    const bb = Math.round(clamp01(mix(0.106, 0.051, v)) * 255)
+    for (let x = 0; x < w; x++) {
+      const o = (y * w + x) * 4
+      px[o] = br
+      px[o + 1] = bg
+      px[o + 2] = bb
+      px[o + 3] = 255
+    }
+    if (y < markY || y >= markY + markSize) continue
+    const my = (y - markY) / markSize
+    for (let x = Math.max(0, Math.floor(markX)); x < Math.min(w, markX + markSize); x++) {
+      const cov = markCoverage((x - markX) / markSize, my, span)
+      if (cov <= 0) continue
+      const o = (y * w + x) * 4
+      px[o] = Math.round(mix(px[o], 255, cov))
+      px[o + 1] = Math.round(mix(px[o + 1], 255, cov))
+      px[o + 2] = Math.round(mix(px[o + 2], 255, cov))
+    }
+  }
+  return px
+}
+
+for (const [cw, ch, dpr] of DEVICES) {
+  const w = cw * dpr
+  const h = ch * dpr
+  writeFileSync(
+    new URL(`../public/splash-${w}x${h}.png`, import.meta.url),
+    encodePNG(w, h, renderSplash(w, h), { up: true }),
+  )
+  console.log(`public/splash-${w}x${h}.png`)
+}
+
+/** The <link> tags index.html needs for the list above. */
+console.log('\n--- paste into index.html ---')
+for (const [cw, ch, dpr] of DEVICES) {
+  console.log(
+    `    <link rel="apple-touch-startup-image" href="./splash-${cw * dpr}x${ch * dpr}.png"`
+    + ` media="(device-width: ${cw}px) and (device-height: ${ch}px)`
+    + ` and (-webkit-device-pixel-ratio: ${dpr}) and (orientation: portrait)" />`,
+  )
+}

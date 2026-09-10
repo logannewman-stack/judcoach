@@ -4,12 +4,22 @@
    - Same-origin assets: stale-while-revalidate, so a deploy lands on the next
      load rather than pinning an old bundle forever.
 */
-const CACHE = 'grit-v1'
+// Both constants are rewritten at build time by the grit-stamp-sw plugin, so a
+// deploy produces new worker bytes and the browser installs it.
+const CACHE = 'grit-dev'
+const PRECACHE = []
 const SHELL = './index.html'
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll([SHELL, './'])).catch(() => {}),
+    caches
+      .open(CACHE)
+      // One failed asset must not fail the install, so they are added
+      // individually rather than through addAll.
+      .then((cache) =>
+        Promise.all([SHELL, './', ...PRECACHE].map((url) => cache.add(url).catch(() => {}))),
+      )
+      .catch(() => {}),
   )
   self.skipWaiting()
 })
