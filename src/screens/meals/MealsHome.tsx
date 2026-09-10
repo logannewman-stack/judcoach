@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { CSSProperties } from 'react'
 import { motion } from 'framer-motion'
 import { Screen } from '../../components/ios/Screen'
 import { ListSection, Row } from '../../components/ios/List'
@@ -11,7 +10,6 @@ import { SwipeRow, useSwipeGroup } from '../../components/ios/SwipeRow'
 import { RingStack, MACRO_COLORS } from '../../components/Rings'
 import { toast } from '../../components/ios/Toast'
 import { useStore, emptyDay } from '../../store/useStore'
-import { useProgram, weekSchedule, currentWeekIndex } from '../../store/selectors'
 import { MEAL_PLAN, QUICK_ADDS } from '../../data/mealPlan'
 import type { DayNutrition, FoodItem, MacroTargets, Meal } from '../../domain/types'
 import {
@@ -20,29 +18,16 @@ import {
 import {
   addDays, formatClock, formatMediumDate, fromISODate, relativeDay, todayISO, weekdayMin,
 } from '../../lib/date'
-import { num } from '../../lib/format'
+import { num, unitFor } from '../../lib/format'
 import { haptic } from '../../lib/haptics'
 import { useNav } from '../../nav/nav'
-
-type DayMode = 'training' | 'rest'
-
-/**
- * SwipeRow's wrapper element breaks the stylesheet's `.row + .row` hairline, so
- * rows inside one paint their own — at the same inset the sheet would use.
- */
-const ROW_SEPARATOR: CSSProperties = {
-  backgroundImage: 'linear-gradient(var(--sep), var(--sep))',
-  backgroundRepeat: 'no-repeat',
-  backgroundPosition: 'right top',
-  backgroundSize: 'calc(100% - var(--row-sep-inset, var(--gutter))) var(--hairline)',
-}
+import { useDayMode, useDayOverrides } from './dayMode'
+import type { DayMode } from './dayMode'
 
 export function MealsHome() {
   const today = todayISO()
   const [date, setDate] = useState(today)
   const push = useNav((s) => s.push)
-  const program = useProgram()
-  const logs = useStore((s) => s.logs)
   const nutrition = useStore((s) => s.nutrition)
   const toggleFood = useStore((s) => s.toggleFood)
   const checkAllInMeal = useStore((s) => s.checkAllInMeal)
@@ -51,20 +36,14 @@ export function MealsHome() {
 
   const day = nutrition[date] ?? emptyDay(date)
 
-  // A day with a session scheduled gets the higher-carb targets.
-  const isTrainingDay = useMemo(() => {
-    const wi = currentWeekIndex(program, date)
-    return weekSchedule(program, wi, logs).some((s) => s.date === date)
-  }, [program, logs, date])
-  // Keyed by date: a manual choice belongs to the day you made it on, and must
-  // never carry over to the next day you look at.
-  const [overrides, setOverrides] = useState<Record<string, DayMode>>({})
-  const mode: DayMode = overrides[date] ?? (isTrainingDay ? 'training' : 'rest')
+  const mode = useDayMode(date)
+  const setMode = useDayOverrides((s) => s.set)
+  const restDay = mode === 'rest'
   const targets: MacroTargets =
-    mode === 'rest' && MEAL_PLAN.restDayTargets ? MEAL_PLAN.restDayTargets : MEAL_PLAN.targets
+    restDay && MEAL_PLAN.restDayTargets ? MEAL_PLAN.restDayTargets : MEAL_PLAN.targets
 
-  const totals = consumedTotals(MEAL_PLAN, day)
-  const adherence = adherencePercent(MEAL_PLAN, day)
+  const totals = consumedTotals(MEAL_PLAN, day, restDay)
+  const adherence = adherencePercent(MEAL_PLAN, day, restDay)
   const protein = proteinStatus(targets, totals)
   const [quickAdd, setQuickAdd] = useState(false)
   const swipe = useSwipeGroup()
@@ -138,7 +117,7 @@ export function MealsHome() {
                 { value: 'rest', label: 'Rest day' },
               ]}
               value={mode}
-              onChange={(v) => setOverrides((o) => ({ ...o, [date]: v as DayMode }))}
+              onChange={(v) => setMode(date, v as DayMode)}
             />
           </div>
         </Card>
@@ -187,6 +166,7 @@ export function MealsHome() {
                 meal={meal}
                 day={day}
                 skipped={day.skippedMeals.includes(meal.id)}
+                restDay={restDay}
                 onToggleItem={(id) => toggleFood(date, id)}
                 onCheckAll={(v) => checkAllInMeal(date, meal.items.map((i) => i.id), v)}
                 onOpen={() => push('mealDetail', { mealId: meal.id, date })}
@@ -202,7 +182,7 @@ export function MealsHome() {
             footer="Anything off-plan. Log it honestly — it's what tells Jud whether the plan is working."
             style={{ marginBottom: 0 }}
           >
-            {day.extras.map((food, i) => (
+            {day.extras.map((food) => (
               <SwipeRow
                 key={food.id}
                 id={food.id}
@@ -220,7 +200,6 @@ export function MealsHome() {
                 <Row
                   title={food.name}
                   subtitle={`${food.kcal} kcal · P${food.protein} C${food.carbs} F${food.fat}`}
-                  style={i > 0 ? ROW_SEPARATOR : undefined}
                   trailing={
                     <button
                       type="button"
@@ -240,7 +219,6 @@ export function MealsHome() {
               iconColor="var(--accent)"
               tinted
               onPress={() => setQuickAdd(true)}
-              style={day.extras.length > 0 ? ROW_SEPARATOR : undefined}
             />
           </ListSection>
         </div>
@@ -361,17 +339,18 @@ function MacroReadout({
 }
 
 function MealCard({
-  meal, day, skipped, onToggleItem, onCheckAll, onOpen,
+  meal, day, skipped, restDay, onToggleItem, onCheckAll, onOpen,
 }: {
   meal: Meal
   day: DayNutrition
   skipped: boolean
+  restDay: boolean
   onToggleItem: (id: string) => void
   onCheckAll: (value: boolean) => void
   onOpen: () => void
 }) {
   const checked = day.checked
-  const totals = plannedMealTotals(meal, day)
+  const totals = plannedMealTotals(meal, day, MEAL_PLAN, restDay)
   const doneCount = meal.items.filter((i) => checked[i.id]).length
   const allDone = doneCount === meal.items.length
 
@@ -424,7 +403,7 @@ function MealCard({
           <FoodLine
             key={item.id}
             item={item}
-            portion={portionOf(day, item.id)}
+            portion={portionOf(day, item.id, MEAL_PLAN, restDay)}
             checked={!!checked[item.id]}
             onToggle={() => onToggleItem(item.id)}
           />
@@ -477,7 +456,7 @@ export function FoodLine({
         }}
       >
         {item.name}
-        <span className="dim3"> · {num(scaled.qty, 1)} {item.unit}</span>
+        <span className="dim3"> · {num(scaled.qty, 1)} {unitFor(scaled.qty, item.unit)}</span>
       </span>
       {onPortion && (
         <button

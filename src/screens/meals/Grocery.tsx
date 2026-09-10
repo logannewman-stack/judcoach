@@ -5,7 +5,7 @@ import { Segmented } from '../../components/ios/Controls'
 import { Icon } from '../../components/Icon'
 import { MEAL_PLAN } from '../../data/mealPlan'
 import { groceryList } from '../../domain/nutrition'
-import { num } from '../../lib/format'
+import { num, unitFor } from '../../lib/format'
 import { haptic } from '../../lib/haptics'
 import { useNav } from '../../nav/nav'
 
@@ -100,7 +100,7 @@ export function Grocery() {
                 subtitle={line.uses > 1 ? `Used in ${line.uses} meals` : undefined}
                 value={
                   <span style={{ color: done ? 'var(--label-3)' : undefined }}>
-                    {num(line.qty, 0)} {line.unit}
+                    {num(line.qty, 0)} {unitFor(line.qty, line.unit)}
                   </span>
                 }
                 inset

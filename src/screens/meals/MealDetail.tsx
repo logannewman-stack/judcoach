@@ -6,12 +6,13 @@ import { Pill } from '../../components/ios/Controls'
 import { Sheet } from '../../components/ios/Sheet'
 import { toast } from '../../components/ios/Toast'
 import { FoodLine } from './MealsHome'
+import { useDayMode } from './dayMode'
 import { useStore, emptyDay } from '../../store/useStore'
 import { MEAL_PLAN } from '../../data/mealPlan'
 import type { FoodItem } from '../../domain/types'
 import { isCloseSwap, plannedMealTotals, portionOf, scaleFood, swapDelta } from '../../domain/nutrition'
 import { formatClock, relativeDay } from '../../lib/date'
-import { num, signed } from '../../lib/format'
+import { num, signed, unitFor } from '../../lib/format'
 import { haptic } from '../../lib/haptics'
 import { useNav } from '../../nav/nav'
 
@@ -27,6 +28,9 @@ export function MealDetail({ mealId, date }: { mealId: string; date: string }) {
 
   const meal = MEAL_PLAN.meals.find((m) => m.id === mealId)
   const day = nutrition[date] ?? emptyDay(date)
+  // Has to agree with the meals list: these rows are what a client actually
+  // measures out, so a rest day here must serve the rest day's amounts.
+  const restDay = useDayMode(date) === 'rest'
 
   if (!meal) {
     return (
@@ -36,7 +40,7 @@ export function MealDetail({ mealId, date }: { mealId: string; date: string }) {
     )
   }
 
-  const totals = plannedMealTotals(meal, day)
+  const totals = plannedMealTotals(meal, day, MEAL_PLAN, restDay)
   const skipped = day.skippedMeals.includes(meal.id)
 
   return (
@@ -68,7 +72,7 @@ export function MealDetail({ mealId, date }: { mealId: string; date: string }) {
               <FoodLine
                 key={item.id}
                 item={item}
-                portion={portionOf(day, item.id)}
+                portion={portionOf(day, item.id, MEAL_PLAN, restDay)}
                 checked={!!day.checked[item.id]}
                 onToggle={() => toggleFood(date, item.id)}
                 onSwap={() => setSwapping(item)}
@@ -99,7 +103,7 @@ export function MealDetail({ mealId, date }: { mealId: string; date: string }) {
 
       <PortionSheet
         item={portioning}
-        current={portioning ? portionOf(day, portioning.id) : 1}
+        current={portioning ? portionOf(day, portioning.id, MEAL_PLAN, restDay) : 1}
         onClose={() => setPortioning(null)}
         onPick={(multiplier) => {
           if (portioning) setPortion(date, portioning.id, multiplier)
@@ -147,7 +151,7 @@ function SwapSheet({
         <div className="t-footnote dim" style={{ marginBottom: 4 }}>Replacing</div>
         <div className="t-headline">{item.name}</div>
         <div className="t-footnote dim mono-nums" style={{ marginBottom: 16 }}>
-          {num(item.qty, 1)} {item.unit} · {item.kcal} kcal · P{item.protein} C{item.carbs} F{item.fat}
+          {num(item.qty, 1)} {unitFor(item.qty, item.unit)} · {item.kcal} kcal · P{item.protein} C{item.carbs} F{item.fat}
         </div>
 
         {swaps.length === 0 ? (
@@ -167,7 +171,7 @@ function SwapSheet({
                 <span className="row-body">
                   <span className="row-title">
                     {swap.name}
-                    <span className="dim"> · {num(swap.qty, 1)} {swap.unit}</span>
+                    <span className="dim"> · {num(swap.qty, 1)} {unitFor(swap.qty, swap.unit)}</span>
                   </span>
                   <span className="row-sub mono-nums">
                     {swap.kcal} kcal · P{swap.protein} C{swap.carbs} F{swap.fat}
@@ -249,7 +253,7 @@ function PortionSheet({
         >
           <div className="t-caption1 dim semibold" style={{ marginBottom: 4 }}>AT THIS PORTION</div>
           <div className="mono-nums t-body">
-            {num(scaleFood(item, current).qty, 2)} {item.unit} ·{' '}
+            {num(scaleFood(item, current).qty, 2)} {unitFor(scaleFood(item, current).qty, item.unit)} ·{' '}
             {scaleFood(item, current).kcal} kcal · P{scaleFood(item, current).protein}{' '}
             C{scaleFood(item, current).carbs} F{scaleFood(item, current).fat}
           </div>

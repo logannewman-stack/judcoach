@@ -10,20 +10,27 @@ export const MEAL_PLAN: MealPlan = {
   name: 'Block 3 Fuelling',
   subtitle: 'High-protein · carbs cycled around training',
   targets: { kcal: 2920, protein: 247, carbs: 283, fat: 89, fiber: 32, waterOz: 128 },
-  restDayTargets: { kcal: 2570, protein: 247, carbs: 195, fat: 89, fiber: 26, waterOz: 120 },
-  // How the rest-day carb cut is actually served. Protein and fat foods are
-  // untouched; the reduction comes entirely out of the starch anchors.
+  restDayTargets: { kcal: 2590, protein: 247, carbs: 200, fat: 89, fiber: 27, waterOz: 120 },
+  /* How the rest-day carb cut is actually served.
+     Starch comes down and the two protein-and-fat anchors come up to replace
+     what the starch was quietly carrying — oats, rice and potatoes are not pure
+     carbohydrate, so cutting them alone left a client eating 238 g of protein
+     against their own 247 g target, with no way to close the gap by following
+     the plan. Oats now stay whole for the same reason: at 8 g of protein and
+     4 g of fat per serve they are the worst place to take carbs out of. */
   restDayPortions: {
-    'm1-oats': 0.75,
-    'm2-honey': 0.5,
-    'm3-rice': 0.5,
-    'm4-ricecakes': 0.5,
-    'm5-potato': 0.5,
+    'm2-honey': 0.5, // 10 g
+    'm3-rice': 0.5, // 100 g
+    'm4-ricecakes': 0.25, // 1 cake
+    'm5-potato': 0.5, // 150 g
+    'm6-cottage': 1.25, // 250 g
+    'm6-pb': 1.25, // 20 g
   },
   guidelines: [
     'Protein is the non-negotiable. Hit 247 g even on a day the rest falls apart.',
     'Carbs sit around training — meal 4 and meal 5 do the heavy lifting.',
-    'Rest days drop ~90 g of carbs. Protein and fat stay identical.',
+    'Rest days drop 83 g of carbs. Protein and fat stay identical — the cottage '
+      + 'cheese and peanut butter go up to cover what the starch was carrying.',
     'Two fists of vegetables at lunch and dinner, every day.',
     'Stop eating three hours before bed where you can. Meal 6 is the exception.',
     'One free meal a week. Log it, do not hide it — it tells me what to adjust.',

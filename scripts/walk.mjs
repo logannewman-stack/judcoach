@@ -1,5 +1,6 @@
 // Visits every registered screen and reports console errors + a screenshot grid.
 import { chromium } from 'playwright'
+import { createServer } from 'vite'
 import { mkdirSync } from 'node:fs'
 
 const OUT = process.argv[2] ?? '/tmp/walk'
@@ -37,6 +38,12 @@ const ROUTES = [
   ['settings', 'install', null],
 ]
 
+// Serve the app ourselves. Pointing at whatever happened to be on a fixed port
+// meant the walk could quietly pass against someone else's build.
+const server = process.env.APP_URL ? null : await createServer({ server: { port: 5177 } })
+await server?.listen()
+const appUrl = process.env.APP_URL ?? server.resolvedUrls.local[0]
+
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined })
 const ctx = await browser.newContext({
   viewport: { width: 393, height: 852 },
@@ -50,8 +57,8 @@ const problems = []
 page.on('console', (m) => { if (m.type() === 'error') problems.push(`[console] ${m.text()}`) })
 page.on('pageerror', (e) => problems.push(`[pageerror] ${String(e)}`))
 
-await page.goto(process.env.APP_URL ?? 'http://127.0.0.1:5177/', { waitUntil: 'networkidle' })
-await page.waitForTimeout(700)
+await page.goto(appUrl, { waitUntil: 'networkidle' })
+await page.waitForFunction(() => !!window.__store, null, { timeout: 20000 })
 
 // A fresh context lands on onboarding, which would cover every screen below.
 await page.evaluate(() => window.__store.getState().completeOnboarding())
@@ -99,5 +106,12 @@ await page.waitForTimeout(700)
 await page.screenshot({ path: `${OUT}/runner.png` })
 console.log(`ok   runner`)
 
-console.log(problems.length ? `\nTOTAL PROBLEMS: ${problems.length}` : '\nNo console errors across any screen.')
+if (problems.length) {
+  console.log(`\nTOTAL PROBLEMS: ${problems.length}`)
+  ;[...new Set(problems)].slice(0, 20).forEach((p) => console.log('  ' + p))
+} else {
+  console.log('\nNo console errors across any screen.')
+}
 await browser.close()
+await server?.close()
+process.exit(problems.length ? 1 : 0)

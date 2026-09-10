@@ -7,6 +7,19 @@ export function num(value: number, maxDecimals = 1): string {
   return String(rounded)
 }
 
+/**
+ * A unit agreeing with its quantity: "1 cake", not "1 cakes".
+ *
+ * Only count words are touched. Weights and volumes are abbreviations that never
+ * inflect, and none of them end in "s" anyway.
+ */
+export function unitFor(qty: number, unit: string): string {
+  if (Math.abs(qty) === 1 && unit.length > 2 && unit.endsWith('s') && !unit.endsWith('ss')) {
+    return unit.slice(0, -1)
+  }
+  return unit
+}
+
 /** An estimate of 0 means "nothing here supports one", so it shows as a dash. */
 export function estimate(value: number): string {
   return value > 0 ? num(value, 0) : '—'
