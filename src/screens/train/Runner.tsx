@@ -15,7 +15,7 @@ import { bestHistoricalE1RM, findSession, lastPerformance, useProgram } from '..
 import { EXERCISES, getExercise } from '../../data/exercises'
 import type { ActiveSession, LoggedSet, SetPrescription } from '../../domain/types'
 import {
-  buildWarmup, describeReps, e1RM, formatRir, formatRpe, isMaxEffort, resolveSet, rpeToRir,
+  buildWarmup, describeReps, e1RM, formatRir, formatRpe, isEstimable, isMaxEffort, resolveSet, rpeToRir,
   sessionTonnage, suggestNextLoad, topSet,
 } from '../../domain/strength'
 import { formatDuration } from '../../lib/date'
@@ -486,7 +486,7 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
                         <span className="row-sub">
                           Set {i + 1}
                           {target && ` · target ${describeReps(target)}${target.rpe ? ` @ ${formatRpe(target.rpe)}` : ''}`}
-                          {` · e1RM ${num(e1RM(s.weight, s.reps, s.rpe), 0)}`}
+                          {isEstimable(s) && ` · e1RM ${num(e1RM(s.weight, s.reps, s.rpe), 0)}`}
                         </span>
                       </span>
                       {pr && <Pill tone="warn" icon="seal.fill">PR</Pill>}

@@ -43,7 +43,7 @@ export function SessionDetail({ weekIndex, sessionId }: { weekIndex: number; ses
   return (
     <Screen
       title={session.name}
-      back={{ label: 'Train', onPress: pop }}
+      back={{ onPress: pop }}
       titleAccessory={
         <div className="gutter" style={{ marginTop: -6, marginBottom: 18 }}>
           <div className="t-subhead dim">{session.focus}</div>

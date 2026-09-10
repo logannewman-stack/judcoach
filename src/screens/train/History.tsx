@@ -13,7 +13,7 @@ import {
 import { MAIN_LIFTS, MUSCLE_LABELS, exerciseName, getExercise } from '../../data/exercises'
 import { bestE1RM, formatRpe } from '../../domain/strength'
 import { addDays, formatMediumDate, formatMinutes, relativeDay, startOfWeek, todayISO } from '../../lib/date'
-import { compact, num } from '../../lib/format'
+import { compact, estimate, num } from '../../lib/format'
 import { useNav } from '../../nav/nav'
 
 /* -------------------------------- history -------------------------------- */
@@ -60,7 +60,7 @@ export function History() {
   return (
     <Screen
       title="History"
-      back={{ label: 'Train', onPress: pop }}
+      back={{ onPress: pop }}
       titleAccessory={
         <>
           <div
@@ -198,7 +198,7 @@ export function LogDetail({ logId }: { logId: string }) {
           <StatTile label="Exercises" value={log.exercises.length} icon="dumbbell" />
           <StatTile
             label="Top e1RM"
-            value={num(Math.max(...log.exercises.map((e) => bestE1RM(e.sets)), 0), 0)}
+            value={estimate(Math.max(...log.exercises.map((e) => bestE1RM(e.sets)), 0))}
             icon="bolt.fill"
           />
         </div>
@@ -230,7 +230,7 @@ export function LogDetail({ logId }: { logId: string }) {
                       {exercise?.name ?? entry.exerciseId}
                     </span>
                     <span className="t-caption1 dim mono-nums">
-                      e1RM {num(bestE1RM(entry.sets), 0)}
+                      e1RM {estimate(bestE1RM(entry.sets))}
                     </span>
                     <Icon name="chevron.right" size={13} weight={2.6} color="var(--label-3)" />
                   </div>
@@ -270,7 +270,7 @@ export function PersonalRecordsScreen() {
   return (
     <Screen
       title="Records"
-      back={{ label: 'Train', onPress: pop }}
+      back={{ onPress: pop }}
       titleAccessory={
         <div className="gutter" style={{ marginTop: -6, marginBottom: 18 }}>
           <div className="t-subhead dim" style={{ lineHeight: '21px' }}>

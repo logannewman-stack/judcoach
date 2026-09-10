@@ -11,6 +11,9 @@ import {
 import { getProgram } from '../data/program'
 import { startOfWeek, todayISO } from '../lib/date'
 import { uid } from '../lib/id'
+import {
+  createResilientStorage, mergePersisted, readPhotos, schedulePhotoWrite, writePhotos,
+} from './persist'
 
 export interface AppState {
   /* ------------------------------- data ------------------------------- */
@@ -106,7 +109,7 @@ function seedState() {
     programStartDate: startDate,
     weighIns: seedWeighIns(today),
     measurements: seedMeasurements(today),
-    photos: [] as ProgressPhoto[],
+    photos: readPhotos<ProgressPhoto>(),
     logs: seedWorkoutLogs(today, startDate),
     checkIns: seedCheckIns(today),
     nutrition: {} as Record<string, DayNutrition>,
@@ -463,8 +466,19 @@ export const useStore = create<AppState>()(
     }),
     {
       name: 'grit-store-v1',
-      version: 1,
-      storage: createJSONStorage(() => localStorage),
+      version: 2,
+      storage: createJSONStorage(createResilientStorage),
+      /* A top-level spread would drop any `profile` or `settings` field added
+         after a client's first launch, rehydrating it as undefined. */
+      merge: mergePersisted,
+      migrate: (persisted, version) => {
+        const state = { ...(persisted as Record<string, unknown> | null) }
+        if (version < 2 && Array.isArray(state.photos)) {
+          // Photos used to ride along in the main blob. Give them their own key.
+          writePhotos(state.photos as ProgressPhoto[])
+        }
+        return state
+      },
       partialize: (s) => ({
         profile: s.profile,
         settings: s.settings,
@@ -472,7 +486,6 @@ export const useStore = create<AppState>()(
         blockStartedOn: s.blockStartedOn,
         weighIns: s.weighIns,
         measurements: s.measurements,
-        photos: s.photos,
         logs: s.logs,
         checkIns: s.checkIns,
         nutrition: s.nutrition,
@@ -484,6 +497,13 @@ export const useStore = create<AppState>()(
     },
   ),
 )
+
+/* Photos are persisted on their own key and their own schedule, so adding a
+   progress photo never re-serialises the workout history and logging a set never
+   re-serialises megabytes of base64. */
+useStore.subscribe((state, previous) => {
+  if (state.photos !== previous.photos) schedulePhotoWrite(state.photos)
+})
 
 /** Serialise everything the client owns, for the Settings export button. */
 export function exportSnapshot(): string {

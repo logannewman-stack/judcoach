@@ -12,7 +12,7 @@ import { EQUIPMENT_LABELS, EXERCISES, MUSCLE_LABELS, getExercise } from '../../d
 import type { MuscleGroup } from '../../domain/types'
 import { bestE1RM } from '../../domain/strength'
 import { formatMediumDate, formatShortDate, relativeDay } from '../../lib/date'
-import { num, pluralize } from '../../lib/format'
+import { estimate, num, pluralize } from '../../lib/format'
 import { useNav } from '../../nav/nav'
 
 /* ------------------------------ the library ----------------------------- */
@@ -67,7 +67,7 @@ export function ExerciseLibrary() {
   return (
     <Screen
       title="Exercises"
-      back={{ label: 'Train', onPress: pop }}
+      back={{ onPress: pop }}
       titleAccessory={
         <div className="gutter" style={{ marginTop: -6, marginBottom: 16 }}>
           <div className="t-subhead dim">
@@ -268,7 +268,7 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
                   <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
                     <span className="t-subhead semibold">{relativeDay(entry.date)}</span>
                     <span className="t-caption1 dim mono-nums">
-                      e1RM {num(bestE1RM(entry.sets), 0)} · {formatMediumDate(entry.date)}
+                      e1RM {estimate(bestE1RM(entry.sets))} · {formatMediumDate(entry.date)}
                     </span>
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>

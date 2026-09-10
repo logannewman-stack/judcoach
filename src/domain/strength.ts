@@ -322,14 +322,32 @@ export function sessionTonnage(sets: LoggedSet[]): number {
  * client's bench press on the records board. Only near-maximal, low-rep work
  * earns an estimate.
  */
-export function isMaxEffort(set: LoggedSet): boolean {
-  return !set.warmup && set.reps <= 6 && (set.rpe ?? 0) >= 8
+/**
+ * Whether a set supports a max estimate at all. The chart is measured data from
+ * 1 to 12 reps, so anything inside that taken near enough to failure is fair
+ * game. A set stopped well short (RPE under 7) says nothing about a max, and
+ * past 12 reps the chart is extrapolated rather than observed.
+ */
+export function isEstimable(set: LoggedSet): boolean {
+  return !set.warmup && set.reps > 0 && set.weight > 0 && set.reps <= 12 && (set.rpe ?? 10) >= 7
 }
 
-/** Best estimated max across a group of sets, from max-effort sets only. */
+/**
+ * Whether a set is heavy and hard enough to call a record. Stricter than
+ * `isEstimable`, because a records board led by a twelve-rep back-off set is not
+ * a records board.
+ */
+export function isMaxEffort(set: LoggedSet): boolean {
+  return isEstimable(set) && set.reps <= 8 && (set.rpe ?? 0) >= 8
+}
+
+/**
+ * Best estimated max across a group of sets. Returns 0 when no set in the group
+ * can carry an estimate — callers should show nothing rather than "0".
+ */
 export function bestE1RM(sets: LoggedSet[]): number {
   return sets.reduce(
-    (best, s) => (isMaxEffort(s) ? Math.max(best, e1RM(s.weight, s.reps, s.rpe)) : best),
+    (best, s) => (isEstimable(s) ? Math.max(best, e1RM(s.weight, s.reps, s.rpe)) : best),
     0,
   )
 }

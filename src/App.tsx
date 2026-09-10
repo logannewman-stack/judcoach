@@ -4,7 +4,7 @@ import { Stack } from './nav/Stack'
 import { TabBar } from './nav/TabBar'
 import { TABS, useNav } from './nav/nav'
 import { SCREENS } from './screens/registry'
-import { ToastHost } from './components/ios/Toast'
+import { ToastHost, toast } from './components/ios/Toast'
 import { registerSheetLayer, useSheetLayer } from './components/ios/SheetLayer'
 import { RestTimerBar } from './components/RestTimer'
 import { ActiveWorkoutBar } from './components/ActiveWorkoutBar'
@@ -13,6 +13,7 @@ import { FullScreenDragContext } from './nav/FullScreenDrag'
 import { Onboarding } from './screens/Onboarding'
 import { useTheme, useWakeLock } from './lib/useTheme'
 import { useStore } from './store/useStore'
+import { onStorageProblem } from './store/persist'
 
 export function App() {
   useTheme()
@@ -27,6 +28,24 @@ export function App() {
   const dragControls = useDragControls()
   const dismiss = useNav((s) => s.dismiss)
   useWakeLock(keepAwake && !!active)
+
+  /* A full disk used to throw out of the store and into whichever component
+     dispatched the action — mid-workout that meant a lost set and no timer. The
+     write now fails quietly and says so here, with the one thing worth doing. */
+  useEffect(() => {
+    let warned = false
+    onStorageProblem((problem) => {
+      if (warned) return
+      warned = true
+      toast(
+        problem === 'quota'
+          ? 'Storage full. Delete a few progress photos.'
+          : "This browser isn't saving data. Private mode?",
+        { icon: 'xmark.circle.fill', tone: 'bad' },
+      )
+      window.setTimeout(() => { warned = false }, 30_000)
+    })
+  }, [])
 
   // Overlays portal here, so the app itself can be pushed back behind them.
   useEffect(() => {

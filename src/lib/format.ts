@@ -7,6 +7,11 @@ export function num(value: number, maxDecimals = 1): string {
   return String(rounded)
 }
 
+/** An estimate of 0 means "nothing here supports one", so it shows as a dash. */
+export function estimate(value: number): string {
+  return value > 0 ? num(value, 0) : '—'
+}
+
 /** Always shows `decimals` places, so a column of weights stays aligned. */
 export function fixed(value: number, decimals = 1): string {
   if (!Number.isFinite(value)) return '—'

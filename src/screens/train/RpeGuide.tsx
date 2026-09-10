@@ -31,7 +31,7 @@ export function RpeGuide() {
   return (
     <Screen
       title="RPE & RIR"
-      back={{ label: 'Train', onPress: pop }}
+      back={{ onPress: pop }}
       titleAccessory={
         <div className="gutter" style={{ marginTop: -6, marginBottom: 18 }}>
           <div className="t-subhead dim" style={{ lineHeight: '21px' }}>

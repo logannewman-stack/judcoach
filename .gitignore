@@ -6,3 +6,4 @@ dist-single
 .vite
 .walk
 .audit
+tsconfig.tsbuildinfo
