@@ -862,6 +862,19 @@ a.card:active,
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .gutter { padding-left: var(--gutter); padding-right: var(--gutter); }
 
+/* Horizontal scroller with real gutters on both ends. Browsers drop a scroll
+   container's padding-right from the scrollable extent, so the trailing gutter
+   has to be a flex item. */
+.hscroll {
+  display: flex;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  padding-left: var(--gutter);
+}
+.hscroll::-webkit-scrollbar { width: 0; height: 0; }
+.hscroll::after { content: ''; flex: 0 0 var(--gutter); }
+
 .pill {
   display: inline-flex;
   align-items: center;

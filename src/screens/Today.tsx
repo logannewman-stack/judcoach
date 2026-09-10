@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Screen } from '../components/ios/Screen'
 import { Card, CoachAvatar, CoachNote, SectionHeader, StatTile } from '../components/Bits'
@@ -20,6 +20,8 @@ import { rollingSeries, summarizeTrend, weighInStreak } from '../domain/weight'
 import { formatLongDate, relativeDay, timeOfDayGreeting, todayISO, addDays } from '../lib/date'
 import { fixed, num, signed } from '../lib/format'
 import { navPresent, navPush, navSwitchTab, useNav } from '../nav/nav'
+import { NumberPad } from '../components/NumberPad'
+import { toast } from '../components/ios/Toast'
 import { COACH } from '../data/seed'
 
 export function TodayScreen() {
@@ -31,6 +33,8 @@ export function TodayScreen() {
   const nutrition = useStore((s) => s.nutrition)
   const active = useStore((s) => s.active)
   const push = useNav((s) => s.push)
+  const saveWeighIn = useStore((s) => s.saveWeighIn)
+  const [loggingWeight, setLoggingWeight] = useState(false)
 
   const weekIndex = currentWeekIndex(program, today)
   const week = getWeek(program, weekIndex)
@@ -161,16 +165,23 @@ export function TodayScreen() {
                 color={trend && trend.perWeek >= 0 ? 'var(--green)' : 'var(--accent)'}
               />
             </div>
-            {!loggedToday && (
-              <div
-                className="t-footnote"
-                style={{ marginTop: 12, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 5 }}
-              >
-                <Icon name="plus" size={13} weight={2.6} />
-                Log this morning's weigh-in
-              </div>
-            )}
           </Card>
+          {!loggedToday && (
+            <div className="gutter" style={{ marginTop: 10 }}>
+              <button
+                type="button"
+                className="btn btn-tinted btn-sm"
+                style={{ width: '100%', minHeight: 42 }}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setLoggingWeight(true)
+                }}
+              >
+                <Icon name="plus" size={15} weight={2.6} />
+                Log this morning's weigh-in
+              </button>
+            </div>
+          )}
         </div>
 
         {/* ------------------------------ this week ------------------------ */}
@@ -259,6 +270,21 @@ export function TodayScreen() {
           </Card>
         </div>
       </div>
+
+      <NumberPad
+        open={loggingWeight}
+        onClose={() => setLoggingWeight(false)}
+        onSubmit={(w) => {
+          saveWeighIn({ date: today, weight: w })
+          toast(`${fixed(w, 1)} ${profile.units} logged`, { icon: 'scale', tone: 'good' })
+        }}
+        title="Today's weight"
+        initial={weighIns[weighIns.length - 1]?.weight ?? profile.startWeight}
+        unit={profile.units}
+        steps={[-1, -0.2, 0.2, 1]}
+        hint="First thing, after the bathroom, before food or water."
+        submitLabel="Save"
+      />
     </Screen>
   )
 }

@@ -167,15 +167,7 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
         </div>
 
         {/* exercise pager */}
-        <div
-          style={{
-            display: 'flex',
-            gap: 7,
-            overflowX: 'auto',
-            padding: '0 var(--gutter) 9px',
-            scrollbarWidth: 'none',
-          }}
-        >
+        <div className="hscroll" style={{ gap: 7, paddingBottom: 9 }}>
           {session.blocks.map((b, i) => {
             const ex = getExercise(active.swaps[b.id] ?? b.exerciseId)
             const count = (active.entries[b.id] ?? []).length

@@ -40,15 +40,7 @@ export function TrainHome() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
         {/* ---------------------------- week picker --------------------------- */}
         <div>
-          <div
-            style={{
-              display: 'flex',
-              gap: 8,
-              overflowX: 'auto',
-              padding: '0 var(--gutter) 2px',
-              scrollbarWidth: 'none',
-            }}
-          >
+          <div className="hscroll" style={{ gap: 8, paddingBottom: 2 }}>
             {program.weeks.map((w) => {
               const selected = w.index === weekIndex
               const done = weekSchedule(program, w.index, logs).filter((s) => s.log).length

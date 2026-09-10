@@ -92,12 +92,7 @@ export function RpeGuide() {
           </div>
 
           {mode === 'weight' && (
-            <div
-              style={{
-                display: 'flex', gap: 7, overflowX: 'auto',
-                padding: '0 var(--gutter) 10px', scrollbarWidth: 'none',
-              }}
-            >
+            <div className="hscroll" style={{ gap: 7, paddingBottom: 10 }}>
               {MAIN_LIFTS.map((lift) => (
                 <button
                   key={lift.id}

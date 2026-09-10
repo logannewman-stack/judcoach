@@ -213,7 +213,9 @@ export function RpePicker({
 }) {
   return (
     <div>
-      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' }}>
+      <div
+        style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' }}
+      >
         {RPE_VALUES.map((v) => {
           const selected = value === v
           const isTarget = target === v

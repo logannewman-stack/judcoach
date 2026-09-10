@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Screen } from '../../components/ios/Screen'
 import { ListSection, Row } from '../../components/ios/List'
@@ -16,7 +16,9 @@ import type { DayNutrition, FoodItem, MacroTargets, Meal } from '../../domain/ty
 import {
   adherencePercent, consumedTotals, foodTotals, plannedMealTotals, portionOf, proteinStatus, scaleFood,
 } from '../../domain/nutrition'
-import { addDays, formatClock, relativeDay, todayISO } from '../../lib/date'
+import {
+  addDays, formatClock, formatMediumDate, fromISODate, relativeDay, todayISO, weekdayMin,
+} from '../../lib/date'
 import { num } from '../../lib/format'
 import { haptic } from '../../lib/haptics'
 import { useNav } from '../../nav/nav'
@@ -65,28 +67,14 @@ export function MealsHome() {
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
         {/* ------------------------------ day picker ------------------------- */}
-        <div className="gutter" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button
-            type="button"
-            aria-label="Previous day"
-            onClick={() => setDate((d) => addDays(d, -1))}
-            style={arrowBtn}
-          >
-            <Icon name="chevron.left" size={16} weight={2.6} />
-          </button>
-          <div style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
-            <div className="t-headline truncate">{relativeDay(date, today)}</div>
-            <div className="t-caption1 dim">{mode === 'training' ? 'Training day' : 'Rest day'} targets</div>
+        <div>
+          <DayStrip date={date} today={today} onPick={setDate} nutrition={nutrition} />
+          <div className="gutter" style={{ textAlign: 'center', marginTop: 10 }}>
+            <div className="t-headline">{relativeDay(date, today)}</div>
+            <div className="t-caption1 dim">
+              {mode === 'training' ? 'Training day' : 'Rest day'} targets
+            </div>
           </div>
-          <button
-            type="button"
-            aria-label="Next day"
-            onClick={() => setDate((d) => (d < today ? addDays(d, 1) : d))}
-            disabled={date >= today}
-            style={{ ...arrowBtn, opacity: date >= today ? 0.35 : 1 }}
-          >
-            <Icon name="chevron.right" size={16} weight={2.6} />
-          </button>
         </div>
 
         {/* -------------------------------- rings ---------------------------- */}
@@ -250,10 +238,78 @@ export function MealsHome() {
   )
 }
 
-const arrowBtn: React.CSSProperties = {
-  width: 34, height: 34, borderRadius: '50%', flex: 'none',
-  background: 'var(--fill-3)', color: 'var(--label)',
-  display: 'grid', placeItems: 'center',
+/** The last fortnight as a scrollable strip, ending on today. */
+function DayStrip({
+  date, today, onPick, nutrition,
+}: {
+  date: string
+  today: string
+  onPick: (date: string) => void
+  nutrition: Record<string, DayNutrition>
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const days = useMemo(
+    () => Array.from({ length: 14 }, (_, i) => addDays(today, i - 13)),
+    [today],
+  )
+
+  // Open on today rather than a fortnight ago.
+  useEffect(() => {
+    const el = ref.current
+    if (el) el.scrollLeft = el.scrollWidth
+  }, [])
+
+  return (
+    <div ref={ref} className="hscroll" style={{ gap: 6, paddingBottom: 2 }}>
+      {days.map((day) => {
+        const selected = day === date
+        const isToday = day === today
+        const logged = Object.values(nutrition[day]?.checked ?? {}).some(Boolean)
+        return (
+          <button
+            key={day}
+            type="button"
+            aria-label={formatMediumDate(day)}
+            aria-current={selected ? 'date' : undefined}
+            onClick={() => {
+              haptic('selection')
+              onPick(day)
+            }}
+            style={{
+              flex: '0 0 auto',
+              width: 44,
+              padding: '7px 0 6px',
+              borderRadius: 13,
+              background: selected ? 'var(--accent)' : 'var(--grouped-2)',
+              color: selected ? '#fff' : 'var(--label)',
+              border: isToday && !selected ? '1.5px solid var(--accent)' : '1.5px solid transparent',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 2,
+            }}
+          >
+            <span className="t-caption2 semibold" style={{ opacity: 0.65 }}>
+              {weekdayMin(fromISODate(day).getDay())}
+            </span>
+            <span className="mono-nums" style={{ fontSize: 17, fontWeight: 600, lineHeight: '20px' }}>
+              {fromISODate(day).getDate()}
+            </span>
+            <span
+              style={{
+                width: 5,
+                height: 5,
+                borderRadius: '50%',
+                background: logged
+                  ? selected ? 'rgba(255,255,255,0.9)' : 'var(--accent)'
+                  : 'transparent',
+              }}
+            />
+          </button>
+        )
+      })}
+    </div>
+  )
 }
 
 function MacroReadout({
