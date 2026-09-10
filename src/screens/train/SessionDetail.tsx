@@ -112,6 +112,7 @@ export function SessionDetail({ weekIndex, sessionId }: { weekIndex: number; ses
                     name={
                       <button
                         type="button"
+                        className="hit-expand"
                         onClick={() => push('exerciseDetail', { exerciseId: block.exerciseId })}
                         style={{ textAlign: 'left', color: 'inherit', font: 'inherit' }}
                       >
@@ -123,6 +124,7 @@ export function SessionDetail({ weekIndex, sessionId }: { weekIndex: number; ses
                       <button
                         type="button"
                         aria-label="Exercise details"
+                        className="hit-expand"
                         onClick={() => push('exerciseDetail', { exerciseId: block.exerciseId })}
                       >
                         <Icon name="info" size={17} color="var(--label-3)" weight={2} />

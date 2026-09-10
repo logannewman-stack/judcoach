@@ -48,6 +48,12 @@ export interface TrendSummary {
   direction: 'up' | 'down' | 'flat'
   sampleDays: number
   entries: number
+  /**
+   * False while there is too little data for the slope to mean anything — a
+   * couple of weigh-ins can imply any rate at all, and showing one as a verdict
+   * would have a client chasing noise.
+   */
+  reliable: boolean
 }
 
 /** Least-squares slope in units per day. */
@@ -70,6 +76,7 @@ export function summarizeTrend(entries: WeighIn[], days = 28, window = 7): Trend
   const cutoff = daysAgoISO(last.date, days)
   const recent = series.filter((p) => p.date >= cutoff)
 
+  const sampleDays = daysBetween(recent[0]!.date, last.date) + 1
   const points = recent.map((p) => ({ x: daysBetween(recent[0]!.date, p.date), y: p.avg }))
   const perDay = slopePerDay(points)
   const perWeek = perDay * 7
@@ -82,8 +89,9 @@ export function summarizeTrend(entries: WeighIn[], days = 28, window = 7): Trend
     perWeek,
     percentPerWeek: last.avg > 0 ? (perWeek / last.avg) * 100 : 0,
     direction: Math.abs(perWeek) < 0.15 ? 'flat' : perWeek > 0 ? 'up' : 'down',
-    sampleDays: daysBetween(first.date, last.date) + 1,
+    sampleDays,
     entries: recent.length,
+    reliable: recent.length >= 4 && sampleDays >= 7,
   }
 }
 

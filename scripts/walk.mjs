@@ -53,6 +53,10 @@ page.on('pageerror', (e) => problems.push(`[pageerror] ${String(e)}`))
 await page.goto(process.env.APP_URL ?? 'http://127.0.0.1:5177/', { waitUntil: 'networkidle' })
 await page.waitForTimeout(700)
 
+// A fresh context lands on onboarding, which would cover every screen below.
+await page.evaluate(() => window.__store.getState().completeOnboarding())
+await page.waitForTimeout(500)
+
 // WIPE=1 walks the app with every log, weigh-in and photo cleared, which is
 // where empty states and divide-by-zero maths tend to surface.
 if (process.env.WIPE === '1') {

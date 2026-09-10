@@ -94,6 +94,9 @@ export function RingStack({
               value={ring.value}
               target={ring.target}
               color={ring.color}
+              // Tint each track with its own macro so an empty day still reads
+              // as protein / carbs / fat rather than three grey circles.
+              track={`color-mix(in srgb, ${ring.color} 17%, transparent)`}
               size={size - inset * 2}
               thickness={thickness}
               delay={i * 0.07}

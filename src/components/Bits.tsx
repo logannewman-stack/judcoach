@@ -26,7 +26,11 @@ export function SectionHeader({
     >
       <h2 className="t-title3">{title}</h2>
       {action && (
-        <button type="button" className="t-subhead tint semibold" onClick={action.onPress}>
+        <button
+          type="button"
+          className="t-subhead tint semibold hit-expand"
+          onClick={action.onPress}
+        >
           {action.label}
         </button>
       )}

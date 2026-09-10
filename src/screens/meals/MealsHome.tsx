@@ -12,9 +12,9 @@ import { toast } from '../../components/ios/Toast'
 import { useStore, emptyDay } from '../../store/useStore'
 import { useProgram, weekSchedule, currentWeekIndex } from '../../store/selectors'
 import { MEAL_PLAN, QUICK_ADDS } from '../../data/mealPlan'
-import type { FoodItem, MacroTargets, Meal } from '../../domain/types'
+import type { DayNutrition, FoodItem, MacroTargets, Meal } from '../../domain/types'
 import {
-  adherencePercent, consumedTotals, foodTotals, mealTotals, proteinStatus,
+  adherencePercent, consumedTotals, foodTotals, plannedMealTotals, portionOf, proteinStatus, scaleFood,
 } from '../../domain/nutrition'
 import { addDays, formatClock, relativeDay, todayISO } from '../../lib/date'
 import { num } from '../../lib/format'
@@ -186,7 +186,7 @@ export function MealsHome() {
               <MealCard
                 key={meal.id}
                 meal={meal}
-                checked={day.checked}
+                day={day}
                 skipped={day.skippedMeals.includes(meal.id)}
                 onToggleItem={(id) => toggleFood(date, id)}
                 onCheckAll={(v) => checkAllInMeal(date, meal.items.map((i) => i.id), v)}
@@ -288,16 +288,17 @@ function MacroReadout({
 }
 
 function MealCard({
-  meal, checked, skipped, onToggleItem, onCheckAll, onOpen,
+  meal, day, skipped, onToggleItem, onCheckAll, onOpen,
 }: {
   meal: Meal
-  checked: Record<string, boolean>
+  day: DayNutrition
   skipped: boolean
   onToggleItem: (id: string) => void
   onCheckAll: (value: boolean) => void
   onOpen: () => void
 }) {
-  const totals = mealTotals(meal)
+  const checked = day.checked
+  const totals = plannedMealTotals(meal, day)
   const doneCount = meal.items.filter((i) => checked[i.id]).length
   const allDone = doneCount === meal.items.length
 
@@ -334,7 +335,7 @@ function MealCard({
         <span className="t-caption1 dim mono-nums" style={{ flex: 'none' }}>
           {doneCount}/{meal.items.length}
         </span>
-        <button type="button" aria-label={`Open ${meal.name}`} onClick={onOpen}>
+        <button type="button" aria-label={`Open ${meal.name}`} onClick={onOpen} className="hit-expand">
           <Icon name="chevron.right" size={15} weight={2.6} color="var(--label-3)" />
         </button>
       </div>
@@ -344,6 +345,7 @@ function MealCard({
           <FoodLine
             key={item.id}
             item={item}
+            portion={portionOf(day, item.id)}
             checked={!!checked[item.id]}
             onToggle={() => onToggleItem(item.id)}
           />
@@ -354,18 +356,22 @@ function MealCard({
 }
 
 export function FoodLine({
-  item, checked, onToggle, onSwap,
+  item, checked, onToggle, onSwap, onPortion, portion = 1,
 }: {
   item: FoodItem
   checked: boolean
   onToggle: () => void
   onSwap?: () => void
+  onPortion?: () => void
+  portion?: number
 }) {
+  const scaled = scaleFood(item, portion)
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0' }}>
       <button
         type="button"
         aria-label={checked ? `Uncheck ${item.name}` : `Check ${item.name}`}
+        className="hit-expand"
         onClick={() => {
           haptic('selection')
           onToggle()
@@ -389,15 +395,40 @@ export function FoodLine({
         }}
       >
         {item.name}
-        <span className="dim3"> · {num(item.qty, 1)} {item.unit}</span>
+        <span className="dim3"> · {num(scaled.qty, 1)} {item.unit}</span>
       </span>
+      {onPortion && (
+        <button
+          type="button"
+          aria-label={`Portion for ${item.name}`}
+          onClick={onPortion}
+          className="mono-nums hit-expand"
+          style={{
+            flex: 'none',
+            padding: '2px 7px',
+            borderRadius: 7,
+            fontSize: 12,
+            fontWeight: 600,
+            background: portion === 1 ? 'var(--fill-4)' : 'var(--accent-soft)',
+            color: portion === 1 ? 'var(--label-2)' : 'var(--accent)',
+          }}
+        >
+          {num(portion, 2)}×
+        </button>
+      )}
       {onSwap && item.swaps && item.swaps.length > 0 && (
-        <button type="button" aria-label={`Swap ${item.name}`} onClick={onSwap} style={{ flex: 'none' }}>
+        <button
+          type="button"
+          aria-label={`Swap ${item.name}`}
+          onClick={onSwap}
+          className="hit-expand"
+          style={{ flex: 'none' }}
+        >
           <Icon name="swap" size={16} weight={2.2} color="var(--accent)" />
         </button>
       )}
       <span className="t-caption1 dim mono-nums" style={{ flex: 'none' }}>
-        {item.kcal}
+        {scaled.kcal}
       </span>
     </div>
   )

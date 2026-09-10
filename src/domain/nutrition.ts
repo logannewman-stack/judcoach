@@ -31,16 +31,40 @@ export function foodTotals(items: FoodItem[]): MacroTotals {
 
 export const mealTotals = (meal: Meal): MacroTotals => foodTotals(meal.items)
 
+/** The multiplier applied to a planned food today; 1 unless it was adjusted. */
+export function portionOf(day: DayNutrition, foodId: string): number {
+  return day.portions?.[foodId] ?? 1
+}
+
+/** A food item scaled to the portion actually eaten. */
+export function scaleFood(item: FoodItem, multiplier: number): FoodItem {
+  if (multiplier === 1) return item
+  const round = (v: number) => Math.round(v * multiplier)
+  return {
+    ...item,
+    qty: Math.round(item.qty * multiplier * 100) / 100,
+    kcal: round(item.kcal),
+    protein: round(item.protein),
+    carbs: round(item.carbs),
+    fat: round(item.fat),
+  }
+}
+
 /** What the client has actually eaten today: ticked plan items plus extras. */
 export function consumedTotals(plan: MealPlan, day: DayNutrition): MacroTotals {
   const eaten: FoodItem[] = []
   for (const meal of plan.meals) {
     if (day.skippedMeals.includes(meal.id)) continue
     for (const item of meal.items) {
-      if (day.checked[item.id]) eaten.push(item)
+      if (day.checked[item.id]) eaten.push(scaleFood(item, portionOf(day, item.id)))
     }
   }
   return foodTotals([...eaten, ...day.extras])
+}
+
+/** A meal's totals as planned for today, portion adjustments included. */
+export function plannedMealTotals(meal: Meal, day: DayNutrition): MacroTotals {
+  return foodTotals(meal.items.map((i) => scaleFood(i, portionOf(day, i.id))))
 }
 
 export function remaining(targets: MacroTargets, totals: MacroTotals): MacroTotals {

@@ -99,6 +99,13 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
     topSetWeight: topSet(logged)?.weight,
   })
   const last = lastPerformance(logs, exerciseId)
+  // What to put on the bar when the programme doesn't dictate a load: the set
+  // already done this session, else the same set number last time, else the
+  // heaviest set last time.
+  const anchorWeight =
+    logged[logged.length - 1]?.weight
+    ?? last?.sets[setIndex]?.weight
+    ?? (last?.sets.length ? Math.max(...last.sets.map((x) => x.weight)) : undefined)
 
   const goToBlock = (i: number) => {
     setCurrentBlock(Math.max(0, Math.min(i, session.blocks.length - 1)))
@@ -232,11 +239,38 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
                 Swap
               </button>
             </div>
-            {block.supersetGroup && (
-              <div style={{ marginTop: 8 }}>
-                <Pill tone="tinted">Superset {block.supersetGroup} — alternate with the next movement</Pill>
-              </div>
-            )}
+            {block.supersetGroup && (() => {
+              const partnerIndex = session.blocks.findIndex(
+                (b) => b.supersetGroup === block.supersetGroup && b.id !== block.id,
+              )
+              const partner = session.blocks[partnerIndex]
+              const partnerEx = partner
+                ? getExercise(active.swaps[partner.id] ?? partner.exerciseId)
+                : undefined
+              return (
+                <button
+                  type="button"
+                  onClick={() => partnerIndex >= 0 && goToBlock(partnerIndex)}
+                  disabled={partnerIndex < 0}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                    marginTop: 10, padding: '9px 11px', borderRadius: 10,
+                    background: 'var(--accent-soft)', textAlign: 'left',
+                  }}
+                >
+                  <Icon name="swap" size={14} weight={2.4} color="var(--accent)" />
+                  <span className="t-footnote" style={{ flex: 1, minWidth: 0 }}>
+                    <span className="semibold" style={{ color: 'var(--accent)' }}>
+                      Superset {block.supersetGroup}
+                    </span>
+                    {partnerEx ? ` — alternate with ${partnerEx.shortName ?? partnerEx.name}` : ''}
+                  </span>
+                  {partnerIndex >= 0 && (
+                    <Icon name="chevron.right" size={13} weight={2.6} color="var(--accent)" />
+                  )}
+                </button>
+              )
+            })()}
             {active.notes[block.id] && (
               <button
                 type="button"
@@ -275,11 +309,29 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 4 }}>
                   <span
                     className="mono-nums"
-                    style={{ fontSize: 46, lineHeight: '52px', fontWeight: 700, letterSpacing: -1.4 }}
+                    style={{
+                      fontSize: 46,
+                      lineHeight: '52px',
+                      fontWeight: 700,
+                      letterSpacing: -1.4,
+                      // An autoregulated lift has no prescribed load, so the
+                      // anchor comes from history and is shown as a reference
+                      // rather than an instruction.
+                      color: resolved.targetWeight == null && anchorWeight != null
+                        ? 'var(--label-2)'
+                        : undefined,
+                    }}
                   >
-                    {resolved.targetWeight != null ? num(resolved.targetWeight, 1) : '—'}
+                    {resolved.targetWeight != null
+                      ? num(resolved.targetWeight, 1)
+                      : anchorWeight != null
+                        ? num(anchorWeight, 1)
+                        : '—'}
                   </span>
                   <span className="t-title3 dim">{profile.units}</span>
+                  {resolved.targetWeight == null && anchorWeight != null && (
+                    <span className="t-caption1 dim">last time</span>
+                  )}
                   <span className="spacer" />
                   <span className="mono-nums" style={{ fontSize: 26, fontWeight: 700, letterSpacing: -0.6 }}>
                     ×{describeReps(prescription)}

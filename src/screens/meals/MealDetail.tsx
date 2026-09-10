@@ -9,9 +9,10 @@ import { FoodLine } from './MealsHome'
 import { useStore, emptyDay } from '../../store/useStore'
 import { MEAL_PLAN } from '../../data/mealPlan'
 import type { FoodItem } from '../../domain/types'
-import { isCloseSwap, mealTotals, swapDelta } from '../../domain/nutrition'
+import { isCloseSwap, plannedMealTotals, portionOf, scaleFood, swapDelta } from '../../domain/nutrition'
 import { formatClock, relativeDay } from '../../lib/date'
 import { num, signed } from '../../lib/format'
+import { haptic } from '../../lib/haptics'
 import { useNav } from '../../nav/nav'
 
 export function MealDetail({ mealId, date }: { mealId: string; date: string }) {
@@ -21,6 +22,8 @@ export function MealDetail({ mealId, date }: { mealId: string; date: string }) {
   const setMealSkipped = useStore((s) => s.setMealSkipped)
   const addExtraFood = useStore((s) => s.addExtraFood)
   const [swapping, setSwapping] = useState<FoodItem | null>(null)
+  const [portioning, setPortioning] = useState<FoodItem | null>(null)
+  const setPortion = useStore((s) => s.setPortion)
 
   const meal = MEAL_PLAN.meals.find((m) => m.id === mealId)
   const day = nutrition[date] ?? emptyDay(date)
@@ -33,7 +36,7 @@ export function MealDetail({ mealId, date }: { mealId: string; date: string }) {
     )
   }
 
-  const totals = mealTotals(meal)
+  const totals = plannedMealTotals(meal, day)
   const skipped = day.skippedMeals.includes(meal.id)
 
   return (
@@ -58,15 +61,18 @@ export function MealDetail({ mealId, date }: { mealId: string; date: string }) {
               <div key={item.id} style={{ padding: '2px 0' }}>
                 <FoodLine
                   item={item}
+                  portion={portionOf(day, item.id)}
                   checked={!!day.checked[item.id]}
                   onToggle={() => toggleFood(date, item.id)}
                   onSwap={() => setSwapping(item)}
+                  onPortion={() => setPortioning(item)}
                 />
               </div>
             ))}
           </Card>
           <div className="list-footer">
-            Tap the swap arrow on any food to see macro-matched alternatives.
+            Tap a portion chip to log what you actually ate, or the swap arrow for
+            macro-matched alternatives.
           </div>
         </div>
 
@@ -84,6 +90,16 @@ export function MealDetail({ mealId, date }: { mealId: string; date: string }) {
           </div>
         </div>
       </div>
+
+      <PortionSheet
+        item={portioning}
+        current={portioning ? portionOf(day, portioning.id) : 1}
+        onClose={() => setPortioning(null)}
+        onPick={(multiplier) => {
+          if (portioning) setPortion(date, portioning.id, multiplier)
+          setPortioning(null)
+        }}
+      />
 
       <SwapSheet
         item={swapping}
@@ -161,6 +177,77 @@ function SwapSheet({
             )
           })
         )}
+      </div>
+    </Sheet>
+  )
+}
+
+/* ------------------------------- portions -------------------------------- */
+
+const PORTIONS = [0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2]
+
+function PortionSheet({
+  item, current, onClose, onPick,
+}: {
+  item: FoodItem | null
+  current: number
+  onClose: () => void
+  onPick: (multiplier: number) => void
+}) {
+  if (!item) return null
+  return (
+    <Sheet
+      open={!!item}
+      onClose={onClose}
+      title="Portion"
+      left={{ label: 'Cancel', onPress: onClose }}
+      detent={0.6}
+    >
+      <div style={{ padding: '4px 16px 16px' }}>
+        <div className="t-footnote dim" style={{ marginBottom: 3 }}>How much did you actually eat?</div>
+        <div className="t-headline" style={{ marginBottom: 14 }}>{item.name}</div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+          {PORTIONS.map((p) => {
+            const on = Math.abs(p - current) < 0.001
+            return (
+              <button
+                key={p}
+                type="button"
+                onClick={() => {
+                  haptic('selection')
+                  onPick(p)
+                }}
+                className="mono-nums"
+                style={{
+                  minHeight: 46,
+                  borderRadius: 11,
+                  fontWeight: 600,
+                  background: on ? 'var(--accent)' : 'var(--fill-4)',
+                  color: on ? '#fff' : 'var(--label)',
+                }}
+              >
+                {p === 0 ? 'None' : `${num(p, 2)}×`}
+              </button>
+            )
+          })}
+        </div>
+
+        <div
+          style={{
+            marginTop: 18,
+            padding: 14,
+            borderRadius: 12,
+            background: 'var(--fill-4)',
+          }}
+        >
+          <div className="t-caption1 dim semibold" style={{ marginBottom: 4 }}>AT THIS PORTION</div>
+          <div className="mono-nums t-body">
+            {num(scaleFood(item, current).qty, 2)} {item.unit} ·{' '}
+            {scaleFood(item, current).kcal} kcal · P{scaleFood(item, current).protein}{' '}
+            C{scaleFood(item, current).carbs} F{scaleFood(item, current).fat}
+          </div>
+        </div>
       </div>
     </Sheet>
   )

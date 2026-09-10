@@ -241,6 +241,11 @@ export interface DayNutrition {
   date: string
   /** Keyed by food item id. */
   checked: Record<string, boolean>
+  /**
+   * Portion multiplier per food id, defaulting to 1. "I only ate half the
+   * rice" is the most common real-world adjustment there is.
+   */
+  portions?: Record<string, number>
   waterOz: number
   extras: FoodItem[]
   skippedMeals: string[]

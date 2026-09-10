@@ -143,9 +143,13 @@ export function TodayScreen() {
                 </div>
                 {trend && (
                   <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-                    <Pill tone={rateTone(trend.perWeek, profile.weeklyRateTarget)}>
-                      {signed(trend.perWeek, 2)} {profile.units}/wk
-                    </Pill>
+                    {trend.reliable ? (
+                      <Pill tone={rateTone(trend.perWeek, profile.weeklyRateTarget)}>
+                        {signed(trend.perWeek, 2)} {profile.units}/wk
+                      </Pill>
+                    ) : (
+                      <Pill>Trend builds over a week</Pill>
+                    )}
                     <Pill>Goal {num(profile.goalWeight, 0)}</Pill>
                   </div>
                 )}

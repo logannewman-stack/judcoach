@@ -39,7 +39,7 @@ export function WeighInHome() {
   const cutoff = range === 'all' ? '0000-00-00' : addDays(today, -Number(range))
   const visible = series.filter((p) => p.date >= cutoff)
 
-  const verdict = trend ? rateVerdict(trend.perWeek, profile.weeklyRateTarget) : null
+  const verdict = trend?.reliable ? rateVerdict(trend.perWeek, profile.weeklyRateTarget) : null
   const progress = trend ? goalProgress(profile.startWeight, trend.current, profile.goalWeight) : 0
   const weeksLeft = trend ? weeksToGoal(trend.current, profile.goalWeight, trend.perWeek) : null
 
@@ -97,7 +97,7 @@ export function WeighInHome() {
                 </div>
               )}
             </div>
-            {verdict && (
+            {verdict ? (
               <Pill
                 tone={
                   verdict.status === 'on-track' ? 'good'
@@ -107,16 +107,27 @@ export function WeighInHome() {
               >
                 {verdict.label}
               </Pill>
+            ) : (
+              <Pill>Building trend</Pill>
             )}
           </div>
 
-          {trend && (
-            <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-              <Pill tone="tinted">{signed(trend.perWeek, 2)} {profile.units}/wk</Pill>
-              <Pill>Target {signed(profile.weeklyRateTarget, 1)}/wk</Pill>
-              <Pill>{signed(trend.percentPerWeek, 2)}% BW/wk</Pill>
-            </div>
-          )}
+          <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+            {trend?.reliable ? (
+              <>
+                <Pill tone="tinted">{signed(trend.perWeek, 2)} {profile.units}/wk</Pill>
+                <Pill>Target {signed(profile.weeklyRateTarget, 1)}/wk</Pill>
+                <Pill>{signed(trend.percentPerWeek, 2)}% BW/wk</Pill>
+              </>
+            ) : (
+              <>
+                <Pill>Target {signed(profile.weeklyRateTarget, 1)}/wk</Pill>
+                <Pill>
+                  {trend ? `${trend.entries} of 4 weigh-ins` : 'No weigh-ins'} — a rate needs a week
+                </Pill>
+              </>
+            )}
+          </div>
 
           {/* goal progress */}
           <div style={{ marginTop: 16 }}>
@@ -134,11 +145,13 @@ export function WeighInHome() {
             </div>
             <div className="t-footnote dim" style={{ marginTop: 7 }}>
               {Math.round(progress * 100)}% of the way there
-              {weeksLeft != null && weeksLeft > 0
-                ? ` · about ${Math.ceil(weeksLeft)} weeks at this rate`
-                : weeksLeft === 0
-                  ? ' · goal reached'
-                  : ' · the trend isn’t heading there yet'}
+              {!trend?.reliable
+                ? ''
+                : weeksLeft != null && weeksLeft > 0
+                  ? ` · about ${Math.ceil(weeksLeft)} weeks at this rate`
+                  : weeksLeft === 0
+                    ? ' · goal reached'
+                    : ' · the trend isn’t heading there yet'}
             </div>
           </div>
         </Card>

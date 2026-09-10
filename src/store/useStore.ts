@@ -8,7 +8,7 @@ import {
   SEED_PROFILE, SEED_SETTINGS, seedCheckIns, seedMeasurements, seedStartDate,
   seedWeighIns, seedWorkoutLogs,
 } from '../data/seed'
-import { todayISO } from '../lib/date'
+import { startOfWeek, todayISO } from '../lib/date'
 import { uid } from '../lib/id'
 
 export interface AppState {
@@ -28,8 +28,12 @@ export interface AppState {
   restTimer: RestTimer | null
   /** Bumped whenever demo data is regenerated, to force chart remounts. */
   seededAt: string
+  /** False until the client has been through the welcome flow. */
+  onboarded: boolean
 
   /* ------------------------------ profile ----------------------------- */
+  completeOnboarding: () => void
+  startFresh: () => void
   updateProfile: (patch: Partial<Profile>) => void
   updateSettings: (patch: Partial<Settings>) => void
   setTrainingMax: (exerciseId: string, value: number) => void
@@ -63,6 +67,7 @@ export interface AppState {
   toggleFood: (date: string, foodId: string) => void
   setMealSkipped: (date: string, mealId: string, skipped: boolean) => void
   setWater: (date: string, oz: number) => void
+  setPortion: (date: string, foodId: string, multiplier: number) => void
   addExtraFood: (date: string, food: Omit<FoodItem, 'id'>) => void
   removeExtraFood: (date: string, foodId: string) => void
   checkAllInMeal: (date: string, foodIds: string[], checked: boolean) => void
@@ -76,6 +81,7 @@ export interface AppState {
 export const emptyDay = (date: string): DayNutrition => ({
   date,
   checked: {},
+  portions: {},
   waterOz: 0,
   extras: [],
   skippedMeals: [],
@@ -97,6 +103,7 @@ function seedState() {
     active: null,
     restTimer: null,
     seededAt: new Date().toISOString(),
+    onboarded: false,
   }
 }
 
@@ -114,6 +121,27 @@ export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
       ...seedState(),
+
+      completeOnboarding: () => set(() => ({ onboarded: true })),
+
+      /**
+       * Clear the sample client out and restart the block from this week, so a
+       * real client begins at week one on an empty history rather than dropping
+       * into the middle of someone else's programme.
+       */
+      startFresh: () =>
+        set((s) => ({
+          weighIns: [],
+          measurements: [],
+          photos: [],
+          logs: [],
+          checkIns: [],
+          nutrition: {},
+          active: null,
+          restTimer: null,
+          programStartDate: startOfWeek(todayISO(), 1),
+          profile: { ...s.profile, name: '' },
+        })),
 
       /* ------------------------------ profile --------------------------- */
       updateProfile: (patch) => set((s) => ({ profile: { ...s.profile, ...patch } })),
@@ -315,6 +343,14 @@ export const useStore = create<AppState>()(
       setWater: (date, oz) =>
         set((s) => withDay(s, date, (day) => ({ ...day, waterOz: Math.max(0, oz) }))),
 
+      setPortion: (date, foodId, multiplier) =>
+        set((s) =>
+          withDay(s, date, (day) => ({
+            ...day,
+            portions: { ...(day.portions ?? {}), [foodId]: multiplier },
+          })),
+        ),
+
       addExtraFood: (date, food) =>
         set((s) =>
           withDay(s, date, (day) => {
@@ -342,6 +378,7 @@ export const useStore = create<AppState>()(
           nutrition: {},
           active: null,
           restTimer: null,
+          onboarded: true,
         })),
 
       importState: (raw) => {
@@ -360,6 +397,7 @@ export const useStore = create<AppState>()(
           nutrition: candidate.nutrition ?? {},
           active: null,
           restTimer: null,
+          onboarded: true,
         }))
         return true
       },
@@ -381,6 +419,7 @@ export const useStore = create<AppState>()(
         active: s.active,
         restTimer: s.restTimer,
         seededAt: s.seededAt,
+        onboarded: s.onboarded,
       }),
     },
   ),

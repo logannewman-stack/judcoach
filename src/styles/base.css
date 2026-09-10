@@ -337,7 +337,7 @@ img { max-width: 100%; display: block; }
   gap: 3px;
   padding: 6px 8px;
   border-radius: 8px;
-  min-height: 36px;
+  min-height: 44px;
   transition: opacity 120ms ease;
 }
 .nav-btn:active { opacity: 0.4; }
@@ -789,6 +789,19 @@ a.card:active,
 
 /* =============================== misc bits ============================== */
 
+/* Grows a control's touch target to Apple's 44pt minimum without changing how
+   it looks or how it sits in the layout. */
+.hit-expand { position: relative; }
+.hit-expand::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+}
+
 .hairline-top { box-shadow: 0 calc(var(--hairline) * -1) 0 var(--sep); }
 .stack { display: flex; flex-direction: column; }
 .hstack { display: flex; align-items: center; }
@@ -840,4 +853,250 @@ a.card:active,
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
+}
+
+/* ============================== onboarding =============================== */
+
+.onboarding {
+  position: absolute;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(120% 80% at 50% -8%, color-mix(in srgb, var(--accent) 22%, transparent) 0%, transparent 62%),
+    var(--grouped);
+  overflow: hidden;
+}
+
+.onboarding-page {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--sa-top);
+  padding-bottom: var(--sa-bottom);
+}
+
+.onboarding-nav {
+  flex: none;
+  height: var(--nav-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+}
+
+.onboarding-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding: 12px var(--gutter) 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+.onboarding-body::-webkit-scrollbar { width: 0; }
+
+.onboarding-content {
+  margin-block: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.onboarding-head { display: flex; flex-direction: column; gap: 8px; }
+
+.onboarding-eyebrow {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.onboarding-title {
+  font-size: 31px;
+  line-height: 37px;
+  font-weight: 700;
+  letter-spacing: -0.6px;
+  text-wrap: balance;
+}
+
+.onboarding-blurb {
+  font-size: 16px;
+  line-height: 22px;
+  letter-spacing: -0.32px;
+  color: var(--label-2);
+  margin: 0;
+}
+
+.onboarding-foot {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px var(--gutter) 14px;
+}
+
+.onboarding-dots {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--sa-bottom) + 76px);
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  pointer-events: none;
+}
+.onboarding-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--label-4);
+  transition: background 220ms ease, transform 220ms ease;
+}
+.onboarding-dots span[data-on='true'] { background: var(--accent); transform: scale(1.15); }
+
+.onboarding-welcome {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.onboarding-hero {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 24px var(--gutter);
+}
+
+.onboarding-input {
+  width: 100%;
+  padding: 15px 16px;
+  border-radius: 14px;
+  border: none;
+  background: var(--grouped-2);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.4px;
+}
+
+.onboarding-preview {
+  background: var(--grouped-2);
+  border-radius: var(--r-card);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.onboarding-preview-label {
+  font-size: 13px;
+  line-height: 18px;
+  letter-spacing: -0.08px;
+  color: var(--label-2);
+}
+
+.onboarding-fields {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.onboarding-arrow { flex: none; display: grid; place-items: center; }
+
+.onboarding-bigfield {
+  flex: 1;
+  min-width: 0;
+  background: var(--grouped-2);
+  border-radius: var(--r-card);
+  padding: 13px 14px 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+.onboarding-bigvalue {
+  font-size: 28px;
+  line-height: 32px;
+  font-weight: 700;
+  letter-spacing: -0.7px;
+}
+
+.onboarding-rate {
+  background: var(--grouped-2);
+  border-radius: var(--r-card);
+  padding: 14px;
+}
+.onboarding-rate-row { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; margin-top: 9px; }
+.onboarding-rate-row button {
+  min-height: 42px;
+  border-radius: 11px;
+  background: var(--fill-4);
+  color: var(--label);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  transition: background 140ms ease, color 140ms ease;
+}
+.onboarding-rate-row button[data-on='true'] { background: var(--accent); color: #fff; }
+
+.onboarding-list {
+  background: var(--grouped-2);
+  border-radius: var(--r-card);
+  overflow: hidden;
+}
+.onboarding-list-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 14px;
+  position: relative;
+}
+.onboarding-list-row + .onboarding-list-row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 14px;
+  right: 0;
+  height: var(--hairline);
+  background: var(--sep);
+  transform: scaleY(0.6);
+}
+.onboarding-list-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft);
+}
+.onboarding-value {
+  flex: none;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  padding: 6px 11px;
+  border-radius: 10px;
+  background: var(--fill-4);
+  color: var(--label);
+}
+
+.onboarding-minifield {
+  background: var(--fill-4);
+  border-radius: 12px;
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
 }

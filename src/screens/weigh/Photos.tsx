@@ -130,6 +130,7 @@ export function Photos() {
                   role="button"
                   tabIndex={0}
                   aria-label="Photo options"
+                  className="hit-expand"
                   onClick={(e) => {
                     e.stopPropagation()
                     setSelected(photo.id)

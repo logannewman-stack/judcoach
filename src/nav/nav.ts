@@ -25,6 +25,8 @@ interface NavState {
   stacks: Record<TabKey, Route[]>
   /** Presented over everything — the live workout runner. */
   fullScreen: Route | null
+  /** Bumped when the active tab is re-tapped at its root. */
+  scrollTopTick: number
   switchTab: (tab: TabKey) => void
   push: (key: string, params?: Record<string, unknown>) => void
   pop: () => void
@@ -51,13 +53,19 @@ export const useNav = create<NavState>((set, get) => ({
     settings: [ROOTS.settings],
   },
   fullScreen: null,
+  scrollTopTick: 0,
 
   switchTab: (tab) => {
-    const { tab: current, stacks } = get()
+    const { tab: current, stacks, scrollTopTick } = get()
     haptic('selection')
-    // Tapping the active tab pops its stack to root, exactly like iOS.
-    if (current === tab && stacks[tab].length > 1) {
-      set({ stacks: { ...stacks, [tab]: [stacks[tab][0]!] } })
+    if (current === tab) {
+      // Tapping the active tab pops its stack to root, then scrolls to the top
+      // on a second tap — exactly like iOS.
+      if (stacks[tab].length > 1) {
+        set({ stacks: { ...stacks, [tab]: [stacks[tab][0]!] } })
+      } else {
+        set({ scrollTopTick: scrollTopTick + 1 })
+      }
       return
     }
     set({ tab })

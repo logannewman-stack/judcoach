@@ -92,6 +92,7 @@ export function Stack({
         visibility: active ? 'visible' : 'hidden',
         pointerEvents: active ? 'auto' : 'none',
       }}
+      data-stack-active={active}
       aria-hidden={!active}
     >
       <AnimatePresence initial={false}>
