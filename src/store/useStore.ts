@@ -8,6 +8,7 @@ import {
   SEED_PROFILE, SEED_SETTINGS, seedCheckIns, seedMeasurements, seedStartDate,
   seedWeighIns, seedWorkoutLogs,
 } from '../data/seed'
+import { getProgram } from '../data/program'
 import { startOfWeek, todayISO } from '../lib/date'
 import { uid } from '../lib/id'
 
@@ -269,14 +270,27 @@ export const useStore = create<AppState>()(
           const active = s.active
           if (!active) return {}
           const startedAt = new Date(active.startedAt)
+
+          // Entries are keyed by prescription (block) id. The exercise has to be
+          // resolved from the programme — falling back to the block id would
+          // write "w5-lowerA-b0" where "back-squat" belongs, which silently
+          // orphans the set from history, records and volume.
+          const session = getProgram(s.programStartDate)
+            .weeks.find((w) => w.index === active.weekIndex)
+            ?.sessions.find((x) => x.id === active.sessionId)
+
           const exercises = Object.entries(active.entries)
             .filter(([, sets]) => sets.length > 0)
-            .map(([prescriptionId, sets]) => ({
-              prescriptionId,
-              exerciseId: active.swaps[prescriptionId] ?? prescriptionId,
-              sets,
-              note: active.notes[prescriptionId],
-            }))
+            .map(([prescriptionId, sets]) => {
+              const block = session?.blocks.find((b) => b.id === prescriptionId)
+              return {
+                prescriptionId,
+                exerciseId: active.swaps[prescriptionId] ?? block?.exerciseId ?? prescriptionId,
+                sets,
+                note: active.notes[prescriptionId],
+                swappedFromId: active.swaps[prescriptionId] ? block?.exerciseId : undefined,
+              }
+            })
           const log: WorkoutLog = {
             id: active.logId,
             date: todayISO(),
@@ -365,7 +379,9 @@ export const useStore = create<AppState>()(
         ),
 
       /* -------------------------------- data ---------------------------- */
-      resetToSeed: () => set(() => seedState()),
+      // Reloading the sample data must not send an existing user back through
+      // the welcome flow.
+      resetToSeed: () => set(() => ({ ...seedState(), onboarded: true })),
 
       clearAllData: () =>
         set(() => ({

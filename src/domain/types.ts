@@ -214,6 +214,8 @@ export interface FoodItem {
   protein: number
   carbs: number
   fat: number
+  /** Grams of fibre, where the food contributes any worth counting. */
+  fiber?: number
   /** Macro-matched alternatives the client can swap in. */
   swaps?: Omit<FoodItem, 'swaps'>[]
 }
@@ -233,6 +235,11 @@ export interface MealPlan {
   targets: MacroTargets
   /** Training-day / rest-day macro split. */
   restDayTargets?: MacroTargets
+  /**
+   * Portion multipliers applied on a rest day, so the plan can actually deliver
+   * the rest-day targets instead of only naming them.
+   */
+  restDayPortions?: Record<string, number>
   meals: Meal[]
   guidelines: string[]
 }

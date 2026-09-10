@@ -23,46 +23,82 @@ export function foodTotals(items: FoodItem[]): MacroTotals {
       protein: acc.protein + f.protein,
       carbs: acc.carbs + f.carbs,
       fat: acc.fat + f.fat,
-      fiber: acc.fiber,
+      fiber: acc.fiber + (f.fiber ?? 0),
     }),
     { ...EMPTY_TOTALS },
   )
 }
 
-/** The multiplier applied to a planned food today; 1 unless it was adjusted. */
-export function portionOf(day: DayNutrition, foodId: string): number {
-  return day.portions?.[foodId] ?? 1
+/**
+ * The multiplier applied to a planned food today.
+ *
+ * A client's own adjustment always wins. Failing that, a rest day falls back to
+ * the plan's rest-day portions — otherwise the app names a lower rest-day
+ * target and then serves the full training-day plan against it.
+ */
+export function portionOf(
+  day: DayNutrition,
+  foodId: string,
+  plan?: MealPlan,
+  restDay = false,
+): number {
+  const explicit = day.portions?.[foodId]
+  if (explicit != null) return explicit
+  if (restDay && plan?.restDayPortions?.[foodId] != null) return plan.restDayPortions[foodId]!
+  return 1
 }
 
-/** A food item scaled to the portion actually eaten. */
+/**
+ * A food item scaled to the portion actually eaten.
+ *
+ * Macros keep a decimal and calories are re-derived from them where the food
+ * reconciles at 4/4/9. Rounding each field independently let the calorie ring
+ * and the macro rings disagree by ~70 kcal on a half-portion day.
+ */
 export function scaleFood(item: FoodItem, multiplier: number): FoodItem {
   if (multiplier === 1) return item
-  const round = (v: number) => Math.round(v * multiplier)
+  const tenth = (v: number) => Math.round(v * multiplier * 10) / 10
+  const protein = tenth(item.protein)
+  const carbs = tenth(item.carbs)
+  const fat = tenth(item.fat)
+  const derived = protein * KCAL_PER_G.protein + carbs * KCAL_PER_G.carbs + fat * KCAL_PER_G.fat
+  const reconciles =
+    Math.abs(
+      item.protein * KCAL_PER_G.protein + item.carbs * KCAL_PER_G.carbs + item.fat * KCAL_PER_G.fat
+        - item.kcal,
+    ) <= 3
   return {
     ...item,
     qty: Math.round(item.qty * multiplier * 100) / 100,
-    kcal: round(item.kcal),
-    protein: round(item.protein),
-    carbs: round(item.carbs),
-    fat: round(item.fat),
+    // Alcohol and trace-calorie foods don't reconcile at 4/4/9; scale those.
+    kcal: Math.round(reconciles ? derived : item.kcal * multiplier),
+    protein,
+    carbs,
+    fat,
+    fiber: item.fiber == null ? undefined : tenth(item.fiber),
   }
 }
 
 /** What the client has actually eaten today: ticked plan items plus extras. */
-export function consumedTotals(plan: MealPlan, day: DayNutrition): MacroTotals {
+export function consumedTotals(plan: MealPlan, day: DayNutrition, restDay = false): MacroTotals {
   const eaten: FoodItem[] = []
   for (const meal of plan.meals) {
     if (day.skippedMeals.includes(meal.id)) continue
     for (const item of meal.items) {
-      if (day.checked[item.id]) eaten.push(scaleFood(item, portionOf(day, item.id)))
+      if (day.checked[item.id]) eaten.push(scaleFood(item, portionOf(day, item.id, plan, restDay)))
     }
   }
   return foodTotals([...eaten, ...day.extras])
 }
 
 /** A meal's totals as planned for today, portion adjustments included. */
-export function plannedMealTotals(meal: Meal, day: DayNutrition): MacroTotals {
-  return foodTotals(meal.items.map((i) => scaleFood(i, portionOf(day, i.id))))
+export function plannedMealTotals(
+  meal: Meal,
+  day: DayNutrition,
+  plan?: MealPlan,
+  restDay = false,
+): MacroTotals {
+  return foodTotals(meal.items.map((i) => scaleFood(i, portionOf(day, i.id, plan, restDay))))
 }
 
 export function remaining(targets: MacroTargets, totals: MacroTotals): MacroTotals {
@@ -134,14 +170,26 @@ export function groceryList(plan: MealPlan, days = 7): GroceryLine[] {
 
 /* ------------------------------- adherence ------------------------------ */
 
-/** Percentage of planned items ticked off, 0..100. */
-export function adherencePercent(plan: MealPlan, day: DayNutrition): number {
-  const planned = plan.meals
-    .filter((m) => !day.skippedMeals.includes(m.id))
-    .flatMap((m) => m.items)
+/**
+ * How much of the plan was actually eaten, 0..100.
+ *
+ * Counting ticks alone made a quarter portion of everything, and skipping five
+ * of six meals, both read as 100%: a skipped meal used to leave the denominator
+ * along with the numerator. Portions are weighted and skipped meals stay in the
+ * denominator, so the number tracks food rather than taps.
+ */
+export function adherencePercent(plan: MealPlan, day: DayNutrition, restDay = false): number {
+  const planned = plan.meals.flatMap((m) => m.items)
   if (planned.length === 0) return 0
-  const done = planned.filter((i) => day.checked[i.id]).length
-  return Math.round((done / planned.length) * 100)
+  const eaten = plan.meals.reduce((sum, meal) => {
+    if (day.skippedMeals.includes(meal.id)) return sum
+    return sum + meal.items.reduce((n, item) => {
+      if (!day.checked[item.id]) return n
+      const target = restDay ? (plan.restDayPortions?.[item.id] ?? 1) : 1
+      return n + Math.min(1, portionOf(day, item.id, plan, restDay) / target)
+    }, 0)
+  }, 0)
+  return Math.round((eaten / planned.length) * 100)
 }
 
 /** Protein is the macro that matters most — flag it separately. */

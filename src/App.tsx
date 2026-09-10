@@ -53,9 +53,6 @@ export function App() {
               {TABS.map((key) => (
                 <Stack key={key} tab={key} registry={SCREENS} active={tab === key} />
               ))}
-              {/* Above the tab bar, so they survive a wander between tabs. */}
-              <RestTimerBar bottomOffset={10} />
-              <ActiveWorkoutBar bottomOffset={10} />
             </div>
 
             <TabBar />
@@ -86,6 +83,14 @@ export function App() {
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {/* The rest timer sits above the workout runner: the one screen a
+                lifter actually needs it on was the one screen it was hidden
+                behind. It clears the tab bar only when the tab bar is there. */}
+            <RestTimerBar
+              bottomOffset={fullScreen ? 'calc(var(--sa-bottom) + 12px)' : 'calc(var(--tab-h) + var(--sa-bottom) + 12px)'}
+            />
+            <ActiveWorkoutBar bottomOffset="calc(var(--tab-h) + var(--sa-bottom) + 12px)" />
 
             <AnimatePresence>
               {!onboarded && (

@@ -12,7 +12,7 @@ import { haptic } from '../lib/haptics'
  * in-call banner, for lifting. Yields to the rest timer, which is the more
  * urgent thing to look at while it's counting.
  */
-export function ActiveWorkoutBar({ bottomOffset }: { bottomOffset: number }) {
+export function ActiveWorkoutBar({ bottomOffset }: { bottomOffset: number | string }) {
   const active = useStore((s) => s.active)
   const restTimer = useStore((s) => s.restTimer)
   const fullScreen = useNav((s) => s.fullScreen)
@@ -54,7 +54,7 @@ export function ActiveWorkoutBar({ bottomOffset }: { bottomOffset: number }) {
             left: 12,
             right: 12,
             bottom: bottomOffset,
-            zIndex: 40,
+            zIndex: 70,
             display: 'flex',
             alignItems: 'center',
             gap: 11,

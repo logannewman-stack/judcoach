@@ -2,24 +2,15 @@ import { useMemo } from 'react'
 import type {
   ExercisePrescription, LoggedSet, Program, SessionTemplate, WeekTemplate, WorkoutLog,
 } from '../domain/types'
-import { buildProgram } from '../data/program'
+import { getProgram } from '../data/program'
 import { getExercise } from '../data/exercises'
-import { bestE1RM, e1RM, sessionTonnage } from '../domain/strength'
+import { bestE1RM, e1RM, isMaxEffort, sessionTonnage } from '../domain/strength'
 import { addDays, daysBetween, todayISO } from '../lib/date'
 import { useStore } from './useStore'
 
 /* ------------------------------- programme ------------------------------ */
 
-const programCache = new Map<string, Program>()
-
-export function getProgram(startDate: string): Program {
-  let p = programCache.get(startDate)
-  if (!p) {
-    p = buildProgram(startDate)
-    programCache.set(startDate, p)
-  }
-  return p
-}
+export { getProgram }
 
 export function useProgram(): Program {
   const startDate = useStore((s) => s.programStartDate)
@@ -160,9 +151,11 @@ export function e1rmSeries(logs: WorkoutLog[], exerciseId: string): E1RMPoint[] 
 
 export interface PersonalRecord {
   exerciseId: string
-  /** Best estimated one-rep max seen. */
+  /** Best estimated one-rep max from max-effort sets; 0 when none qualify. */
   e1rm: number
-  /** The set that produced it. */
+  /** True when `e1rm` rests on a real max-effort set. */
+  hasEstimate: boolean
+  /** The set that produced the record. */
   weight: number
   reps: number
   rpe?: number
@@ -177,12 +170,14 @@ export function personalRecords(logs: WorkoutLog[]): PersonalRecord[] {
     for (const ex of log.exercises) {
       for (const s of ex.sets) {
         if (s.warmup || s.weight <= 0) continue
-        const est = e1RM(s.weight, s.reps, s.rpe)
+        const qualifies = isMaxEffort(s)
+        const est = qualifies ? e1RM(s.weight, s.reps, s.rpe) : 0
         const current = byExercise.get(ex.exerciseId)
         if (!current) {
           byExercise.set(ex.exerciseId, {
             exerciseId: ex.exerciseId,
             e1rm: est,
+            hasEstimate: qualifies,
             weight: s.weight,
             reps: s.reps,
             rpe: s.rpe,
@@ -191,48 +186,44 @@ export function personalRecords(logs: WorkoutLog[]): PersonalRecord[] {
           })
           continue
         }
-        if (est > current.e1rm) {
+        // An estimate always beats no estimate; otherwise the heavier one wins.
+        const better = qualifies
+          ? !current.hasEstimate || est > current.e1rm
+          : !current.hasEstimate && s.weight > current.weight
+        if (better) {
           Object.assign(current, {
-            e1rm: est, weight: s.weight, reps: s.reps, rpe: s.rpe, date: log.date,
+            e1rm: est,
+            hasEstimate: current.hasEstimate || qualifies,
+            weight: s.weight,
+            reps: s.reps,
+            rpe: s.rpe,
+            date: log.date,
           })
         }
         if (s.weight > current.topWeight) current.topWeight = s.weight
       }
     }
   }
-  return [...byExercise.values()].sort((a, b) => b.e1rm - a.e1rm)
+  // Estimated maxes first, then everything else by the heaviest weight handled.
+  return [...byExercise.values()].sort((a, b) => {
+    if (a.hasEstimate !== b.hasEstimate) return a.hasEstimate ? -1 : 1
+    return a.hasEstimate ? b.e1rm - a.e1rm : b.topWeight - a.topWeight
+  })
 }
 
-/** Best estimated max ever logged for one movement. */
+/** Best estimated max ever logged for one movement, from max-effort sets only. */
 export function bestHistoricalE1RM(logs: WorkoutLog[], exerciseId: string): number {
   let best = 0
   for (const log of logs) {
     for (const ex of log.exercises) {
       if (ex.exerciseId !== exerciseId) continue
       for (const set of ex.sets) {
-        if (set.warmup) continue
+        if (!isMaxEffort(set)) continue
         best = Math.max(best, e1RM(set.weight, set.reps, set.rpe))
       }
     }
   }
   return best
-}
-
-/** True when this set beats every previous estimated max for the movement. */
-export function isPrSet(logs: WorkoutLog[], exerciseId: string, set: LoggedSet): boolean {
-  const est = e1RM(set.weight, set.reps, set.rpe)
-  if (est <= 0) return false
-  let best = 0
-  for (const log of logs) {
-    for (const ex of log.exercises) {
-      if (ex.exerciseId !== exerciseId) continue
-      for (const s of ex.sets) {
-        if (s.id === set.id || s.warmup) continue
-        best = Math.max(best, e1RM(s.weight, s.reps, s.rpe))
-      }
-    }
-  }
-  return est > best
 }
 
 /* -------------------------------- volume -------------------------------- */

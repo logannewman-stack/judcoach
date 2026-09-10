@@ -7,6 +7,7 @@ import type {
   WeekTemplate,
 } from '../domain/types'
 import { getExercise } from './exercises'
+import { percentOf1RM } from '../domain/strength'
 
 /* ============================================================================
    Jud's 8-week block, built from a compact spec.
@@ -16,16 +17,29 @@ import { getExercise } from './exercises'
    every reload.
    ========================================================================== */
 
+/**
+ * A main-lift set is specified the way a coach actually writes one — reps and
+ * an RPE — and the percentage is derived from the RPE chart. Hand-authoring
+ * both let them drift apart: the ladder read as if the working max were a true
+ * one-rep max while the app defined it as 90% of one, so every load ran ~10%
+ * light and every RPE label was several points too hard for the weight.
+ */
 type MainSet = {
   reps: number
-  rpe: number
-  /** % of training max. */
+  /**
+   * Target RPE. Omitted only where the chart cannot express the intent — a
+   * deload sits below RPE 6, so claiming one would be a lie about the effort.
+   */
+  rpe?: number
+  /** Fixed % of the working max, for sets that carry no RPE target. */
   pct?: number
   /** % of the heaviest working set already hit this session. */
   backoffPct?: number
-  /** Autoregulated: work up until the RPE lands. */
+  /** Autoregulated: work up until the RPE lands, rather than to a set load. */
   workUp?: boolean
   amrap?: boolean
+  /** Upper bound on an AMRAP, so "5+" can't read as open-ended. */
+  repsMax?: number
   note?: string
 }
 
@@ -38,6 +52,8 @@ interface WeekSpec {
   isolationRpe: number
   /** Accessory set count is trimmed on deload weeks. */
   volumeScale: number
+  /** Rest between main-lift sets. Heavier weeks get longer. */
+  mainRestSec: number
   notes: Partial<Record<SessionKey, string>>
 }
 
@@ -48,11 +64,12 @@ const WEEK_SPECS: WeekSpec[] = [
     label: 'Accumulation',
     emphasis: 'Introduce the loads. Every set should feel like you had three more.',
     main: [
-      { reps: 5, pct: 70, rpe: 7 },
-      { reps: 5, pct: 73, rpe: 7 },
-      { reps: 5, pct: 75, rpe: 7.5 },
-      { reps: 5, pct: 75, rpe: 7.5 },
+      { reps: 5, rpe: 7 },
+      { reps: 5, rpe: 7 },
+      { reps: 5, rpe: 7.5 },
+      { reps: 5, rpe: 7.5 },
     ],
+    mainRestSec: 180,
     secondaryRpe: 7,
     isolationRpe: 8,
     volumeScale: 1,
@@ -65,11 +82,12 @@ const WEEK_SPECS: WeekSpec[] = [
     label: 'Accumulation',
     emphasis: 'Same movements, a little more load. Hold the technique.',
     main: [
-      { reps: 5, pct: 73, rpe: 7.5 },
-      { reps: 5, pct: 76, rpe: 8 },
-      { reps: 5, pct: 78, rpe: 8 },
-      { reps: 5, pct: 78, rpe: 8 },
+      { reps: 5, rpe: 7.5 },
+      { reps: 5, rpe: 8 },
+      { reps: 5, rpe: 8 },
+      { reps: 5, rpe: 8 },
     ],
+    mainRestSec: 195,
     secondaryRpe: 8,
     isolationRpe: 8.5,
     volumeScale: 1,
@@ -82,12 +100,19 @@ const WEEK_SPECS: WeekSpec[] = [
     label: 'Overreach',
     emphasis: 'The hardest week of the block. Expect to feel it — that is the point.',
     main: [
-      { reps: 5, pct: 75, rpe: 8 },
-      { reps: 5, pct: 78, rpe: 8 },
-      { reps: 5, pct: 80, rpe: 8.5 },
-      { reps: 5, pct: 80, rpe: 8.5 },
-      { reps: 5, pct: 75, rpe: 9, amrap: true, note: 'Last set: as many as you can with one rep left in the tank.' },
+      { reps: 5, rpe: 8 },
+      { reps: 5, rpe: 8 },
+      { reps: 5, rpe: 8.5 },
+      { reps: 5, rpe: 8.5 },
+      {
+        reps: 5,
+        rpe: 9,
+        amrap: true,
+        repsMax: 8,
+        note: 'Last set: as many as you can with one rep left in the tank. Stop at eight.',
+      },
     ],
+    mainRestSec: 210,
     secondaryRpe: 8.5,
     isolationRpe: 9,
     volumeScale: 1.15,
@@ -98,13 +123,16 @@ const WEEK_SPECS: WeekSpec[] = [
   },
   {
     label: 'Deload',
-    emphasis: 'Half the volume, two-thirds the load. Let the work catch up with you.',
+    emphasis: 'Two-thirds the load, half the volume. Let the work catch up with you.',
     deload: true,
+    // A deload is quieter than RPE 6, the chart's floor, so it prescribes a
+    // load and makes no claim about how hard it should feel.
     main: [
-      { reps: 5, pct: 60, rpe: 6 },
-      { reps: 5, pct: 63, rpe: 6 },
-      { reps: 5, pct: 65, rpe: 6.5 },
+      { reps: 5, pct: 62 },
+      { reps: 5, pct: 65 },
+      { reps: 5, pct: 65 },
     ],
+    mainRestSec: 150,
     secondaryRpe: 6.5,
     isolationRpe: 7,
     volumeScale: 0.6,
@@ -117,11 +145,12 @@ const WEEK_SPECS: WeekSpec[] = [
     label: 'Intensification',
     emphasis: 'Fewer reps, heavier bar. Sharpen up.',
     main: [
-      { reps: 4, pct: 80, rpe: 8 },
-      { reps: 3, pct: 84, rpe: 8 },
-      { reps: 4, pct: 78, rpe: 8 },
-      { reps: 4, pct: 78, rpe: 8.5 },
+      { reps: 4, rpe: 8 },
+      { reps: 3, rpe: 8 },
+      { reps: 4, rpe: 8 },
+      { reps: 4, rpe: 8.5 },
     ],
+    mainRestSec: 210,
     secondaryRpe: 8,
     isolationRpe: 8.5,
     volumeScale: 0.95,
@@ -134,11 +163,12 @@ const WEEK_SPECS: WeekSpec[] = [
     label: 'Intensification',
     emphasis: 'Top set is real work now. Back-offs stay crisp.',
     main: [
-      { reps: 3, pct: 84, rpe: 8 },
-      { reps: 3, pct: 87, rpe: 8.5 },
+      { reps: 3, rpe: 8 },
+      { reps: 3, rpe: 8.5 },
       { reps: 3, backoffPct: 88, rpe: 8 },
-      { reps: 3, backoffPct: 88, rpe: 8.5, amrap: true, note: 'Optional AMRAP — stop at RPE 9.' },
+      { reps: 3, backoffPct: 88, rpe: 9, amrap: true, repsMax: 6, note: 'Optional AMRAP — stop at RPE 9.' },
     ],
+    mainRestSec: 225,
     secondaryRpe: 8.5,
     isolationRpe: 9,
     volumeScale: 0.95,
@@ -151,11 +181,12 @@ const WEEK_SPECS: WeekSpec[] = [
     label: 'Peak',
     emphasis: 'Heaviest loads of the block. Long rests, full focus.',
     main: [
-      { reps: 2, pct: 88, rpe: 8 },
-      { reps: 2, pct: 92, rpe: 9 },
+      { reps: 2, rpe: 8 },
+      { reps: 2, rpe: 9 },
       { reps: 4, backoffPct: 82, rpe: 8 },
       { reps: 4, backoffPct: 82, rpe: 8.5 },
     ],
+    mainRestSec: 270,
     secondaryRpe: 8,
     isolationRpe: 8.5,
     volumeScale: 0.85,
@@ -169,11 +200,12 @@ const WEEK_SPECS: WeekSpec[] = [
     label: 'Test & Reset',
     emphasis: 'Work up to a true top single, then shut it down.',
     main: [
-      { reps: 3, pct: 75, rpe: 7, note: 'Opener — should fly.' },
-      { reps: 1, pct: 90, rpe: 8, note: 'Second attempt feel.' },
+      { reps: 3, rpe: 7, note: 'Opener — should fly.' },
+      { reps: 1, rpe: 8, note: 'Second attempt feel.' },
       { reps: 1, workUp: true, rpe: 9, note: 'Top single. Stop the moment it turns into a grind.' },
       { reps: 5, backoffPct: 70, rpe: 7 },
     ],
+    mainRestSec: 270,
     secondaryRpe: 7,
     isolationRpe: 8,
     volumeScale: 0.55,
@@ -276,17 +308,19 @@ const SESSIONS: SessionSkeleton[] = [
 /* -------------------------------- builder ------------------------------- */
 
 function mainLoad(set: MainSet): LoadSpec {
-  if (set.pct != null) return { kind: 'percent', value: set.pct }
   if (set.backoffPct != null) return { kind: 'backoff', pctOfTop: set.backoffPct }
-  return { kind: 'rpe' }
+  if (set.workUp) return { kind: 'rpe' }
+  if (set.pct != null) return { kind: 'percent', value: set.pct }
+  // Percentage and RPE come from the same place, so they cannot disagree.
+  return { kind: 'percent', value: Math.round(percentOf1RM(set.reps, set.rpe!) * 10) / 10 }
 }
 
 function buildMainBlock(skeleton: SessionSkeleton, spec: WeekSpec, weekIndex: number): ExercisePrescription {
-  const exercise = getExercise(skeleton.mainLiftId)
-  const rest = spec.deload ? 150 : (exercise?.defaultRestSec ?? 180)
+  const rest = spec.mainRestSec
   const sets: SetPrescription[] = spec.main.map((s, i) => ({
     id: `w${weekIndex}-${skeleton.key}-b0-s${i}`,
     reps: s.reps,
+    repsMax: s.repsMax,
     amrap: s.amrap,
     load: mainLoad(s),
     rpe: s.rpe,
@@ -373,4 +407,14 @@ export function buildProgram(startDate: string): Program {
   }
 }
 
-export const SESSION_KEYS = SESSIONS.map((s) => s.key)
+const programCache = new Map<string, Program>()
+
+/** Memoised so every consumer shares one programme object per start date. */
+export function getProgram(startDate: string): Program {
+  let program = programCache.get(startDate)
+  if (!program) {
+    program = buildProgram(startDate)
+    programCache.set(startDate, program)
+  }
+  return program
+}

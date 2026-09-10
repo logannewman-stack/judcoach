@@ -58,16 +58,26 @@ export function percentOf1RM(reps: number, rpe: number): number {
   const r = Math.max(1, Math.round(reps))
   const clampedRpe = clamp(snapRpe(rpe), MIN_RPE, MAX_RPE)
 
-  if (r <= 12) {
-    const row = RPE_CHART[String(clampedRpe)]
-    if (row) return row[r - 1]!
-  }
+  const row = RPE_CHART[String(clampedRpe)]
+  if (r <= 12 && row) return row[r - 1]!
 
-  // Beyond 12 reps: treat "reps at RPE X" as "reps + RIR reps to failure" and
-  // invert Epley, which is well-behaved in the high-rep range.
-  const rir = rpeToRir(clampedRpe)
-  const repsToFailure = r + rir
-  return (100 / (1 + repsToFailure / 30))
+  // Past the chart's last column, continue its own slope rather than switching
+  // to Epley — the two are calibrated differently, and splicing them made 13
+  // reps score higher than 12, so a client who ground out one more rep watched
+  // their estimated max fall.
+  //
+  // The slope decays geometrically, because load-vs-reps flattens out in the
+  // high-rep range: extending the chart's 2.7-points-per-rep straight out would
+  // put a 20-rep set at 41% of max, well under what anyone actually lifts for
+  // twenty. Decayed, it lands near 54%, and the series converges rather than
+  // marching to zero.
+  const last = row?.[11] ?? RPE_CHART['10']![11]!
+  const penultimate = row?.[10] ?? RPE_CHART['10']![10]!
+  const slope = penultimate - last // ≈ 2.7 points per rep, always positive
+  const DECAY = 0.88
+  const extraReps = r - 12
+  const drop = (slope * (1 - Math.pow(DECAY, extraReps))) / (1 - DECAY)
+  return Math.max(20, last - drop)
 }
 
 /** Estimated 1RM implied by a completed set. */
@@ -113,7 +123,9 @@ export function solvePlates(
   availablePlates: number[],
 ): PlateStack {
   if (target <= barWeight) {
-    return { perSide: [], achievable: barWeight, remainder: target - barWeight, barOnly: true }
+    // Nothing to load, and the bar itself is the floor — report no shortfall
+    // rather than "15 over" for a target lighter than the bar.
+    return { perSide: [], achievable: barWeight, remainder: 0, barOnly: true }
   }
   let perSideRemaining = (target - barWeight) / 2
   const plates = [...availablePlates].sort((a, b) => b - a)
@@ -257,40 +269,38 @@ export function suggestNextLoad(
   // An AMRAP set is defined by the RPE it stops at, so rep count can't "miss".
   const hitReps = target.amrap || logged.reps >= target.reps
 
-  if (!hitReps && logged.rpe >= target.rpe) {
-    const next = roundToIncrement(base * 0.93, increment)
+  // A missed set never earns more load, however easy it was reported to feel.
+  // Reps not completed is the harder signal; a low RPE on a set that stopped
+  // short usually means it stopped for a reason the number doesn't carry.
+  if (!hitReps) {
+    const shortfall = (target.reps - logged.reps) / Math.max(1, target.reps)
+    const next = roundToIncrement(base * (shortfall > 0.34 ? 0.9 : 0.95), increment)
     return {
       direction: 'down',
       suggestedWeight: next,
       delta: next - base,
-      reason: `Missed reps at ${formatRpe(logged.rpe)} — drop to keep quality high.`,
+      reason:
+        logged.reps + ' of ' + target.reps + ' reps — back the load off and keep the quality.',
     }
   }
-  if (diff >= 1) {
-    const next = roundToIncrement(base * 1.05, increment)
+  if (Math.abs(diff) >= 0.5) {
+    // Size the correction off the chart rather than a flat percentage: one RPE
+    // point is worth about 2.6 points of 1RM at five reps, i.e. ~3% of load,
+    // not the 5% a fixed step would apply.
+    const atTarget = percentOf1RM(target.reps, target.rpe)
+    const atActual = percentOf1RM(target.reps, logged.rpe)
+    const ratio = atActual > 0 ? atTarget / atActual : 1
+    const capped = Math.min(1.08, Math.max(0.9, ratio))
+    const next = roundToIncrement(base * capped, increment)
+    if (next === base) return { direction: 'hold', suggestedWeight: base, delta: 0, reason: 'Dialled in — repeat the load.' }
     return {
-      direction: 'up',
+      direction: diff > 0 ? 'up' : 'down',
       suggestedWeight: next,
       delta: next - base,
-      reason: `${diff.toFixed(1)} RPE under target — add load.`,
-    }
-  }
-  if (diff >= 0.5) {
-    const next = roundToIncrement(base * 1.025, increment)
-    return {
-      direction: 'up',
-      suggestedWeight: next,
-      delta: next - base,
-      reason: 'Slightly under target — small bump.',
-    }
-  }
-  if (diff <= -1) {
-    const next = roundToIncrement(base * 0.95, increment)
-    return {
-      direction: 'down',
-      suggestedWeight: next,
-      delta: next - base,
-      reason: `${Math.abs(diff).toFixed(1)} RPE over target — back off.`,
+      reason:
+        diff > 0
+          ? `${diff.toFixed(1)} RPE under target — add load.`
+          : `${Math.abs(diff).toFixed(1)} RPE over target — back off.`,
     }
   }
   return { direction: 'hold', suggestedWeight: base, delta: 0, reason: 'Dialled in — repeat the load.' }
@@ -304,9 +314,24 @@ export function sessionTonnage(sets: LoggedSet[]): number {
   return sets.reduce((sum, s) => sum + (s.warmup ? 0 : setTonnage(s)), 0)
 }
 
-/** Best estimated max across a group of sets. */
+/**
+ * Whether a set says anything real about a one-rep max.
+ *
+ * Estimating a max from a 12-rep calf raise at RPE 8 is arithmetic, not
+ * information: it put a 319 lb calf raise and a 430 lb hip thrust above the
+ * client's bench press on the records board. Only near-maximal, low-rep work
+ * earns an estimate.
+ */
+export function isMaxEffort(set: LoggedSet): boolean {
+  return !set.warmup && set.reps <= 6 && (set.rpe ?? 0) >= 8
+}
+
+/** Best estimated max across a group of sets, from max-effort sets only. */
 export function bestE1RM(sets: LoggedSet[]): number {
-  return sets.reduce((best, s) => (s.warmup ? best : Math.max(best, e1RM(s.weight, s.reps, s.rpe))), 0)
+  return sets.reduce(
+    (best, s) => (isMaxEffort(s) ? Math.max(best, e1RM(s.weight, s.reps, s.rpe)) : best),
+    0,
+  )
 }
 
 /** The heaviest non-warmup set, used to anchor back-off percentages. */

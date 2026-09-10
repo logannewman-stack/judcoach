@@ -10,7 +10,7 @@ import { haptic } from '../lib/haptics'
  * client wanders mid-session, and counts against wall-clock time so a locked
  * screen or a backgrounded tab never drifts.
  */
-export function RestTimerBar({ bottomOffset }: { bottomOffset: number }) {
+export function RestTimerBar({ bottomOffset }: { bottomOffset: number | string }) {
   const timer = useStore((s) => s.restTimer)
   const stopRest = useStore((s) => s.stopRest)
   const adjustRest = useStore((s) => s.adjustRest)
@@ -54,7 +54,7 @@ export function RestTimerBar({ bottomOffset }: { bottomOffset: number }) {
             left: 12,
             right: 12,
             bottom: bottomOffset,
-            zIndex: 40,
+            zIndex: 70,
             display: 'flex',
             alignItems: 'center',
             gap: 10,

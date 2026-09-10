@@ -13,9 +13,9 @@ import { WarmupRamp } from './WarmupRamp'
 import { useStore } from '../../store/useStore'
 import { bestHistoricalE1RM, findSession, lastPerformance, useProgram } from '../../store/selectors'
 import { EXERCISES, getExercise } from '../../data/exercises'
-import type { LoggedSet, SetPrescription } from '../../domain/types'
+import type { ActiveSession, LoggedSet, SetPrescription } from '../../domain/types'
 import {
-  buildWarmup, describeReps, e1RM, formatRir, formatRpe, resolveSet, rpeToRir,
+  buildWarmup, describeReps, e1RM, formatRir, formatRpe, isMaxEffort, resolveSet, rpeToRir,
   sessionTonnage, suggestNextLoad, topSet,
 } from '../../domain/strength'
 import { formatDuration } from '../../lib/date'
@@ -27,6 +27,7 @@ import { useFullScreenDrag } from '../../nav/FullScreenDrag'
 export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId: string }) {
   const program = useProgram()
   const dismiss = useNav((s) => s.dismiss)
+  const present = useNav((s) => s.present)
   const active = useStore((s) => s.active)
   const startSession = useStore((s) => s.startSession)
   const logs = useStore((s) => s.logs)
@@ -43,11 +44,27 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
   const discardSession = useStore((s) => s.discardSession)
 
   const found = findSession(program, weekIndex, sessionId)
+  const [conflict, setConflict] = useState<ActiveSession | null>(null)
+  // True once this runner has actually held its session. The component stays
+  // mounted through the dismiss animation, so without this the start effect
+  // fires again on the now-null active session and resurrects the workout that
+  // was just saved or discarded.
+  const heldSessionRef = useRef(false)
 
-  // Opening the runner for a session that isn't already in flight starts it.
   useEffect(() => {
     if (!found) return
-    if (!active || active.sessionId !== sessionId) startSession(weekIndex, sessionId)
+    if (active?.sessionId === sessionId) {
+      heldSessionRef.current = true
+      return
+    }
+    // The session ended while this runner was still on screen — let it go.
+    if (heldSessionRef.current) return
+    // A different workout is already in flight; it must not be overwritten.
+    if (active) {
+      setConflict(active)
+      return
+    }
+    startSession(weekIndex, sessionId)
   }, [found, active, sessionId, weekIndex, startSession])
 
   const [elapsed, setElapsed] = useState(0)
@@ -64,7 +81,8 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
   const [showDiscard, setShowDiscard] = useState(false)
   const [showSwap, setShowSwap] = useState(false)
   const [showNote, setShowNote] = useState(false)
-  const [editing, setEditing] = useState<LoggedSet | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [extraSets, setExtraSets] = useState<Record<string, number>>({})
   const scrollRef = useRef<HTMLDivElement>(null)
   const dragControls = useFullScreenDrag()
 
@@ -76,9 +94,13 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
   const exerciseId = active.swaps[block.id] ?? block.exerciseId
   const exercise = getExercise(exerciseId)
   const logged = active.entries[block.id] ?? []
+  // An extra set repeats the last prescription rather than logging a silent
+  // duplicate of what was just done.
+  const allowedSets = block.sets.length + (extraSets[block.id] ?? 0)
   const setIndex = Math.min(logged.length, block.sets.length - 1)
-  const isBlockDone = logged.length >= block.sets.length
+  const isBlockDone = logged.length >= allowedSets
   const prescription = block.sets[setIndex]!
+  const editing = logged.find((x) => x.id === editingId) ?? null
 
   const totalSets = session.blocks.reduce((n, b) => n + b.sets.length, 0)
   const doneSets = Object.values(active.entries).reduce((n, sets) => n + sets.length, 0)
@@ -88,13 +110,18 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
   const historicalBest = bestHistoricalE1RM(logs, exerciseId)
   let runningBest = historicalBest
   const prFlags = logged.map((set) => {
-    const est = e1RM(set.weight, set.reps, set.rpe)
-    const isPr = est > runningBest + 0.01
-    if (isPr) runningBest = est
+    const est = isMaxEffort(set) ? e1RM(set.weight, set.reps, set.rpe) : 0
+    // The very first qualifying set establishes the baseline; badging it — and
+    // then every set after it — reads as broken rather than encouraging.
+    const isPr = est > 0 && runningBest > 0 && est > runningBest + 0.01
+    if (est > runningBest) runningBest = est
     return isPr
   })
 
-  const tm = profile.trainingMaxes[exerciseId]
+  // The percentage belongs to the prescribed lift, not the substitute, so a
+  // swap keeps its load target instead of collapsing to a bare dash.
+  const swapped = exerciseId !== block.exerciseId
+  const tm = profile.trainingMaxes[exerciseId] ?? profile.trainingMaxes[block.exerciseId]
   const resolved = resolveSet(prescription, {
     trainingMax: tm,
     profile,
@@ -358,7 +385,13 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
                   )}
                   {prescription.amrap && <Pill tone="warn" icon="flame.fill">AMRAP</Pill>}
                   {prescription.tempo && <Pill>Tempo {prescription.tempo}</Pill>}
-                  {tm && <Pill>TM {num(tm, 0)}</Pill>}
+                  {tm && <Pill>Max {num(tm, 0)}</Pill>}
+                  {swapped && (
+                    <Pill tone="warn">
+                      Carried from {getExercise(block.exerciseId)?.shortName
+                        ?? getExercise(block.exerciseId)?.name}
+                    </Pill>
+                  )}
                 </div>
 
                 {settings.showPlateMath && exercise?.barLoaded && resolved.targetWeight != null && (
@@ -399,11 +432,7 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
               units={profile.units}
               isLast={blockIndex === session.blocks.length - 1}
               onNext={() => goToBlock(blockIndex + 1)}
-              onAddSet={() => {
-                // An extra set beyond the prescription is still worth logging.
-                const extra = block.sets[block.sets.length - 1]!
-                logRawSet(extra, logged[logged.length - 1]?.weight ?? 0, extra.reps, extra.rpe)
-              }}
+              onAddSet={() => setExtraSets((e) => ({ ...e, [block.id]: (e[block.id] ?? 0) + 1 }))}
             />
           ) : (
             <SetLogger
@@ -435,7 +464,7 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
                       key={s.id}
                       type="button"
                       className="row"
-                      onClick={() => setEditing(s)}
+                      onClick={() => setEditingId(s.id)}
                       initial={{ opacity: 0, x: -14 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ type: 'spring', stiffness: 480, damping: 34 }}
@@ -545,10 +574,10 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
         units={profile.units}
         increment={profile.roundingIncrement}
         showRir={settings.showRir}
-        onClose={() => setEditing(null)}
+        onClose={() => setEditingId(null)}
         onDelete={(id) => {
           removeLoggedSet(block.id, id)
-          setEditing(null)
+          setEditingId(null)
           toast('Set removed', { icon: 'trash', tone: 'bad' })
         }}
         prescriptionId={block.id}
@@ -577,6 +606,42 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
       />
 
       <Alert
+        open={!!conflict}
+        title="A workout is already in progress"
+        message={
+          conflict
+            ? `${
+                findSession(program, conflict.weekIndex, conflict.sessionId)?.session.name ?? 'A session'
+              } has ${Object.values(conflict.entries).reduce((n, x) => n + x.length, 0)} sets logged. Finish or discard it before starting another.`
+            : undefined
+        }
+        onDismiss={() => {
+          setConflict(null)
+          dismiss()
+        }}
+        actions={[
+          {
+            label: 'Back to it',
+            strong: true,
+            onPress: () => {
+              const target = conflict!
+              setConflict(null)
+              present('runner', { weekIndex: target.weekIndex, sessionId: target.sessionId })
+            },
+          },
+          {
+            label: 'Discard and start',
+            destructive: true,
+            onPress: () => {
+              discardSession()
+              startSession(weekIndex, sessionId)
+              setConflict(null)
+            },
+          },
+        ]}
+      />
+
+      <Alert
         open={showDiscard}
         title="Discard this workout?"
         message="Every set you logged in this session will be deleted. This cannot be undone."
@@ -590,6 +655,7 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
               discardSession()
               setShowDiscard(false)
               dismiss()
+              toast('Workout discarded', { icon: 'trash', tone: 'bad' })
             },
           },
         ]}

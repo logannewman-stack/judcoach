@@ -43,8 +43,12 @@ export interface TrendSummary {
   change: number
   /** Least-squares slope, expressed per week. */
   perWeek: number
+  /** Half-width of the 95% confidence interval on `perWeek`. */
+  marginPerWeek: number
   /** Slope as a percentage of current bodyweight per week. */
   percentPerWeek: number
+  /** True when the window held too little data and older entries were pulled in. */
+  stale: boolean
   direction: 'up' | 'down' | 'flat'
   sampleDays: number
   entries: number
@@ -56,17 +60,32 @@ export interface TrendSummary {
   reliable: boolean
 }
 
-/** Least-squares slope in units per day. */
-function slopePerDay(points: { x: number; y: number }[]): number {
+/**
+ * Least-squares slope in units per day, with the standard error of that slope.
+ *
+ * The error matters as much as the estimate: a fortnight of ordinary water
+ * fluctuation can fit a slope of ±1 lb/week either way, and a rate quoted
+ * without its uncertainty has clients changing their food on noise.
+ */
+function fitSlope(points: { x: number; y: number }[]): { slope: number; se: number } {
   const n = points.length
-  if (n < 2) return 0
-  let sx = 0, sy = 0, sxx = 0, sxy = 0
+  if (n < 3) return { slope: 0, se: Infinity }
+  let sx = 0, sy = 0
+  for (const p of points) { sx += p.x; sy += p.y }
+  const mx = sx / n
+  const my = sy / n
+  let sxx = 0, sxy = 0
   for (const p of points) {
-    sx += p.x; sy += p.y; sxx += p.x * p.x; sxy += p.x * p.y
+    sxx += (p.x - mx) ** 2
+    sxy += (p.x - mx) * (p.y - my)
   }
-  const denom = n * sxx - sx * sx
-  if (Math.abs(denom) < 1e-9) return 0
-  return (n * sxy - sx * sy) / denom
+  if (sxx < 1e-9) return { slope: 0, se: Infinity }
+  const slope = sxy / sxx
+  const intercept = my - slope * mx
+  let sse = 0
+  for (const p of points) sse += (p.y - (slope * p.x + intercept)) ** 2
+  const se = Math.sqrt(sse / (n - 2) / sxx)
+  return { slope, se: Number.isFinite(se) ? se : Infinity }
 }
 
 export function summarizeTrend(entries: WeighIn[], days = 28, window = 7): TrendSummary | null {
@@ -74,24 +93,42 @@ export function summarizeTrend(entries: WeighIn[], days = 28, window = 7): Trend
   const series = rollingSeries(entries, window)
   const last = series[series.length - 1]!
   const cutoff = daysAgoISO(last.date, days)
-  const recent = series.filter((p) => p.date >= cutoff)
+  let recent = series.filter((p) => p.date >= cutoff)
 
-  const sampleDays = daysBetween(recent[0]!.date, last.date) + 1
-  const points = recent.map((p) => ({ x: daysBetween(recent[0]!.date, p.date), y: p.avg }))
-  const perDay = slopePerDay(points)
-  const perWeek = perDay * 7
+  // After a long gap the window can hold a single point. Reach further back
+  // rather than reporting a zero slope, which would tell a client who gained
+  // six pounds that nothing moved.
+  const stale = recent.length < 3
+  if (stale) recent = series.slice(-Math.min(series.length, 8))
+
   const first = recent[0]!
+  const sampleDays = daysBetween(first.date, last.date) + 1
+
+  // Fit the raw scale readings, not the smoothed ones: a rolling average is
+  // heavily autocorrelated, which biases the slope low and understates its
+  // error. The average is still what the client is shown.
+  const { slope, se } = fitSlope(
+    recent.map((p) => ({ x: daysBetween(first.date, p.date), y: p.weight })),
+  )
+  const perWeek = slope * 7
+  const marginPerWeek = Number.isFinite(se) ? 1.96 * se * 7 : Infinity
+  // Below a tenth of a percent of bodyweight a week, nobody can tell the
+  // difference — and that threshold has to scale, or a kg user's "flat" band
+  // is 2.2× as wide as a pound user's.
+  const flatBand = Math.max(0.05, last.avg * 0.001)
 
   return {
     current: last.avg,
     previous: first.avg,
     change: last.avg - first.avg,
     perWeek,
+    marginPerWeek,
     percentPerWeek: last.avg > 0 ? (perWeek / last.avg) * 100 : 0,
-    direction: Math.abs(perWeek) < 0.15 ? 'flat' : perWeek > 0 ? 'up' : 'down',
+    direction: Math.abs(perWeek) < flatBand ? 'flat' : perWeek > 0 ? 'up' : 'down',
     sampleDays,
     entries: recent.length,
-    reliable: recent.length >= 4 && sampleDays >= 7,
+    stale,
+    reliable: !stale && recent.length >= 10 && sampleDays >= 14,
   }
 }
 
@@ -126,13 +163,26 @@ export function goalProgress(start: number, current: number, goal: number): numb
 export function rateVerdict(
   perWeek: number,
   targetPerWeek: number,
+  /** 95% CI half-width on `perWeek`. A target inside the interval is met. */
+  marginPerWeek = 0,
+  /** Current bodyweight, so the maintenance band scales with the client. */
+  bodyweight = 0,
 ): { status: 'on-track' | 'fast' | 'slow' | 'wrong-way'; label: string } {
+  // If the target rate is inside the confidence interval, the data cannot
+  // distinguish this client from one hitting it exactly. That is on target.
+  if (Math.abs(perWeek - targetPerWeek) <= marginPerWeek) {
+    return {
+      status: 'on-track',
+      label: Math.abs(targetPerWeek) < 0.05 ? 'Holding steady' : 'On target',
+    }
+  }
+  const maintenanceBand = Math.max(0.2, bodyweight * 0.002)
   if (Math.abs(targetPerWeek) < 0.05) {
-    return Math.abs(perWeek) <= 0.35
+    return Math.abs(perWeek) <= maintenanceBand
       ? { status: 'on-track', label: 'Holding steady' }
       : { status: 'fast', label: 'Drifting off maintenance' }
   }
-  if (Math.sign(perWeek) !== Math.sign(targetPerWeek) && Math.abs(perWeek) > 0.1) {
+  if (Math.sign(perWeek) !== Math.sign(targetPerWeek) && Math.abs(perWeek) > maintenanceBand / 2) {
     return { status: 'wrong-way', label: 'Moving the wrong way' }
   }
   const ratio = Math.abs(perWeek) / Math.abs(targetPerWeek)
@@ -141,7 +191,7 @@ export function rateVerdict(
   return { status: 'on-track', label: 'On target' }
 }
 
-/** Longest run of consecutive days with a weigh-in, counting back from today. */
+/** Current run of consecutive days with a weigh-in, counting back from today. */
 export function weighInStreak(entries: WeighIn[], today: string): number {
   const dates = new Set(entries.map((e) => e.date))
   let streak = 0
