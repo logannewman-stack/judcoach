@@ -322,7 +322,7 @@ export function Pill({
   ].filter(Boolean).join(' ')
   return (
     <span className={cls} style={style}>
-      {icon && <Icon name={icon} size={11} weight={2.6} />}
+      {icon && <Icon name={icon} size={12} weight={2.6} />}
       {children}
     </span>
   )

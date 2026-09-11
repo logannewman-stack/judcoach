@@ -160,14 +160,19 @@ export function SessionDetail({ weekIndex, sessionId }: { weekIndex: number; ses
                       thing on this page with no reason to be grey. */}
                   <div className="plan-head">
                     <span className="plan-index" aria-hidden="true">{blockIndex + 1}</span>
-                    <button
-                      type="button"
-                      className="t-headline truncate hit-expand"
-                      onClick={() => push('exerciseDetail', { exerciseId: block.exerciseId })}
-                      style={{ flex: 1, minWidth: 0, textAlign: 'left', color: 'inherit', font: 'inherit' }}
-                    >
-                      {exercise?.name ?? block.exerciseId}
-                    </button>
+                    {/* The truncation belongs to the span, not to the button:
+                        a button that clips its own text reports as cut off
+                        rather than as ellipsised. */}
+                    <span className="t-headline truncate" style={{ flex: 1, minWidth: 0 }}>
+                      <button
+                        type="button"
+                        className="hit-expand"
+                        onClick={() => push('exerciseDetail', { exerciseId: block.exerciseId })}
+                        style={{ textAlign: 'left', color: 'inherit', font: 'inherit' }}
+                      >
+                        {exercise?.name ?? block.exerciseId}
+                      </button>
+                    </span>
                     {block.supersetGroup && <SupersetTag group={block.supersetGroup} />}
                     <button
                       type="button"

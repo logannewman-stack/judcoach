@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { Icon } from '../../components/Icon'
 import { Button, Pill } from '../../components/ios/Controls'
 import { ActionSheet, Alert, Sheet } from '../../components/ios/Sheet'
@@ -87,6 +87,10 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
   // the exercise rather than for the three seconds a toast lasts.
   const [pr, setPr] = useState<{ blockId: string; est: number; previous: number } | null>(null)
   const [extraSets, setExtraSets] = useState<Record<string, number>>({})
+  // Sets logged since arriving at this exercise. The logger is re-keyed per set
+  // and cannot remember a press across its own remount, so the count that tells
+  // it whether to play its reward lives up here.
+  const [pulse, setPulse] = useState(0)
   const scrollRef = useRef<HTMLDivElement>(null)
   const pagerRef = useRef<HTMLDivElement>(null)
   const dragControls = useFullScreenDrag()
@@ -191,23 +195,14 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
 
   const goToBlock = (i: number) => {
     setCurrentBlock(Math.max(0, Math.min(i, session.blocks.length - 1)))
+    setPulse(0)
     scrollRef.current?.scrollTo({ top: 0, behavior: scrollBehaviour() })
   }
 
   return (
-    <div className="screen" style={{ background: 'var(--grouped)' }}>
+    <div className="screen runner-screen" style={{ background: 'var(--grouped)' }}>
       {/* ------------------------------- header ------------------------------ */}
-      <div
-        style={{
-          flex: 'none',
-          paddingTop: 'var(--sa-top)',
-          background: 'var(--chrome)',
-          WebkitBackdropFilter: 'saturate(180%) blur(20px)',
-          backdropFilter: 'saturate(180%) blur(20px)',
-          boxShadow: '0 var(--hairline) 0 var(--sep)',
-          zIndex: 10,
-        }}
-      >
+      <div className="runner-bar">
         <div
           className="navbar-inner"
           onPointerDown={(e) => {
@@ -224,9 +219,7 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
           </div>
           <div style={{ textAlign: 'center', minWidth: 0 }}>
             <div className="t-caption1 dim truncate">{session.name} · {week.label.split(' — ')[0]}</div>
-            <div className="data" style={{ fontSize: 17, lineHeight: '19px', fontWeight: 700 }}>
-              {formatDuration(elapsed)}
-            </div>
+            <div className="data runner-clock">{formatDuration(elapsed)}</div>
           </div>
           <div className="navbar-side right">
             <button className="nav-btn strong" type="button" onClick={() => setShowFinish(true)}>
@@ -235,7 +228,7 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
           </div>
         </div>
 
-        <div style={{ padding: '0 var(--gutter) 6px' }}>
+        <div style={{ padding: '0 var(--gutter) 7px' }}>
           <div
             className="runner-trace"
             role="img"
@@ -246,9 +239,20 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
                 key={cell.key}
                 className="runner-trace-cell"
                 data-rpe={cell.rpe ?? ''}
-                data-done={cell.done || undefined}
                 data-block-start={cell.blockStart || undefined}
-              />
+              >
+                {/* The fill is a child rather than a background so it can wipe
+                    open as the set lands. Opening a half-finished session runs
+                    them all at once, which is the session filling itself in. */}
+                {cell.done && (
+                  <motion.span
+                    className="runner-trace-fill"
+                    initial={{ scaleX: 0, opacity: 0 }}
+                    animate={{ scaleX: 1, opacity: 1 }}
+                    transition={{ type: 'spring', stiffness: 520, damping: 30 }}
+                  />
+                )}
+              </span>
             ))}
           </div>
         </div>
@@ -257,7 +261,7 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
             scrolling to the feet of the screen, so they are sized as targets
             (44pt) rather than as labels, and the rows above give back the height
             that costs. */}
-        <div className="hscroll" ref={pagerRef} style={{ gap: 7, paddingBottom: 6 }}>
+        <div className="hscroll" ref={pagerRef} style={{ gap: 8, paddingBottom: 8 }}>
           {session.blocks.map((b, i) => {
             const ex = getExercise(active.swaps[b.id] ?? b.exerciseId)
             const count = (active.entries[b.id] ?? []).length
@@ -267,32 +271,18 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
               <button
                 key={b.id}
                 type="button"
+                className="runner-chip"
                 onClick={() => goToBlock(i)}
-                style={{
-                  flex: '0 0 auto',
-                  padding: '11px 13px',
-                  borderRadius: 'var(--r-pill)',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  letterSpacing: -0.1,
-                  whiteSpace: 'nowrap',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 5,
-                  background: current
-                    ? 'var(--accent)'
-                    : complete ? 'color-mix(in srgb, var(--green) 16%, transparent)' : 'var(--fill-3)',
-                  // Green is the state, not the type: even iOS's text-safe green
-                  // is under 3:1 once it sits on its own tint. The tick and the
-                  // fill say "done"; the name stays a name.
-                  color: current ? '#fff' : 'var(--label-2)',
-                }}
+                data-state={current ? 'current' : complete ? 'done' : undefined}
               >
-                {complete && <Icon name="check" size={11} weight={3} color="var(--green)" />}
+                {/* Green is the state, not the type: even iOS's text-safe green
+                    is under 3:1 once it sits on its own tint. The tick and the
+                    fill say "done"; the name stays a name. */}
+                {complete && !current && (
+                  <Icon name="check" size={12} weight={3} color="var(--green-text)" />
+                )}
                 {ex?.shortName ?? ex?.name ?? '—'}
-                <span className="data" style={{ opacity: 0.65, fontSize: 12 }}>
-                  {count}/{b.sets.length}
-                </span>
+                <span className="data runner-chip-count">{count}/{b.sets.length}</span>
               </button>
             )
           })}
@@ -343,17 +333,11 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
               return (
                 <button
                   type="button"
+                  className="runner-inline-row"
                   onClick={() => partnerIndex >= 0 && goToBlock(partnerIndex)}
                   disabled={partnerIndex < 0}
-                  // A destination, not the action of the screen: a row with a
-                  // chevron. The accent belongs to Log set.
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-                    marginTop: 10, padding: '10px 11px', borderRadius: 'var(--r-inset)',
-                    background: 'var(--fill-4)', textAlign: 'left',
-                  }}
                 >
-                  <Icon name="swap" size={14} weight={2.4} color="var(--label-2)" />
+                  <Icon name="swap" size={15} weight={2.4} color="var(--tint)" />
                   <span className="t-footnote truncate" style={{ flex: 1, minWidth: 0 }}>
                     <span className="eyebrow">Superset {block.supersetGroup}</span>
                     {partnerEx ? ` · alternate with ${partnerEx.shortName ?? partnerEx.name}` : ''}
@@ -367,14 +351,11 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
             {active.notes[block.id] && (
               <button
                 type="button"
+                className="runner-inline-row"
                 onClick={() => setShowNote(true)}
-                style={{
-                  display: 'flex', gap: 8, alignItems: 'flex-start', width: '100%',
-                  marginTop: 10, padding: '9px 11px', borderRadius: 'var(--r-inset)',
-                  background: 'var(--fill-4)', textAlign: 'left',
-                }}
+                style={{ alignItems: 'flex-start' }}
               >
-                <Icon name="pencil" size={13} weight={2.2} color="var(--label-3)" style={{ marginTop: 2 }} />
+                <Icon name="pencil" size={14} weight={2.2} color="var(--tint)" style={{ marginTop: 2 }} />
                 <span className="t-footnote" style={{ lineHeight: '18px' }}>{active.notes[block.id]}</span>
               </button>
             )}
@@ -389,7 +370,10 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ type: 'spring', stiffness: 460, damping: 34 }}
                 className="card runner-target"
-                style={{ margin: 0, background: 'var(--grouped-2)' }}
+                // The card takes the colour of the effort it is asking for, so
+                // the wash behind the number says what the number says.
+                data-rpe={prescription.rpe ?? ''}
+                style={{ margin: 0 }}
               >
                 <div className="runner-target-head">
                   <span className="eyebrow">
@@ -440,8 +424,8 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
                 )}
 
                 {settings.showPlateMath && exercise?.barLoaded && resolved.targetWeight != null && (
-                  <div className="runner-target-rule">
-                    <Barbell target={resolved.targetWeight} profile={profile} height={56} />
+                  <div className="runner-target-plates">
+                    <Barbell target={resolved.targetWeight} profile={profile} height={62} />
                   </div>
                 )}
 
@@ -504,6 +488,7 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
               bodyweight={bodyweight}
               lastSet={logged[logged.length - 1]}
               previous={last?.sets[setIndex]}
+              pulse={pulse}
               onLog={(weight, reps, rpe) => logRawSet(prescription, weight, reps, rpe)}
             />
           )}
@@ -528,7 +513,16 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
                       data-rpe={s.rpe ?? ''}
                       style={{ ['--row-sep-inset' as string]: '16px' }}
                     >
-                      <span className="runner-set-index data">{i + 1}</span>
+                      {/* The number lands after the row does, with a little
+                          overshoot — the set arriving in its own colour. */}
+                      <motion.span
+                        className="runner-set-index data"
+                        initial={{ scale: 0.4 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: 'spring', stiffness: 520, damping: 15, delay: 0.05 }}
+                      >
+                        {i + 1}
+                      </motion.span>
                       <span className="row-body">
                         <span className="row-title data">
                           {s.weight > 0 ? (
@@ -553,10 +547,15 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
                         </span>
                       </span>
                       {pr && (
-                        <span className="runner-set-pr">
-                          <Icon name="seal.fill" size={10} />
+                        <motion.span
+                          className="runner-set-pr"
+                          initial={{ scale: 0.5, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          transition={{ type: 'spring', stiffness: 480, damping: 16, delay: 0.14 }}
+                        >
+                          <Icon name="seal.fill" size={11} />
                           Best
-                        </span>
+                        </motion.span>
                       )}
                       <Icon name="pencil" size={15} color="var(--label-3)" weight={2} />
                     </motion.button>
@@ -743,6 +742,7 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
 
   function logRawSet(set: SetPrescription, weight: number, reps: number, rpe?: number) {
     logSet(block.id, { prescriptionId: set.id, weight, reps, rpe })
+    setPulse((n) => n + 1)
     // The same bar every logged set is held to on the way in — a twelve-rep set
     // at RPE 8 used to clear `historicalBest`, which is built from near-maximal
     // work only, and announce a best the list below then refused to badge.
@@ -836,32 +836,89 @@ function RpeTag({
  * which is the part a lifter actually wants.
  */
 function PrBanner({ est, previous, units }: { est: number; previous: number; units: string }) {
+  const still = useReducedMotion()
   return (
     <motion.div
       className="runner-pr"
-      initial={{ opacity: 0, y: -8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ type: 'spring', stiffness: 460, damping: 34 }}
+      initial={{ opacity: 0, y: -10, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ type: 'spring', stiffness: 420, damping: 26 }}
     >
-      <Icon name="seal.fill" size={22} />
+      <motion.span
+        className="runner-pr-seal"
+        initial={{ scale: 0.3, rotate: -40 }}
+        animate={{ scale: 1, rotate: 0 }}
+        transition={{ type: 'spring', stiffness: 440, damping: 13, delay: 0.06 }}
+      >
+        <Icon name="seal.fill" size={24} />
+        {/* One ring out of the seal and gone. A best deserves a beat of its own,
+            and a beat is all a screen this busy can give it. */}
+        {!still && (
+          <motion.span
+            className="runner-pr-halo"
+            initial={{ scale: 0.85, opacity: 0.9 }}
+            animate={{ scale: 1.75, opacity: 0 }}
+            transition={{ duration: 0.85, ease: 'easeOut', delay: 0.12 }}
+          />
+        )}
+      </motion.span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div className="eyebrow" style={{ color: 'inherit' }}>New best</div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 1 }}>
           <span className="figure runner-pr-figure">{num(est, 0)}</span>
           <span className="figure-unit runner-pr-unit">{units} e1RM</span>
-          <span className="data runner-pr-delta">
-            +{num(est - previous, 0)} on {num(previous, 0)}
-          </span>
+          <span className="data runner-pr-delta">+{num(est - previous, 0)}</span>
         </div>
       </div>
     </motion.div>
   )
 }
 
+/**
+ * The app's five domain hues, thrown out of a point and gone in a second. It is
+ * the only confetti a training app is allowed, and it is off entirely when the
+ * client has asked for less motion — the card underneath is still worth looking
+ * at without it, which is the test DESIGN.md §5 sets.
+ */
+function Burst({ count = 18 }: { count?: number }) {
+  const still = useReducedMotion()
+  if (still) return null
+  return (
+    <div className="runner-burst" aria-hidden="true">
+      {Array.from({ length: count }, (_, i) => {
+        // Fanned upward and outward rather than around a circle: pieces thrown
+        // down into the card read as falling out of it.
+        const angle = Math.PI + (i + 0.5) * (Math.PI / count)
+        const reach = 92 + (i % 4) * 26
+        return (
+          <motion.span
+            key={i}
+            className="runner-burst-bit"
+            data-hue={i % 5}
+            initial={{ x: 0, y: 0, scale: 0, opacity: 1 }}
+            animate={{
+              x: Math.cos(angle) * reach,
+              y: Math.sin(angle) * reach * 0.78 + 44,
+              scale: [0, 1, 0.85],
+              opacity: [1, 1, 0],
+            }}
+            transition={{
+              duration: 1 + (i % 3) * 0.16,
+              ease: [0.16, 0.85, 0.35, 1],
+              delay: 0.1 + (i % 6) * 0.025,
+            }}
+          />
+        )
+      })}
+    </div>
+  )
+}
+
 /* ---------------------------------- logger ------------------------------- */
 
 function SetLogger({
-  prescription, blockSets, resolved, units, increment, showRir, bodyweight, lastSet, previous, onLog,
+  prescription, blockSets, resolved, units, increment, showRir, bodyweight, lastSet, previous,
+  pulse, onLog,
 }: {
   prescription: SetPrescription
   /** Every prescription in this block, so feedback can find the last set's own target. */
@@ -874,6 +931,8 @@ function SetLogger({
   bodyweight: boolean
   lastSet?: LoggedSet
   previous?: LoggedSet
+  /** Counts sets logged in this block. Non-zero means this mount followed one. */
+  pulse: number
   onLog: (weight: number, reps: number, rpe?: number) => void
 }) {
   // Seed from the target, then the previous set, then last time's number.
@@ -883,6 +942,11 @@ function SetLogger({
   const [rpe, setRpe] = useState<number | undefined>(prescription.rpe)
   const [pad, setPad] = useState<'weight' | 'reps' | null>(null)
   const [rpeSheet, setRpeSheet] = useState(false)
+  const still = useReducedMotion()
+  // This component is deliberately re-keyed per set, so its own state cannot
+  // outlive the press that logs one. The reward is read off the counter the
+  // runner holds, captured once at mount.
+  const [ringOnMount] = useState(() => pulse > 0)
 
   // Judge the set that was just logged against the target it was given — not
   // against the next set's target, which is usually a different rep/percentage.
@@ -918,27 +982,21 @@ function SetLogger({
       <AnimatePresence>
         {feedback && (
           <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
+            className="runner-nudge"
+            data-dir={feedback.direction}
+            initial={{ opacity: 0, y: -8, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0 }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 9,
-              padding: '10px 12px',
-              borderRadius: 'var(--r-card)',
-              background: feedback.direction === 'up'
-                ? 'color-mix(in srgb, var(--green) 13%, transparent)'
-                : 'color-mix(in srgb, var(--orange) 13%, transparent)',
-              marginBottom: 10,
-            }}
+            transition={{ type: 'spring', stiffness: 440, damping: 32 }}
           >
-            <Icon
-              name={feedback.direction === 'up' ? 'arrow.up' : 'arrow.down'}
-              size={16}
-              weight={2.4}
-              color={feedback.direction === 'up' ? 'var(--green)' : 'var(--orange)'}
-            />
+            <span className="runner-nudge-mark">
+              <Icon
+                name={feedback.direction === 'up' ? 'arrow.up' : 'arrow.down'}
+                size={16}
+                weight={2.6}
+                color={feedback.direction === 'up' ? 'var(--green-text)' : 'var(--orange-text)'}
+              />
+            </span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div className="t-footnote semibold">{feedback.reason}</div>
               <div className="t-caption1 dim">
@@ -964,8 +1022,8 @@ function SetLogger({
         )}
       </AnimatePresence>
 
-      <div className="card" style={{ margin: 0, padding: 12 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+      <div className="card runner-logger" style={{ margin: 0 }}>
+        <div className="runner-logger-row">
           <Quantity
             label={bodyweight ? `Added (${units})` : `Weight (${units})`}
             value={num(weight, 1)}
@@ -1003,21 +1061,33 @@ function SetLogger({
           />
         </div>
 
-        <div style={{ marginTop: 11 }}>
+        <div className="runner-log">
+          {/* The ring blooms out of the button's own edge on the render that
+              follows a logged set, then it is gone. It is the only thing on the
+              screen that exists purely to say "that counted", which is why it
+              lasts half a second and nothing longer. */}
+          {ringOnMount && !still && (
+            <motion.span
+              className="runner-log-ring"
+              initial={{ scale: 0.98, opacity: 0.85 }}
+              animate={{ scale: 1.1, opacity: 0 }}
+              transition={{ duration: 0.55, ease: 'easeOut' }}
+            />
+          )}
           <Button
             icon="check"
             onPress={() => onLog(weight, reps, rpe)}
             disabled={reps <= 0}
-            style={{ minHeight: 52, fontSize: 18 }}
+            style={{ minHeight: 56, fontSize: 19 }}
           >
             Log set
           </Button>
         </div>
 
         {rpe != null && weight > 0 && reps > 0 && (
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 9 }}>
+          <div className="runner-e1rm">
             <span className="eyebrow">e1RM</span>
-            <span className="data" style={{ fontSize: 14 }}>
+            <span className="data" style={{ fontSize: 15 }}>
               {num(e1RM(weight, reps, rpe), 0)}
               <span className="dim" style={{ fontWeight: 500 }}> {units}</span>
             </span>
@@ -1125,7 +1195,6 @@ function Quantity({
       onPointerUp={stop}
       onPointerLeave={stop}
       onPointerCancel={stop}
-      style={{ fontSize: 15, fontWeight: 600 }}
     >
       {delta < 0 ? '−' : '+'}{amount}
     </button>
@@ -1135,21 +1204,12 @@ function Quantity({
     <div className="runner-quant" data-rpe={rpe ?? undefined}>
       <button type="button" className="runner-quant-read" onClick={onPress}>
         <div className="eyebrow truncate">{label}</div>
-        <div
-          className="data truncate"
-          style={{
-            fontSize: 23,
-            lineHeight: '27px',
-            fontWeight: 700,
-            color: rpe != null ? 'var(--rpe)' : off ? 'var(--orange-text)' : undefined,
-          }}
-        >
+        <div className="data truncate runner-quant-value" data-off={off || undefined}>
           {value}
         </div>
       </button>
       <div className="runner-quant-steps">
         {button(-step, atMin)}
-        <span className="runner-step-sep" />
         {button(step, atMax)}
       </div>
     </div>
@@ -1184,6 +1244,7 @@ function BlockCompleteCard({
   const best = logged.reduce((b, s) => (s.weight > b.weight ? s : b), logged[0]!)
   const tonnage = sessionTonnage(logged)
   const blockRpe = averageRpe(logged)
+  const still = useReducedMotion()
 
   if (sessionComplete) {
     // The number that says what the hour was worth. A session of bodyweight work
@@ -1198,28 +1259,42 @@ function BlockCompleteCard({
         <motion.div
           className="card runner-done"
           style={{ margin: 0 }}
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+          initial={{ opacity: 0, y: 16, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ type: 'spring', stiffness: 380, damping: 26 }}
         >
+          <Burst />
           <motion.div
             className="runner-done-mark"
-            initial={{ scale: 0.5, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 380, damping: 20, delay: 0.08 }}
+            initial={{ scale: 0.3, rotate: -22 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 12, delay: 0.1 }}
           >
-            <Icon name="check" size={26} weight={3} color="var(--green)" />
+            <Icon name="check" size={32} weight={3.2} />
+            {!still && (
+              <motion.span
+                className="runner-done-halo"
+                initial={{ scale: 0.9, opacity: 0.9 }}
+                animate={{ scale: 1.7, opacity: 0 }}
+                transition={{ duration: 1, ease: 'easeOut', delay: 0.18 }}
+              />
+            )}
           </motion.div>
           <div className="eyebrow" style={{ textAlign: 'center', color: 'var(--green-text)' }}>
             Session complete
           </div>
           <div className="t-title2" style={{ textAlign: 'center', marginTop: 2 }}>{sessionName}</div>
 
-          <div className="runner-done-total">
+          <motion.div
+            className="runner-done-total"
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 18, delay: 0.2 }}
+          >
             <span className="figure runner-done-figure">{hero.value}</span>
             {hero.unit && <span className="figure-unit runner-done-unit">{hero.unit}</span>}
-          </div>
-          <div className="eyebrow" style={{ textAlign: 'center', marginTop: 4 }}>{hero.caption}</div>
+          </motion.div>
+          <div className="eyebrow" style={{ textAlign: 'center', marginTop: 5 }}>{hero.caption}</div>
 
           <div className="runner-done-stats">
             <DoneStat label="Time" value={formatDuration(elapsed)} />
@@ -1229,8 +1304,8 @@ function BlockCompleteCard({
             )}
           </div>
 
-          <div style={{ marginTop: 16 }}>
-            <Button icon="check.circle.fill" onPress={onFinish} style={{ minHeight: 52, fontSize: 18 }}>
+          <div style={{ marginTop: 18 }}>
+            <Button icon="check.circle.fill" onPress={onFinish} style={{ minHeight: 56, fontSize: 19 }}>
               Finish workout
             </Button>
           </div>
@@ -1252,11 +1327,16 @@ function BlockCompleteCard({
 
   return (
     <div className="gutter">
-      <div className="card" style={{ margin: 0, padding: '12px 15px 13px' }}>
+      <div className="card" style={{ margin: 0, padding: '13px 15px 14px' }}>
         <div className="runner-block-done">
-          <span className="runner-block-mark">
-            <Icon name="check" size={14} weight={3} color="var(--green)" />
-          </span>
+          <motion.span
+            className="runner-block-mark"
+            initial={{ scale: 0.4 }}
+            animate={{ scale: 1 }}
+            transition={{ type: 'spring', stiffness: 480, damping: 15 }}
+          >
+            <Icon name="check" size={17} weight={3.2} />
+          </motion.span>
           <span style={{ flex: 1, minWidth: 0 }}>
             <span className="eyebrow" style={{ display: 'block' }}>{exerciseName} done</span>
             <span className="data truncate" style={{ display: 'block', fontSize: 16, marginTop: 2 }}>
@@ -1275,18 +1355,18 @@ function BlockCompleteCard({
           {blockRpe != null && <RpeTag rpe={snapRpe(blockRpe)} label={num(blockRpe, 1)} />}
         </div>
 
-        <div style={{ display: 'flex', gap: 9, marginTop: 12 }}>
-          <Button variant="gray" onPress={onAddSet} style={{ flex: 1, minHeight: 44 }} small>
+        <div style={{ display: 'flex', gap: 9, marginTop: 13 }}>
+          <Button variant="gray" onPress={onAddSet} style={{ flex: 1, minHeight: 46 }} small>
             <Icon name="plus" size={15} weight={2.4} />
             Extra set
           </Button>
           {nextExercise ? (
-            <Button onPress={onNext} style={{ flex: 1.4, minWidth: 0, minHeight: 44 }} small>
+            <Button onPress={onNext} style={{ flex: 1.4, minWidth: 0, minHeight: 46 }} small>
               <span className="truncate">{nextExercise}</span>
               <Icon name="chevron.right" size={15} weight={2.4} />
             </Button>
           ) : (
-            <Button onPress={onFinish} style={{ flex: 1.4, minHeight: 44 }} small>
+            <Button onPress={onFinish} style={{ flex: 1.4, minHeight: 46 }} small>
               Finish workout
             </Button>
           )}
@@ -1562,14 +1642,9 @@ function FinishSheet({
 
 function SummaryTile({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{
-      background: 'var(--fill-4)', borderRadius: 'var(--r-card)',
-      padding: '10px 10px 11px', textAlign: 'center',
-    }}>
+    <div className="runner-tile">
       <div className="eyebrow truncate">{label}</div>
-      <div className="data" style={{ fontSize: 21, lineHeight: '24px', fontWeight: 700, marginTop: 2 }}>
-        {value}
-      </div>
+      <div className="data runner-tile-value">{value}</div>
     </div>
   )
 }

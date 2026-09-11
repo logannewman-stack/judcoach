@@ -23,13 +23,51 @@ interface Part {
   fill?: boolean
 }
 
+type Point = [number, number]
+
+/**
+ * Closes a polygon with every corner rounded off, rather than mitred.
+ *
+ * DESIGN.md §1 and §7: nothing in this app is sharp. A stroked polygon can be
+ * softened with `stroke-linejoin: round`, but a *filled* one cannot — and the
+ * cog is drawn filled in its selected state, where thirty-two mitred points
+ * were the one genuinely pointed shape left in the app, sitting in the tab bar
+ * on every screen. Each corner is cut back along both of its edges and joined
+ * by a quadratic through the original vertex, which is the same construction a
+ * rounded rectangle uses.
+ */
+function roundedPolygon(points: Point[], radius: number): string {
+  const n = points.length
+  const at = (i: number) => points[(i + n) % n]!
+  const lerp = (from: Point, to: Point, d: number): Point => {
+    const [x1, y1] = from
+    const [x2, y2] = to
+    const len = Math.hypot(x2 - x1, y2 - y1) || 1
+    // Never cut back more than half an edge, or two corners would meet and the
+    // straight between them would disappear.
+    const t = Math.min(d, len / 2) / len
+    return [x1 + (x2 - x1) * t, y1 + (y2 - y1) * t]
+  }
+  const f = ([x, y]: Point) => `${x.toFixed(2)} ${y.toFixed(2)}`
+
+  let d = ''
+  for (let i = 0; i < n; i++) {
+    const corner = at(i)
+    const start = lerp(corner, at(i - 1), radius)
+    const end = lerp(corner, at(i + 1), radius)
+    d += i === 0 ? `M${f(start)}` : `L${f(start)}`
+    d += `Q${f(corner)} ${f(end)}`
+  }
+  return `${d}Z`
+}
+
 /** Build a cog outline procedurally — hand-written gear paths never look even. */
 function gear(rOuter: number, rInner: number, teeth = 8): string {
   const cx = 12
   const cy = 12
   const step = (Math.PI * 2) / teeth
   const half = step * 0.19
-  const pts: string[] = []
+  const pts: Point[] = []
   for (let i = 0; i < teeth; i++) {
     const a = i * step - Math.PI / 2
     const corners: [number, number][] = [
@@ -39,10 +77,10 @@ function gear(rOuter: number, rInner: number, teeth = 8): string {
       [a + step - half - step * 0.13, rInner],
     ]
     for (const [ang, r] of corners) {
-      pts.push(`${(cx + Math.cos(ang) * r).toFixed(2)} ${(cy + Math.sin(ang) * r).toFixed(2)}`)
+      pts.push([cx + Math.cos(ang) * r, cy + Math.sin(ang) * r])
     }
   }
-  return `M${pts[0]}L${pts.slice(1).join('L')}Z`
+  return roundedPolygon(pts, 0.75)
 }
 
 const GEAR = gear(9.1, 6.9)

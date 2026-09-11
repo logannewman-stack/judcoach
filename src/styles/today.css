@@ -172,12 +172,21 @@
    inside it — so the card watches its own child for the press. */
 .today-hero:has(.today-hero-plan[data-pressed]) { transform: scale(0.985); }
 
-/* Nothing done to the day's work is ever undone, so a finished session stops
-   shouting: the wash means there is something to do. */
+/* The wash means there is something to do, so a finished session gives it up:
+   once the work is banked there is nothing to lead a client to, and the colour
+   on the screen belongs to whatever still wants doing. What it keeps is the
+   green — the app is glad for you, quietly, on a card you have finished with. */
 .today-hero[data-tone='done'] {
-  background: var(--grouped-2);
+  background: color-mix(in srgb, var(--green) 10%, var(--grouped-2));
   color: var(--label);
-  box-shadow: var(--shadow-card);
+  box-shadow:
+    inset 0 0 0 var(--hairline) color-mix(in srgb, var(--green) 22%, transparent),
+    0 6px 20px color-mix(in srgb, var(--green) 15%, transparent);
+}
+.today-hero[data-tone='done'] .eyebrow { color: var(--green-text); }
+.today-hero[data-tone='done'] .btn-tinted {
+  background: color-mix(in srgb, var(--green) 17%, transparent);
+  color: var(--green-text);
 }
 
 /* The plan half is one target: tapping anywhere in it opens the full session.
@@ -198,7 +207,10 @@
   opacity: 1;
   transition-duration: 0s;
 }
-.today-hero[data-tone='done'] .today-hero-plan[data-pressed] { background: var(--fill-4); }
+.today-hero[data-tone='done'] .today-hero-plan[data-pressed] {
+  background: color-mix(in srgb, var(--green) 9%, transparent);
+  opacity: 1;
+}
 
 .today-hero-head {
   display: flex;
@@ -254,7 +266,9 @@
   padding: 12px 17px 15px;
   box-shadow: inset 0 var(--hairline) 0 color-mix(in srgb, #fff 22%, transparent);
 }
-.today-hero[data-tone='done'] .today-hero-act { box-shadow: inset 0 var(--hairline) 0 var(--sep); }
+.today-hero[data-tone='done'] .today-hero-act {
+  box-shadow: inset 0 var(--hairline) 0 color-mix(in srgb, var(--green) 26%, transparent);
+}
 
 /* The button on a coloured card is the card's own colour, inverted: a white
    capsule with the wash's deep stop as its label. That stop is 9.4:1 on white,
@@ -311,10 +325,13 @@
   line-height: 1.05;
 }
 .today-top-figure .figure-unit { font-size: calc(18 * var(--pt)); }
+/* The multiplication sign joins two figures; it is not one of them, so it sits
+   a size down and a tone back rather than competing with the load. */
 .today-top-x {
-  font-weight: 500;
-  padding: 0 4px;
-  opacity: 0.62;
+  font-size: 0.68em;
+  font-weight: 600;
+  padding: 0 5px;
+  opacity: 0.6;
 }
 .today-top-rpe {
   grid-column: 2;
@@ -382,14 +399,21 @@
    domain's own hue at full strength — one of the gradients DESIGN.md §2
    sanctions, on a capsule with nothing set on it. */
 
-/* Seven days across, so every cell clears 44pt on the narrowest phone the app
-   supports without a scroller hiding half the week. */
+/* Seven days across, bled to the card's own edges so each one has room to be a
+   44pt target. Seven of those need 308pt and a card on a 320pt phone has 288,
+   so on the smallest screen the week scrolls rather than shrinking under a
+   thumb — DESIGN.md §6 does not bend for one more column. */
 .today-week-days {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 2px;
-  margin-top: 14px;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(44px, 1fr);
+  margin: 14px -18px 0;
+  padding: 0 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
+.today-week-days::-webkit-scrollbar { width: 0; height: 0; }
 
 .today-day {
   display: flex;
@@ -484,11 +508,13 @@
   box-shadow: inset 0 var(--hairline) 0 var(--sep);
 }
 .today-stat { min-width: 0; }
+/* An absolute leading rather than a ratio: the rounded face's ink box is
+   taller than SF's, and at 1.15 a truncating cell clipped the top of its own
+   figure. */
 .today-stat-value {
   display: block;
   font-size: calc(20 * var(--pt));
-  line-height: 1.15;
-  font-weight: 800;
+  line-height: calc(25 * var(--pt));
 }
 .today-stat-label { display: block; margin-top: 4px; }
 .today-stat[data-zero='true'] .today-stat-value { color: var(--label-2); }

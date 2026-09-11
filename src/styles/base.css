@@ -63,6 +63,36 @@
    it is the Coach domain DESIGN.md names, not a sixth colourless one. */
 :root[data-domain='settings'] { --tint: var(--tint-coach); }
 
+/* ---------------------------------------------------------------------------
+   Continuous corners (DESIGN.md §1).
+
+   `border-radius` draws a plain quarter-circle. The corner iOS actually draws
+   is a squircle: the curvature eases in and out, so the flat of an edge meets
+   the round of a corner without the crease a circular arc leaves. It is the
+   single thing that most tells an Apple-drawn shape from a web-drawn one, and
+   until `corner-shape` shipped there was no way to ask for it in CSS.
+
+   Applied to the one shape that is unambiguously better for it: the tile behind
+   a row's icon. At 29pt with a 14pt corner an arc draws a plain disc, and a
+   squircle draws the silhouette of an iOS app icon — which is exactly what that
+   tile is a picture of.
+
+   Not applied to cards, lists or sheets, though it is tempting. Measured side
+   by side at the same radius, a superellipse hugs the box more tightly than an
+   arc does, so every surface in the app would come out *less* round — and
+   roundness is this app's signature (DESIGN.md §1). Apple gets both by drawing
+   its continuous corner at roughly a quarter more radius than the arc it
+   replaces, which is a change to the radius tokens and not to this file. Until
+   those move together, an arc at the radius DESIGN.md names is the rounder and
+   therefore the more faithful of the two.
+
+   Progressive either way: an engine that does not know the property still has
+   the radius and simply draws it as an arc.
+   ------------------------------------------------------------------------- */
+@supports (corner-shape: squircle) {
+  .row-icon { corner-shape: squircle; }
+}
+
 /* ============================ reset / shell ============================== */
 
 *,
@@ -468,7 +498,9 @@ img { max-width: 100%; display: block; }
   z-index: 2;
   top: -2px;
   left: 50%;
-  margin-left: 7px;
+  /* Pinned to the icon capsule's upper right, the way UIKit hangs one off a tab
+     item — far enough out that it clips the glyph's corner and not its middle. */
+  margin-left: 11px;
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
@@ -771,12 +803,15 @@ a.surface[data-pressed],
 .btn:disabled { opacity: 0.4; --btn-glow: 0 0 #0000; }
 
 /* The one gradient DESIGN.md §2 sanctions on a control: a soft two-stop wash
-   inside a single hue, the light that falls on a capsule. Under it, a shadow
-   in the button's own colour — a filled button is the loudest thing on its
-   screen and it should sit above the page, not be printed on it. */
+   inside a single hue, the light that falls along the top of a capsule. It is
+   spent well before the label's line — white on a lightened accent measures
+   2.6:1, which is under anything iOS would set type on, and the label has to
+   sit on the fill itself rather than on the highlight. Under it, a shadow in
+   the button's own colour: a filled button is the loudest thing on its screen
+   and it should sit above the page, not be printed on it. */
 .btn-filled {
   background: var(--accent);
-  background-image: linear-gradient(180deg, color-mix(in srgb, #fff 17%, transparent), transparent 64%);
+  background-image: linear-gradient(180deg, color-mix(in srgb, #fff 18%, transparent), transparent 42%);
   color: #fff;
   --btn-glow: 0 4px 14px color-mix(in srgb, var(--accent) 36%, transparent);
 }
@@ -784,7 +819,7 @@ a.surface[data-pressed],
 .btn-gray { background: var(--fill-3); color: var(--label); }
 .btn-destructive {
   background: var(--red);
-  background-image: linear-gradient(180deg, color-mix(in srgb, #fff 17%, transparent), transparent 64%);
+  background-image: linear-gradient(180deg, color-mix(in srgb, #fff 18%, transparent), transparent 42%);
   color: #fff;
   --btn-glow: 0 4px 14px color-mix(in srgb, var(--red) 32%, transparent);
 }
