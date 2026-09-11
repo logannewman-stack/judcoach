@@ -19,7 +19,8 @@
     "offline": "npm run build:app && node scripts/offline.mjs",
     "gesture": "node scripts/gesture.mjs",
     "coach": "node scripts/coach.mjs",
-    "conform": "node scripts/conform.mjs"
+    "conform": "node scripts/conform.mjs",
+    "palette": "node scripts/palette.mjs"
   },
   "dependencies": {
     "framer-motion": "^11.11.17",

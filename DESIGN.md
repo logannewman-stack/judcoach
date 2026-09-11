@@ -111,3 +111,18 @@ No sharp corners. No monospace. No grey-on-grey screens. No hairline-ruled
 tables where a card would do. No colour used so sparingly the app reads as
 austere. No animation that is merely decorative — but do not mistake restraint
 for quality: this app should feel *alive*.
+
+## 8. How this is checked
+
+Two of the rules above are only opinions until something measures them, and this
+document has twice been ignored by a rebuild that passed every other check.
+
+`npm run conform` reads the source: no colour or radius typed by hand, no
+`:active`, no monospace face, no `var()` naming a property nothing defines.
+
+`npm run palette` reads the pixels. It walks the app in both appearances and
+reports, per screen, the share of the screen carrying real colour — saturation
+past 0.18, which is where a tinted grey stops counting — and which hues carry
+it. A screen under 2% is grey whatever its stylesheet claims, and the check
+fails. For calibration: a rebuilt Today runs about 30%, a rebuilt session screen
+about 14%, and a page of inset lists clears the floor on its icon tiles alone.
