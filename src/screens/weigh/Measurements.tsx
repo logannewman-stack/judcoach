@@ -12,7 +12,7 @@ import type { MeasurementEntry, Units } from '../../domain/types'
 import { formatLength, lengthUnit, tapeSteps } from '../../domain/units'
 import { rollingSeries } from '../../domain/weight'
 import { formatMediumDate, formatShortDate, relativeDay, todayISO } from '../../lib/date'
-import { num, signed } from '../../lib/format'
+import { num, pluralize, signed } from '../../lib/format'
 import { useNav } from '../../nav/nav'
 import '../../styles/fuel.css'
 
@@ -154,41 +154,45 @@ export function Measurements() {
               <div className="t-caption1 dim" style={{ marginTop: 8 }}>{meta.hint}</div>
             </Card>
 
-            <ListSection header="History" style={{ marginBottom: 0 }}>
-              {[...measurements].reverse().map((entry) => {
-                const title = relativeDay(entry.date)
-                return (
-                  <Row
-                    key={entry.date}
-                    title={title}
-                    // Older rows already read as a date — don't print it twice.
-                    subtitle={
-                      formatMediumDate(entry.date).endsWith(title)
-                        ? undefined
-                        : formatMediumDate(entry.date)
-                    }
-                    value={
-                      <span className="data">
-                        {/* The site being charted above leads, so a row in the
-                            Thigh view is about thighs. Three values is what a
-                            393pt row holds; ordering by the list's own order
-                            meant the Thigh view listed waist, chest and arm. */}
-                        {[...SITES.filter((s) => s.key === site), ...SITES.filter((s) => s.key !== site)]
-                          .filter((s) => entry[s.key] != null)
-                          .slice(0, 3)
-                          .map((s, i) => (
-                            <span key={s.key}>
-                              {i > 0 && <span className="data-unit"> · </span>}
-                              <span className="data-unit">{s.label[0]} </span>
-                              {num(entry[s.key] as number, 1)}
-                            </span>
-                          ))}
-                      </span>
-                    }
-                  />
-                )
-              })}
-            </ListSection>
+            {/* The screen is one site at a time — the control picks it, the
+                chart plots it, the hint says how to take it — so the list under
+                it is that site's readings, not a digest of three others. Three
+                abbreviated sites in a row's value column wrapped to two lines
+                the moment type scaled up, and on the Thigh tab none of the
+                three was a thigh. */}
+            {series.length > 0 && (
+              <ListSection
+                header={`${meta.label} history`}
+                footer={
+                  measurements.length > series.length
+                    ? `${pluralize(measurements.length - series.length, 'other session')} carried no ${meta.label.toLowerCase()} reading.`
+                    : undefined
+                }
+                style={{ marginBottom: 0 }}
+              >
+                {[...series].reverse().map((point) => {
+                  const title = relativeDay(point.x)
+                  return (
+                    <Row
+                      key={point.x}
+                      title={title}
+                      // Older rows already read as a date — don't print it twice.
+                      subtitle={
+                        formatMediumDate(point.x).endsWith(title)
+                          ? undefined
+                          : formatMediumDate(point.x)
+                      }
+                      value={
+                        <span className="data">
+                          {num(point.y, 1)}
+                          <span className="data-unit"> {lengthUnit(units)}</span>
+                        </span>
+                      }
+                    />
+                  )
+                })}
+              </ListSection>
+            )}
           </>
         )}
       </div>

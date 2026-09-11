@@ -20,7 +20,8 @@ const FLICK = 320
    app shell: App re-renders whenever a workout starts, a set is logged or a
    timer ticks, and without this every screen in every tab re-rendered with it.
    Measured at 244 store-connected renders per tab switch and 328 across a
-   six-set burst; with the memo, only the stacks whose own props changed. */
+   six-set burst, against 150 and 226 once the stacks whose props did not change
+   bail out. */
 export const Stack = memo(function Stack({
   tab,
   registry,
@@ -43,6 +44,11 @@ export const Stack = memo(function Stack({
      first-render task. */
   const [mounted, setMounted] = useState(active)
   if (active && !mounted) setMounted(true)
+  /* The tab the app opens on must not slide its own root in, which is what
+     `initial={false}` below is for. A tab built later was built because the
+     client went there — and a coach card that switches tab and pushes in one
+     action still owes the pushed screen its push. */
+  const [launchTab] = useState(active)
 
   useEffect(() => {
     const el = containerRef.current
@@ -154,7 +160,7 @@ export const Stack = memo(function Stack({
       data-stack-active={active}
       aria-hidden={!active}
     >
-      <AnimatePresence initial={false}>
+      <AnimatePresence initial={!launchTab}>
         {stack.map((r: Route, i: number) => {
           const depth = stack.length - 1 - i
           if (depth > 1) return null

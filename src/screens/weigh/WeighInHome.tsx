@@ -64,6 +64,12 @@ export function WeighInHome() {
     [visible.length, visible[0]?.date, profile.weeklyRateTarget],
   )
 
+  // How many mornings the current rolling average actually rests on. Below
+  // three it is not an average, and nothing on the screen may speak as if it
+  // were.
+  const readings = series[series.length - 1]?.count ?? 0
+  const averaged = readings >= AVG_MIN_READINGS
+
   // How far the average has drifted from where the plan would have put them by
   // now — the whole point of drawing the dashed line, and the one comparison the
   // chart cannot make on the client's behalf. "Ahead" follows the plan's own
@@ -72,6 +78,10 @@ export function WeighInHome() {
     const last = visible[visible.length - 1]
     const onPace = pace[pace.length - 1]
     if (!last || !onPace || profile.weeklyRateTarget === 0) return null
+    // The same restraint the rate has. On two mornings the "gap" is the
+    // distance between one scale reading and another, and the screen cannot
+    // refuse to call that a rate in one card and call it progress in the next.
+    if (!averaged) return null
     const by = last.avg - onPace.weight
     if (Math.abs(by) < 0.05) return null
     return { by, ahead: Math.sign(by) === Math.sign(profile.weeklyRateTarget) }
@@ -99,8 +109,6 @@ export function WeighInHome() {
   // A brand-new client has no start weight on file, so the first morning they
   // stood on the scale is the only baseline there is.
   const baseline = profile.startWeight > 0 ? profile.startWeight : weighIns[0]?.weight ?? 0
-  const readings = series[series.length - 1]?.count ?? 0
-  const averaged = readings >= AVG_MIN_READINGS
 
   // Change in the average against a week ago — the number a coach reads before
   // deciding whether to touch anything.
@@ -331,7 +339,11 @@ export function WeighInHome() {
             <Card>
               <div className="chart-legend" style={{ marginBottom: 4 }}>
                 <LegendKey label="Daily" />
-                <LegendKey label="7-day average" color="var(--accent)" />
+                {/* The blue line is a trailing mean over whatever mornings
+                    exist. Calling two of them a seven-day average, while the
+                    card above deliberately refuses to, is the app arguing with
+                    itself. */}
+                <LegendKey label={averaged ? '7-day average' : 'Running average'} color="var(--accent)" />
                 {pace.length > 1 && <LegendKey label="Target pace" dash />}
               </div>
               <LineChart

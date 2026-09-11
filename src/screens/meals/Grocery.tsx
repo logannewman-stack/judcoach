@@ -52,8 +52,13 @@ export function Grocery() {
       titleAccessory={
         <div className="gutter" style={{ marginTop: -6, marginBottom: 16 }}>
           <div className="t-subhead dim">
-            Everything the plan needs ·{' '}
-            <span className="data">{remaining} of {lines.length}</span> left
+            {/* "0 of 42 left" is a true sentence and a poor way to say the shop
+                is done. */}
+            {remaining === 0 ? (
+              <>Everything the plan needs · all <span className="data">{lines.length}</span> ticked off</>
+            ) : (
+              <>Everything the plan needs · <span className="data">{remaining} of {lines.length}</span> left</>
+            )}
           </div>
         </div>
       }
