@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Wordmark } from './Logo'
+import '../styles/device.css'
 
 /* ============================================================================
    Phone presentation.

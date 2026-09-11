@@ -15,6 +15,7 @@ import { uid } from '../lib/id'
 import {
   createResilientStorage, mergePersisted, readPhotos, schedulePhotoWrite, writePhotos,
 } from './persist'
+import { useCoach } from './coach'
 import { guardPersistedShape, validateImport } from './importState'
 import type { ImportResult } from './importState'
 
@@ -156,7 +157,11 @@ export const useStore = create<AppState>()(
        * real client begins at week one on an empty history rather than dropping
        * into the middle of someone else's programme.
        */
-      startFresh: () =>
+      startFresh: () => {
+        // The conversation lives in its own store, but it is the same client's
+        // app: starting fresh and then reading Jud's notes about someone else's
+        // deadlifts is the loudest possible way to say this is a demo.
+        useCoach.getState().clear()
         set(() => ({
           weighIns: [],
           measurements: [],
@@ -179,8 +184,8 @@ export const useStore = create<AppState>()(
             goalWeight: 0,
             trainingMaxes: {},
           },
-        })),
-
+        }))
+      },
       /**
        * Roll into the next block from this week, keeping the client's history
        * and maxes. Without it the programme simply runs out and pins everyone
@@ -459,9 +464,12 @@ export const useStore = create<AppState>()(
       /* -------------------------------- data ---------------------------- */
       // Reloading the sample data must not send an existing user back through
       // the welcome flow.
-      resetToSeed: () => set(() => ({ ...seedState(), onboarded: true })),
-
-      clearAllData: () =>
+      resetToSeed: () => {
+        useCoach.getState().resetToSeed()
+        set(() => ({ ...seedState(), onboarded: true }))
+      },
+      clearAllData: () => {
+        useCoach.getState().clear()
         set((s) => ({
           ...seedState(),
           weighIns: [],
@@ -479,8 +487,8 @@ export const useStore = create<AppState>()(
           programStartDate: startOfWeek(todayISO(), 1),
           blockStartedOn: todayISO(),
           profile: { ...s.profile, name: s.profile.name },
-        })),
-
+        }))
+      },
       /**
        * Replace everything from an exported file. Each record is validated and
        * repaired or dropped — a damaged one used to import cleanly and then
