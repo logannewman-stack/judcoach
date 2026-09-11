@@ -17,6 +17,75 @@ for (const file of ALL) {
   for (const m of source.matchAll(/['"`](--[a-zA-Z0-9-]+)['"`]/g)) DEFINED.add(m[1])
 }
 
+/* ---------------------------------------------------------------------------
+   Blanking comments.
+
+   This was a pair of regexes, and a non-greedy block-comment pattern finds an
+   opener inside a string as happily as in code: `accept="image/[star]"` opened a
+   comment that ran to the next closer dozens of lines below, and everything
+   between was never checked. The tool went on reporting "Conforms." about
+   regions it had blindfolded itself to. (The sequences are spelled out here
+   rather than written, because writing one inside this comment ends it.)
+
+   So it walks the source instead, tracking whether it is in code, a string, a
+   line comment or a block comment. Where it is uncertain it errs towards
+   leaving text visible: a false report is noise, a blind spot is a lie.
+   ------------------------------------------------------------------------- */
+function blankComments(source) {
+  const out = source.split('')
+  let state = 'code'
+  let quote = ''
+  let i = 0
+  while (i < source.length) {
+    const c = source[i]
+    const d = source[i + 1]
+    if (state === 'code') {
+      if (c === '/' && d === '*') { out[i] = out[i + 1] = ' '; state = 'block'; i += 2; continue }
+      // `[^:]` keeps a URL's `//` out of it, which is the one `//` that appears
+      // in CSS and in JSX text rather than in front of a comment.
+      if (c === '/' && d === '/' && source[i - 1] !== ':') { out[i] = out[i + 1] = ' '; state = 'line'; i += 2; continue }
+      if (c === "'" || c === '"' || c === '`') { state = 'string'; quote = c }
+      i += 1
+      continue
+    }
+    if (state === 'string') {
+      if (c === '\\') { i += 2; continue }
+      if (c === quote) state = 'code'
+      i += 1
+      continue
+    }
+    if (state === 'line') {
+      if (c === '\n') { state = 'code'; i += 1; continue }
+      out[i] = ' '
+      i += 1
+      continue
+    }
+    if (c === '*' && d === '/') { out[i] = out[i + 1] = ' '; state = 'code'; i += 2; continue }
+    if (c !== '\n') out[i] = ' '
+    i += 1
+  }
+  return out.join('')
+}
+
+/* The tool checks itself before it checks anything else. Both of the failures
+   this file has had were silent — it went on printing "Conforms." — so a broken
+   stripper must stop the run rather than quietly shrink what it covers. */
+const PROBES = [
+  ['<input accept="image/*" />\nconst c = "#ff00ff"', '#ff00ff', true],
+  ['/* a comment saying #ff00ff */\nconst ok = 1', '#ff00ff', false],
+  ['const u = "https://x.test/a"  // trailing #ff00ff', '#ff00ff', false],
+  ['const u = "https://x.test/#ff00ff"', '#ff00ff', true],
+  ['// #ff00ff\nconst v = 2', '#ff00ff', false],
+]
+for (const [src, needle, shouldSurvive] of PROBES) {
+  const survives = blankComments(src).includes(needle)
+  if (survives !== shouldSurvive) {
+    console.error(`conform: the comment stripper is broken — ${JSON.stringify(src)} should`
+      + ` ${shouldSurvive ? 'keep' : 'blank'} ${needle}. Refusing to report on a check that cannot see.`)
+    process.exit(2)
+  }
+}
+
 /** Radii DESIGN.md §3 allows, in px, plus 50%/999px for a circle or pill. */
 const RADII = new Set(['14', '16', '18', '22', '28', '50%', '999', '9999', '0'])
 
@@ -25,11 +94,8 @@ const add = (kind, file, line, text) => findings.push({ kind, where: `${file}:${
 
 for (const file of SRC) {
   const source = readFileSync(file, 'utf8')
-  // Blank out comments rather than dropping them, so line numbers survive.
-  // Without this the check reports every comment that says not to use :active.
-  const stripped = source
-    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
-    .replace(/(^|[^:])\/\/[^\n]*/g, (m, p) => p + ' '.repeat(m.length - p.length))
+  // Blanked rather than dropped, so line numbers survive.
+  const stripped = blankComments(source)
   const lines = stripped.split('\n')
   const raw = source.split('\n')
 
@@ -71,7 +137,9 @@ for (const file of SRC) {
 
     // DESIGN.md §7: no monospace. The app was once mistaken for a trading
     // terminal and a ledger of mono digits is how it got there.
-    if (/font-family|font:/.test(code) && /monospace|SFMono|SF Mono|Menlo|JetBrains|Consolas|Courier|Roboto Mono/.test(code)) {
+    // `fontFamily` as well as `font-family`: the one monospace left in the app
+    // was in a React style object, which the CSS spelling does not match.
+    if (/font-?[Ff]amily|font:/.test(code) && /monospace|SFMono|SF Mono|Menlo|JetBrains|Consolas|Courier|Roboto Mono/.test(code)) {
       add('mono', file, n, code.trim().slice(0, 72))
     }
 
