@@ -15,10 +15,13 @@
 .thread-day {
   align-self: center;
   margin: 18px 0 10px;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--label-2);
+  font-family: var(--font-data);
+  font-weight: 700;
+  font-stretch: 112%;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--label-3);
 }
 .thread-day:first-child { margin-top: 4px; }
 
@@ -38,9 +41,12 @@
   gap: 10px;
   margin: 16px 0 2px;
   color: var(--accent);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-family: var(--font-data);
+  font-weight: 700;
+  font-stretch: 112%;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 .thread-new::before,
 .thread-new::after {
@@ -122,8 +128,13 @@
 
 .msg-meta {
   margin: 3px 2px 0;
+  /* A time is a number, so it is set in the data face and lines up down the
+     page instead of shuffling with the width of each digit. */
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
   font-size: 11px;
-  letter-spacing: -0.06px;
+  letter-spacing: 0;
   color: var(--label-2);
 }
 
@@ -154,10 +165,14 @@
 }
 .msg-card-body { flex: 1; min-width: 0; }
 .msg-card-kind {
+  /* The .eyebrow role from base.css; see DESIGN.md. */
   display: block;
+  font-family: var(--font-data);
+  font-weight: 700;
+  font-stretch: 112%;
   font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  line-height: 14px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--label-2);
 }
@@ -180,7 +195,11 @@
   font-size: 13px;
 }
 .msg-group[data-from='them'] .msg-highlight { border-top-color: var(--sep); }
-.msg-highlight-value { font-weight: 600; font-variant-numeric: tabular-nums; }
+.msg-highlight-value {
+  font-family: var(--font-data);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
 
 /* -------------------------------- compose -------------------------------- */
 
@@ -323,9 +342,12 @@
 }
 .coach-quote-label {
   margin-bottom: 2px;
-  font-size: 11px;
+  font-family: var(--font-data);
   font-weight: 700;
-  letter-spacing: 0.05em;
+  font-stretch: 112%;
+  font-size: 11px;
+  line-height: 14px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--accent);
 }

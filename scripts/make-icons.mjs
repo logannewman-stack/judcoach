@@ -65,19 +65,21 @@ function renderIcon(size, { rounded = false } = {}) {
           const v = (py * SS + sy + 0.5) * inv
 
           // --- background: graphite gradient + cool radial sheen ---
-          let r = mix(0.094, 0.043, v)
-          let g = mix(0.094, 0.043, v)
-          let b = mix(0.106, 0.051, v)
+          // Iron, matching the dark theme's ground (#16161a down to #0b0b0c),
+          // so the icon and the app it opens are made of the same material.
+          let r = mix(0.086, 0.043, v)
+          let g = mix(0.086, 0.043, v)
+          let b = mix(0.102, 0.047, v)
           const d = Math.hypot(u - 0.28, v - 0.16) / 0.95
           const glow = Math.pow(1 - clamp01(d), 2.1) * 0.34
-          r += (0.039 - r) * glow
-          g += (0.517 - g) * glow
-          b += (1.0 - b) * glow
+          r += (0.043 - r) * glow
+          g += (0.341 - g) * glow
+          b += (0.941 - b) * glow
           const d2 = Math.hypot(u - 0.82, v - 1.02) / 0.8
           const glow2 = Math.pow(1 - clamp01(d2), 2.6) * 0.16
-          r += (0.37 - r) * glow2
-          g += (0.35 - g) * glow2
-          b += (0.92 - b) * glow2
+          r += (0.298 - r) * glow2
+          g += (0.282 - g) * glow2
+          b += (0.878 - b) * glow2
 
           // iOS masks home-screen icons itself, so only the favicon needs
           // its own corners.
@@ -205,16 +207,16 @@ function iconSvg() {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1">
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#18181b"/>
-      <stop offset="1" stop-color="#0b0b0d"/>
+      <stop offset="0" stop-color="#16161a"/>
+      <stop offset="1" stop-color="#0b0b0c"/>
     </linearGradient>
     <radialGradient id="s" cx="0.28" cy="0.16" r="0.95">
-      <stop offset="0" stop-color="#0a84ff" stop-opacity="0.34"/>
-      <stop offset="1" stop-color="#0a84ff" stop-opacity="0"/>
+      <stop offset="0" stop-color="#0b57f0" stop-opacity="0.34"/>
+      <stop offset="1" stop-color="#0b57f0" stop-opacity="0"/>
     </radialGradient>
     <radialGradient id="s2" cx="0.82" cy="1.02" r="0.8">
-      <stop offset="0" stop-color="#5e5aeb" stop-opacity="0.16"/>
-      <stop offset="1" stop-color="#5e5aeb" stop-opacity="0"/>
+      <stop offset="0" stop-color="#4c48e0" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#4c48e0" stop-opacity="0"/>
     </radialGradient>
     <clipPath id="c"><rect width="1" height="1" rx="0.2237"/></clipPath>
   </defs>
@@ -286,9 +288,9 @@ function renderSplash(w, h) {
   for (let y = 0; y < h; y++) {
     // Row-constant background, which is what makes the Up filter pay off.
     const v = y / (h - 1)
-    const br = Math.round(clamp01(mix(0.094, 0.043, v)) * 255)
-    const bg = Math.round(clamp01(mix(0.094, 0.043, v)) * 255)
-    const bb = Math.round(clamp01(mix(0.106, 0.051, v)) * 255)
+    const br = Math.round(clamp01(mix(0.086, 0.043, v)) * 255)
+    const bg = Math.round(clamp01(mix(0.086, 0.043, v)) * 255)
+    const bb = Math.round(clamp01(mix(0.102, 0.047, v)) * 255)
     for (let x = 0; x < w; x++) {
       const o = (y * w + x) * 4
       px[o] = br
