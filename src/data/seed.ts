@@ -43,7 +43,7 @@ export const SEED_PROFILE: Profile = {
 }
 
 export const SEED_SETTINGS: Settings = {
-  theme: 'system',
+  theme: 'dark',
   accent: 'blue',
   haptics: true,
   restTimerAuto: true,

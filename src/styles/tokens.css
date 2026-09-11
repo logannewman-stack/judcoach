@@ -1,10 +1,19 @@
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('../assets/jetbrains-mono-var.woff2') format('woff2');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* ============================================================================
    GRIT — design tokens.  See DESIGN.md for what any of this is for.
 
    The structure is Apple's — the same roles, the same three-state theme, so the
-   app behaves like a native one. The values are not: the ground is chalk rather
-   than Apple's blue-cast grey, the dark is iron rather than navy-black, and the
-   accent is GRIT's blue rather than systemBlue. Intensity has a ramp of its own.
+   app behaves like a native one. The values are nothing like Apple's, and that
+   is the point: see DESIGN.md §0. This is an instrument, so the neutrals do
+   almost all the work, the rules are thin and cool, and the accent appears only
+   where there is an action. Dark is the primary appearance.
 
    Every colour is defined on bare :root first; dark overrides only redefine.
    ========================================================================== */
@@ -55,20 +64,20 @@
   --gray6: #f2f2f7;
 
   /* ---- labels ---- */
-  --label: #0e0e10;
-  --label-2: rgba(58, 58, 62, 0.62);
-  --label-3: rgba(58, 58, 62, 0.32);
+  --label: #14161a;
+  --label-2: rgba(35, 40, 48, 0.62);
+  --label-3: rgba(35, 40, 48, 0.34);
   --label-4: rgba(58, 58, 62, 0.18);
 
   /* ---- backgrounds ---- */
   --bg: #ffffff;
-  --bg-2: #f1f1ef;
+  --bg-2: #f2f3f2;
   --bg-3: #ffffff;
   /* Apple's #f2f2f7 carries a blue cast that reads as stock iOS. This is the
      same value with the blue taken out and a hair of warmth left in. */
-  --grouped: #f1f1ef;
+  --grouped: #f2f3f2;
   --grouped-2: #ffffff;
-  --grouped-3: #f1f1ef;
+  --grouped-3: #f2f3f2;
 
   /* ---- fills ---- */
   --fill: rgba(120, 120, 128, 0.2);
@@ -77,8 +86,8 @@
   --fill-4: rgba(116, 116, 128, 0.08);
 
   /* ---- separators ---- */
-  --sep: rgba(60, 60, 67, 0.29);
-  --sep-opaque: #c6c6c8;
+  --sep: rgba(30, 36, 44, 0.16);
+  --sep-opaque: #dfe1e0;
 
   /* ---- chrome (translucent bars) ---- */
   --chrome: rgba(249, 249, 249, 0.82);
@@ -101,23 +110,23 @@
   --shadow-knob: 0 3px 8px rgba(0, 0, 0, 0.13), 0 1px 1px rgba(0, 0, 0, 0.12);
 
   /* ---- radii (iOS continuous-ish corners) ---- */
-  --r-inset: 10px;
-  --r-card: 12px;
+  --r-inset: 6px;
+  --r-card: 6px;
   /* UIAlertController's corner, shared by an alert and an action sheet's
      groups. Both were 18px, which reads as a web card rather than a panel. */
-  --r-alert: 14px;
-  --r-sheet: 14px;
-  --r-btn: 12px;
+  --r-alert: 10px;
+  --r-sheet: 10px;
+  --r-btn: 6px;
   /* A chip is any small object or control that holds one thing: a logged set,
      a bar button, a segmented track, a 29pt icon tile, half a stepper. It reads
      wrong at a card's radius. */
-  --r-chip: 8px;
+  --r-chip: 3px;
   /* A control the size of a search field. Shares the inset list's value and not
      its meaning, so it gets its own name. */
-  --r-field: 10px;
+  --r-field: 6px;
   /* A speech bubble is not a card and does not take a card's corner; this is
      the radius iOS Messages uses. */
-  --r-bubble: 18px;
+  --r-bubble: 10px;
   --r-pill: 999px;
 
   /* ---- intensity ---------------------------------------------------------
@@ -203,8 +212,24 @@
      DESIGN.md: the app's content is its numbers, so the numbers get a face
      chosen for them while SF keeps the chrome native.
      --------------------------------------------------------------------- */
-  --font-data: 'Archivo', 'SF Pro Text', -apple-system, BlinkMacSystemFont,
+  /* The display face: a figure meant to be read across a room. Archivo,
+     because a monospace at 50px looks weak rather than deliberate. */
+  --font-display: 'Archivo', 'SF Pro Text', -apple-system, BlinkMacSystemFont,
     'Helvetica Neue', Arial, sans-serif;
+
+  /* Everything that belongs in a column. Every feature stylesheet already
+     routes its data through this one token, so pointing it at the mono is what
+     turns nine screens of tables into something that reads as computed. */
+  --font-data: var(--font-mono);
+
+  /* ---- the table face -----------------------------------------------------
+     A training log is a table, a programme is a grid, plate maths is
+     arithmetic. In a monospace the columns lock and the digits stop shuffling,
+     and the page starts to look like something that was computed rather than
+     laid out. This is the face that makes the app read as software.
+     --------------------------------------------------------------------- */
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono',
+    Menlo, Consolas, monospace;
 
   color-scheme: light;
 }
@@ -267,34 +292,34 @@
     --gray5: #2c2c2e;
     --gray6: #1c1c1e;
 
-    --label: #f5f5f3;
-    --label-2: rgba(232, 232, 226, 0.62);
-    --label-3: rgba(232, 232, 226, 0.34);
-    --label-4: rgba(232, 232, 226, 0.18);
+    --label: #e8eaec;
+    --label-2: rgba(232, 234, 236, 0.60);
+    --label-3: rgba(232, 234, 236, 0.36);
+    --label-4: rgba(232, 234, 236, 0.18);
 
     /* Iron, not Apple's navy-black. #1c1c1e is measurably blue; on an OLED
        phone next to a chalk-ground light theme it reads as a different app. */
-    --bg: #0b0b0c;
-    --bg-2: #16161a;
-    --bg-3: #212126;
-    --grouped: #0b0b0c;
-    --grouped-2: #16161a;
-    --grouped-3: #212126;
+    --bg: #0a0b0c;
+    --bg-2: #121316;
+    --bg-3: #1a1c20;
+    --grouped: #0a0b0c;
+    --grouped-2: #121316;
+    --grouped-3: #1a1c20;
 
     --fill: rgba(120, 120, 128, 0.36);
     --fill-2: rgba(120, 120, 128, 0.32);
     --fill-3: rgba(118, 118, 128, 0.24);
     --fill-4: rgba(118, 118, 128, 0.18);
 
-    --sep: rgba(84, 84, 88, 0.6);
-    --sep-opaque: #38383a;
+    --sep: rgba(150, 160, 172, 0.22);
+    --sep-opaque: #24272c;
 
-    --chrome: rgba(22, 22, 24, 0.8);
-    --chrome-solid: #161618;
+    --chrome: rgba(14, 15, 17, 0.86);
+    --chrome-solid: #0e0f11;
     --sheet-scrim: rgba(0, 0, 0, 0.5);
   --push-dim: rgba(0, 0, 0, 0.3);
     --push-dim: rgba(0, 0, 0, 0.3);
-    --elevated: #16161a;
+    --elevated: #1a1c20;
 
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
     --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
@@ -361,31 +386,31 @@
   --gray5: #2c2c2e;
   --gray6: #1c1c1e;
 
-  --label: #f5f5f3;
-  --label-2: rgba(232, 232, 226, 0.62);
-  --label-3: rgba(232, 232, 226, 0.34);
-  --label-4: rgba(232, 232, 226, 0.18);
+  --label: #e8eaec;
+  --label-2: rgba(232, 234, 236, 0.60);
+  --label-3: rgba(232, 234, 236, 0.36);
+  --label-4: rgba(232, 234, 236, 0.18);
 
-  --bg: #0b0b0c;
-  --bg-2: #16161a;
-  --bg-3: #212126;
-  --grouped: #0b0b0c;
-  --grouped-2: #16161a;
-  --grouped-3: #212126;
+  --bg: #0a0b0c;
+  --bg-2: #121316;
+  --bg-3: #1a1c20;
+  --grouped: #0a0b0c;
+  --grouped-2: #121316;
+  --grouped-3: #1a1c20;
 
   --fill: rgba(120, 120, 128, 0.36);
   --fill-2: rgba(120, 120, 128, 0.32);
   --fill-3: rgba(118, 118, 128, 0.24);
   --fill-4: rgba(118, 118, 128, 0.18);
 
-  --sep: rgba(84, 84, 88, 0.6);
-  --sep-opaque: #38383a;
+  --sep: rgba(150, 160, 172, 0.22);
+  --sep-opaque: #24272c;
 
-  --chrome: rgba(22, 22, 24, 0.8);
-  --chrome-solid: #161618;
+  --chrome: rgba(14, 15, 17, 0.86);
+  --chrome-solid: #0e0f11;
   --sheet-scrim: rgba(0, 0, 0, 0.5);
   --push-dim: rgba(0, 0, 0, 0.3);
-  --elevated: #16161a;
+  --elevated: #1a1c20;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);

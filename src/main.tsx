@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles/base.css'
+import './styles/type.css'
 import './styles/coach.css'
 import { App } from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
