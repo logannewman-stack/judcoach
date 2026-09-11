@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { motion, useReducedMotion } from 'framer-motion'
 import { Screen } from '../../components/ios/Screen'
 import { ListSection, Row, rowSepInset } from '../../components/ios/List'
 import { Card, CoachNote } from '../../components/Bits'
@@ -8,17 +9,19 @@ import { flushSection } from './parts'
 import { resolvePrescription, topPrescribedSet } from './prescription'
 import { useStore } from '../../store/useStore'
 import {
-  currentWeekIndex, getWeek, logSetCount, useProgram, weekSchedule, sessionsThisWeek,
+  currentWeekIndex, getWeek, logSetCount, useProgram, weekSchedule,
 } from '../../store/selectors'
 import type { Profile, Program, SessionTemplate, WorkoutLog } from '../../domain/types'
 import { EXERCISES, MAIN_LIFTS, getExercise } from '../../data/exercises'
 import { formatMinutes, formatShortDate, todayISO, weekdayShortFromDow } from '../../lib/date'
 import { num, pluralize } from '../../lib/format'
 import { navPresent, useNav } from '../../nav/nav'
+import '../../styles/today.css'
 
-/* Wide enough for a three-letter weekday over a two-digit date. The row's
-   separator has to start from the same column, which is what `sepInset` says. */
-const DATE_BADGE_W = 34
+/* Wide enough for a three-letter weekday over a two-digit date, with the chip
+   that carries them. The row's separator has to start from the same column,
+   which is what `sepInset` says. */
+const DATE_BADGE_W = 42
 
 export function TrainHome() {
   const today = todayISO()
@@ -42,8 +45,11 @@ export function TrainHome() {
 
   const week = getWeek(program, weekIndex)
   const schedule = useMemo(() => weekSchedule(program, weekIndex, logs), [program, weekIndex, logs])
-  const progress = sessionsThisWeek(program, logs, today)
   const shape = useMemo(() => blockShape(program, logs, profile), [program, logs, profile])
+
+  // The week the strip is pointing at, not the live one: browsing week two in
+  // February should report week two's four sessions, not this week's.
+  const doneHere = schedule.filter((s) => s.log).length
 
   // The one action this screen exists for, and only while it means anything:
   // browsing week two in February is not an invitation to train.
@@ -60,37 +66,52 @@ export function TrainHome() {
     <Screen
       title="Train"
       titleAccessory={
-        <div className="gutter" style={{ marginTop: -6, marginBottom: 16 }}>
+        <div className="gutter train-screen" style={{ marginTop: -6, marginBottom: 16 }}>
           <div className="t-subhead dim truncate">{program.name}</div>
         </div>
       }
       right={{ icon: 'calendar', onPress: () => push('history'), ariaLabel: 'Workout history' }}
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-        {/* ---------------------------- the block ----------------------------- */}
-        <BlockStrip shape={shape} selected={weekIndex} live={liveWeek} onSelect={setWeekIndex} />
-
-        {/* ----------------------------- week header -------------------------- */}
-        {week && (
-          <div className="gutter" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div>
-              <div className="eyebrow">Week {week.index} of {program.weeks.length}</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 3 }}>
-                <h2 className="t-title2">{week.label.split(' — ')[1]}</h2>
-                {week.deload && <Pill tone="tinted">Deload</Pill>}
-                {/* Which week you are on is a fact, not a verdict, so it does
-                    not borrow the green that means "on target" — DESIGN.md §2. */}
-                {weekIndex === liveWeek && <Pill>This week</Pill>}
-              </div>
-              {weekIndex === liveWeek && (
-                <div className="t-footnote dim" style={{ marginTop: 3 }}>
-                  <span className="data">{progress.done}/{progress.total}</span> sessions done
-                </div>
-              )}
+      <div className="train-screen" style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+        {/* ---------------------------- the block -----------------------------
+            The chart and the week it selects are one object — the bars are how
+            you choose and the panel under them is what you chose — so they
+            share a card rather than floating on the ground as two things. */}
+        <Card pad={false}>
+          <div className="train-block">
+            <div className="today-week-head">
+              <span className="eyebrow">The block</span>
+              <span className="spacer" />
+              <span className="data" style={{ fontSize: 'calc(13 * var(--pt))' }}>
+                {program.weeks.length}<span className="plan-unit"> weeks</span>
+              </span>
             </div>
-            <CoachNote>{week.emphasis}</CoachNote>
+
+            <BlockStrip shape={shape} selected={weekIndex} live={liveWeek} onSelect={setWeekIndex} />
+
+            {week && (
+              <div className="train-week">
+                <div className="eyebrow">Week {week.index} of {program.weeks.length}</div>
+                <div className="train-week-title">
+                  <h2 className="t-title2">{week.label.split(' — ')[1]}</h2>
+                  {week.deload && <Pill tone="tinted">Deload</Pill>}
+                  {/* Which week you are on is a fact, not a verdict, so it does
+                      not borrow the green that means "on target" — DESIGN.md §2. */}
+                  {weekIndex === liveWeek && <Pill>This week</Pill>}
+                </div>
+                <div className="train-week-meter">
+                  <WeekMeter done={doneHere} total={schedule.length} />
+                  <span className="data" style={{ fontSize: 'calc(13 * var(--pt))' }}>
+                    {doneHere}/{schedule.length}<span className="plan-unit"> done</span>
+                  </span>
+                </div>
+                <div style={{ marginTop: 14 }}>
+                  <CoachNote>{week.emphasis}</CoachNote>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </Card>
 
         {/* --------------------------- primary action ------------------------- */}
         {needsMaxes ? (
@@ -98,7 +119,7 @@ export function TrainHome() {
             <Button icon="chart.bar" onPress={() => push('trainingMaxes')}>
               Set your working maxes
             </Button>
-            <p className="t-caption1 dim" style={{ margin: '5px 0 1px' }}>
+            <p className="t-caption1 dim" style={{ margin: '7px 0 1px' }}>
               <span className="data">{maxesSet}</span> of{' '}
               <span className="data">{MAIN_LIFTS.length}</span> on file. Every load below is a
               share of them, which is why the sessions read in percentages.
@@ -131,27 +152,19 @@ export function TrainHome() {
             // A session scheduled before the client's first day was never
             // theirs to miss, which is the same floor Today's catch-up uses.
             const isMissed = date < today && (!blockStartedOn || date >= blockStartedOn)
+            const state = log ? 'done' : isToday ? 'today' : isMissed ? 'missed' : undefined
 
             return (
               <Row
                 key={session.id}
                 sepInset={rowSepInset(DATE_BADGE_W)}
                 leading={
-                  <span
-                    aria-hidden="true"
-                    style={{
-                      width: DATE_BADGE_W,
-                      flex: 'none',
-                      textAlign: 'center',
-                      color: log ? 'var(--green-text)' : isToday ? 'var(--accent)' : 'var(--label-2)',
-                    }}
-                  >
-                    <span className="eyebrow" style={{ display: 'block', color: 'inherit' }}>
-                      {weekdayShortFromDow(session.weekday)}
-                    </span>
-                    <span className="data" style={{ display: 'block', fontSize: 'calc(17 * var(--pt))', lineHeight: 1.235294 }}>
-                      {formatShortDate(date).split(' ')[1]}
-                    </span>
+                  /* The date is a small object holding one thing, so it takes a
+                     chip — and the chip is where the row says how that day
+                     went, warm for the one in front of you. */
+                  <span className="train-daybadge" data-state={state} aria-hidden="true">
+                    <span className="eyebrow">{weekdayShortFromDow(session.weekday)}</span>
+                    <span className="data">{formatShortDate(date).split(' ')[1]}</span>
                   </span>
                 }
                 title={session.name}
@@ -164,11 +177,11 @@ export function TrainHome() {
                 }
                 trailing={
                   log ? (
-                    <Icon name="check.circle.fill" size={17} color="var(--green)" />
+                    <Icon name="check.circle.fill" size={19} color="var(--green)" />
                   ) : isToday ? (
                     <Pill tone="tinted">Today</Pill>
                   ) : isMissed ? (
-                    <Icon name="clock" size={15} color="var(--orange)" weight={2.2} />
+                    <Icon name="clock" size={16} color="var(--orange)" weight={2.2} />
                   ) : undefined
                 }
                 chevron
@@ -224,9 +237,16 @@ export function TrainHome() {
 
         <div className="gutter">
           <Card>
-            <div className="t-footnote dim" style={{ lineHeight: 1.384615 }}>
-              <span className="semibold" style={{ color: 'var(--label)' }}>Goal: </span>
-              {program.goal}
+            <div className="train-goal">
+              <span className="train-goal-badge" aria-hidden="true">
+                <Icon name="target" size={19} weight={2.2} />
+              </span>
+              <div style={{ minWidth: 0 }}>
+                <div className="eyebrow" style={{ marginBottom: 3 }}>The goal</div>
+                <div className="t-footnote" style={{ lineHeight: 1.384615, color: 'var(--label-2)' }}>
+                  {program.goal}
+                </div>
+              </div>
             </div>
           </Card>
         </div>
@@ -236,6 +256,22 @@ export function TrainHome() {
 }
 
 /* -------------------------------- the block ------------------------------ */
+
+/** How much of the selected week is behind them, in the domain's own colour. */
+function WeekMeter({ done, total }: { done: number; total: number }) {
+  const still = useReducedMotion()
+  const pct = total > 0 ? (done / total) * 100 : 0
+  return (
+    <div className="track">
+      <motion.div
+        className="track-fill"
+        initial={still ? false : { width: 0 }}
+        animate={{ width: `${pct}%` }}
+        transition={{ type: 'spring', stiffness: 130, damping: 20, delay: 0.08 }}
+      />
+    </div>
+  )
+}
 
 interface WeekShape {
   index: number
@@ -291,6 +327,7 @@ function BlockStrip({
   live: number
   onSelect: (index: number) => void
 }) {
+  const still = useReducedMotion()
   const loads = shape.map((w) => w.percent)
   const top = Math.max(...loads)
   const floor = Math.min(...loads)
@@ -302,22 +339,32 @@ function BlockStrip({
 
   return (
     <div className="block-strip" role="group" aria-label="Weeks in this block">
-      {shape.map((week) => (
+      {shape.map((week, i) => (
         <button
           key={week.index}
           type="button"
-          className="block-week pressable"
+          className="block-week"
           aria-pressed={week.index === selected}
           data-live={week.index === live}
           aria-label={`Week ${week.index}, ${week.label} — ${week.done} of ${week.total} sessions done`}
           onClick={() => onSelect(week.index)}
         >
           <span className="block-track" aria-hidden="true">
-            <span className="block-bar" data-rpe={week.rpe ?? ''} style={{ height: `${height(week.percent)}%` }}>
+            {/* The chart draws itself from the baseline up, one week after the
+                next, so the block's shape arrives rather than being there.
+                DESIGN.md §5 — and with reduced motion on it is simply there. */}
+            <motion.span
+              className="block-bar"
+              data-rpe={week.rpe ?? ''}
+              style={{ height: `${height(week.percent)}%`, originY: 1 }}
+              initial={still ? false : { scaleY: 0 }}
+              animate={{ scaleY: 1 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 28, delay: i * 0.035 }}
+            >
               {week.done > 0 && (
                 <span className="block-bar-done" style={{ height: `${(week.done / week.total) * 100}%` }} />
               )}
-            </span>
+            </motion.span>
           </span>
           <span className="block-num data" aria-hidden="true">{week.index}</span>
         </button>

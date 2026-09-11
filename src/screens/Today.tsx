@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { Screen } from '../components/ios/Screen'
 import { Card, CoachNote, SectionHeader } from '../components/Bits'
 import { Icon } from '../components/Icon'
-import { Button, Pill } from '../components/ios/Controls'
+import type { IconName } from '../components/Icon'
+import { Pill } from '../components/ios/Controls'
 import { RingStack, MACRO_COLORS } from '../components/Rings'
 import { Sparkline } from '../components/Charts'
 import { useStore, emptyDay } from '../store/useStore'
@@ -86,7 +87,7 @@ export function TodayScreen() {
     <Screen
       title="Today"
       titleAccessory={
-        <div className="gutter" style={{ marginTop: -6, marginBottom: 18 }}>
+        <div className="gutter today-screen" style={{ marginTop: -6, marginBottom: 18 }}>
           <div className="t-subhead dim">{formatLongDate(today)}</div>
         </div>
       }
@@ -94,9 +95,9 @@ export function TodayScreen() {
     >
       {/* One 32px rhythm between groups — the same figure `.list-section`
           carries, so lists and cards space identically. */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+      <div className="today-screen" style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
         {/* ------------------------------ hero ----------------------------- */}
-        <div>
+        <Rise order={0}>
           <Lede name={firstName} demo={demo} />
           {blockDone ? (
             <BlockCompleteCard
@@ -142,24 +143,18 @@ export function TodayScreen() {
               needsMaxes={needsMaxes}
             />
           ) : null}
-        </div>
+        </Rise>
 
         {/* ------------------------------ missed ---------------------------
             Directly under the day's session, because an overdue workout is
             part of the answer to "what am I doing today". */}
         {missed.length > 0 && (
-          <div>
-            <SectionHeader title="Catch up" />
+          <Rise order={1} domain="train">
+            <SectionHeader title={<SecTitle icon="clock">Catch up</SecTitle>} />
             <Card>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span
-                  style={{
-                    width: 34, height: 34, borderRadius: 'var(--r-inset)', flex: 'none',
-                    background: 'color-mix(in srgb, var(--orange) 16%, transparent)',
-                    display: 'grid', placeItems: 'center',
-                  }}
-                >
-                  <Icon name="clock" size={19} color="var(--orange)" weight={2} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+                <span className="train-goal-badge">
+                  <Icon name="clock" size={19} weight={2.2} />
                 </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="t-headline">
@@ -178,31 +173,33 @@ export function TodayScreen() {
                 </button>
               </div>
             </Card>
-          </div>
+          </Rise>
         )}
 
         {/* ---------------------------- nutrition -------------------------- */}
-        <div>
+        <Rise order={2} domain="meals">
           {/* A rest day quietly serves different targets and different portions;
               say which plan these numbers came from rather than letting 330 kcal
               move on its own. */}
           <SectionHeader
             title={
-              restDay ? (
-                <>
-                  Fuel <span className="t-subhead dim" style={{ fontWeight: 400 }}>· Rest day</span>
-                </>
-              ) : (
-                'Fuel'
-              )
+              <SecTitle icon="fork.fill">
+                {restDay ? (
+                  <>
+                    Fuel <span className="t-subhead dim" style={{ fontWeight: 400 }}>· Rest day</span>
+                  </>
+                ) : (
+                  'Fuel'
+                )}
+              </SecTitle>
             }
             action={{ label: 'Log meals', onPress: () => navSwitchTab('meals') }}
           />
           <Card onPress={() => navSwitchTab('meals')}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
               <RingStack
-                size={104}
-                thickness={10}
+                size={108}
+                thickness={11}
                 gap={3.5}
                 rings={[
                   { value: totals.protein, target: targets.protein, color: MACRO_COLORS.protein },
@@ -211,11 +208,11 @@ export function TodayScreen() {
                 ]}
               >
                 <div style={{ lineHeight: 1 }}>
-                  <div className="figure" style={{ fontSize: 'calc(21 * var(--pt))' }}>{Math.round(totals.kcal)}</div>
+                  <div className="figure" style={{ fontSize: 'calc(23 * var(--pt))' }}>{Math.round(totals.kcal)}</div>
                   <div className="eyebrow" style={{ marginTop: 4 }}>kcal</div>
                 </div>
               </RingStack>
-              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 9 }}>
                 <MacroLine label="Protein" value={totals.protein} target={targets.protein} color={MACRO_COLORS.protein} />
                 <MacroLine label="Carbs" value={totals.carbs} target={targets.carbs} color={MACRO_COLORS.carbs} />
                 <MacroLine label="Fat" value={totals.fat} target={targets.fat} color={MACRO_COLORS.fat} />
@@ -231,12 +228,12 @@ export function TodayScreen() {
               </div>
             </div>
           </Card>
-        </div>
+        </Rise>
 
         {/* ------------------------------ weight --------------------------- */}
-        <div>
+        <Rise order={3} domain="weigh">
           <SectionHeader
-            title="Bodyweight"
+            title={<SecTitle icon="chart.line">Bodyweight</SecTitle>}
             action={{ label: loggedToday ? 'History' : 'Weigh in', onPress: () => navSwitchTab('weigh') }}
           />
           <Card onPress={() => navSwitchTab('weigh')}>
@@ -251,11 +248,11 @@ export function TodayScreen() {
                       : weighDays > 0 ? `Average · ${weighDays} of 7 days`
                       : 'Last average'}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 5 }}>
-                    <span className="figure" style={{ fontSize: 'calc(32 * var(--pt))' }}>{fixed(trend.current, 1)}</span>
-                    <span className="figure-unit" style={{ fontSize: 'calc(16 * var(--pt))' }}>{profile.units}</span>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 6 }}>
+                    <span className="figure" style={{ fontSize: 'calc(38 * var(--pt))' }}>{fixed(trend.current, 1)}</span>
+                    <span className="figure-unit" style={{ fontSize: 'calc(17 * var(--pt))' }}>{profile.units}</span>
                   </div>
-                  <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
                     {trend.reliable ? (
                       <Pill tone={rateTone(trend, profile.weeklyRateTarget)}>
                         {signed(trend.perWeek, 2)} {profile.units}/wk
@@ -272,8 +269,8 @@ export function TodayScreen() {
                   <Sparkline
                     values={series.map((p) => p.avg)}
                     width={92}
-                    height={44}
-                    color={trend.perWeek >= 0 ? 'var(--green)' : 'var(--accent)'}
+                    height={46}
+                    color="var(--tint)"
                   />
                 )}
               </div>
@@ -293,11 +290,11 @@ export function TodayScreen() {
             )}
           </Card>
           {!loggedToday && (
-            <div className="gutter" style={{ marginTop: 10 }}>
+            <div className="gutter" style={{ marginTop: 12 }}>
               <button
                 type="button"
                 className="btn btn-tinted btn-sm"
-                style={{ width: '100%', minHeight: 42 }}
+                style={{ width: '100%', minHeight: 44 }}
                 onClick={(e) => {
                   e.stopPropagation()
                   setLoggingWeight(true)
@@ -308,11 +305,14 @@ export function TodayScreen() {
               </button>
             </div>
           )}
-        </div>
+        </Rise>
 
         {/* ------------------------------ this week ------------------------ */}
-        <div>
-          <SectionHeader title="This week" action={{ label: 'Programme', onPress: () => navSwitchTab('train') }} />
+        <Rise order={4} domain="train">
+          <SectionHeader
+            title={<SecTitle icon="dumbbell.fill">This week</SecTitle>}
+            action={{ label: 'Programme', onPress: () => navSwitchTab('train') }}
+          />
           <Card>
             <WeekCard
               weekIndex={weekIndex}
@@ -323,25 +323,21 @@ export function TodayScreen() {
               weighDays={weighDays}
               startedOn={blockStartedOn}
               units={profile.units}
+              emphasis={week?.emphasis}
             />
           </Card>
-          {week && (
-            <div className="gutter" style={{ marginTop: 12 }}>
-              <CoachNote>{week.emphasis}</CoachNote>
-            </div>
-          )}
-        </div>
+        </Rise>
 
         {/* ------------------------------- coach --------------------------- */}
-        <div>
+        <Rise order={5} domain="coach">
           <SectionHeader
-            title={coachSeat ? 'From your client' : 'From Jud'}
+            title={<SecTitle icon="message.fill">{coachSeat ? 'From your client' : 'From Jud'}</SecTitle>}
             action={{ label: 'Profile', onPress: () => navPush('coach') }}
           />
           <div className="gutter">
             <CoachCard />
           </div>
-        </div>
+        </Rise>
       </div>
 
       <NumberPad
@@ -363,6 +359,53 @@ export function TodayScreen() {
 }
 
 /* ------------------------------ sub-components --------------------------- */
+
+/**
+ * A group of the screen, arriving.
+ *
+ * Each one comes up a little past its resting place and settles, a beat after
+ * the one above it — DESIGN.md §5. With reduced motion on, nothing moves and
+ * the screen is simply already there, which is the same screen.
+ *
+ * It also carries the section's domain, which is what colours everything
+ * inside it: Today is a map of the other four tabs, so the plate is green, the
+ * scale violet, the training week orange and Jud pink.
+ */
+function Rise({
+  order, domain, children,
+}: {
+  order: number
+  domain?: 'train' | 'meals' | 'weigh' | 'coach'
+  children: ReactNode
+}) {
+  const still = useReducedMotion()
+  if (still) {
+    return <div className="today-sec" data-domain={domain}>{children}</div>
+  }
+  return (
+    <motion.div
+      className="today-sec"
+      data-domain={domain}
+      initial={{ opacity: 0, y: 18 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: 'spring', stiffness: 420, damping: 32, mass: 0.9, delay: order * 0.045 }}
+    >
+      {children}
+    </motion.div>
+  )
+}
+
+/** A section heading with its domain's symbol in front of it. */
+function SecTitle({ icon, children }: { icon: IconName; children: ReactNode }) {
+  return (
+    <span className="sec-title">
+      <span className="sec-badge" aria-hidden="true">
+        <Icon name={icon} size={15} weight={2.2} />
+      </span>
+      {children}
+    </span>
+  )
+}
 
 /**
  * The line above the hero: who this is, or whose data this is.
@@ -395,7 +438,7 @@ function Lede({ name, demo }: { name: string; demo: boolean }) {
   }
   if (!name) return null
   return (
-    <div className="gutter" style={{ marginBottom: 10 }}>
+    <div className="gutter today-greeting">
       <div className="eyebrow">{timeOfDayGreeting()}, {name}</div>
     </div>
   )
@@ -428,7 +471,7 @@ function MacroLine({ label, value, target, color }: { label: string; value: numb
           <span className="plan-unit">/{Math.round(target)}g</span>
         </span>
       </div>
-      <div className="track" style={{ height: 5, marginTop: 3 }}>
+      <div className="track" style={{ height: 7, marginTop: 4 }}>
         <motion.div
           className="track-fill"
           style={{ background: over ? 'var(--orange)' : color }}
@@ -445,12 +488,17 @@ function MacroLine({ label, value, target, color }: { label: string; value: numb
  * The day's session, in whichever state it is in.
  *
  * All four states share one shell: an eyebrow saying when, the session's name,
- * the figures that describe it, and a single filled action. It leads the screen
- * by being first and by being the only button on it — see DESIGN.md §4, and §7
- * on what a gradient hero costs everything underneath it.
+ * the figures that describe it, and a single filled action.
+ *
+ * It is washed in the screen's own hue — the one gradient DESIGN.md §2 puts on
+ * a hero card, two stops inside one family — because a client opening the app
+ * at seven in the morning should find the thing to do today already lit. The
+ * exception is `done`: once the work is banked there is nothing to lead them
+ * to, so the card steps back to a white one with a green tick and the colour
+ * on the screen moves to whatever still wants doing.
  */
 function HeroShell({
-  eyebrow, tags, name, detail, children, facts, action, onPress,
+  eyebrow, tags, name, detail, children, facts, action, onPress, done,
 }: {
   eyebrow: string
   tags?: ReactNode
@@ -460,6 +508,7 @@ function HeroShell({
   facts?: ReactNode
   action: ReactNode
   onPress?: () => void
+  done?: boolean
 }) {
   const body = (
     <>
@@ -469,7 +518,7 @@ function HeroShell({
         {tags}
       </div>
       <h2 className="today-hero-name">{name}</h2>
-      {detail && <div className="t-subhead dim truncate" style={{ marginTop: 2 }}>{detail}</div>}
+      {detail && <div className="today-hero-detail truncate">{detail}</div>}
       {children}
       {facts && (
         <div className="today-hero-facts">
@@ -480,9 +529,9 @@ function HeroShell({
     </>
   )
   return (
-    <div className="today-hero">
+    <div className="today-hero" data-tone={done ? 'done' : undefined}>
       {onPress ? (
-        <button type="button" className="today-hero-plan pressable" onClick={onPress}>{body}</button>
+        <button type="button" className="today-hero-plan" onClick={onPress}>{body}</button>
       ) : (
         <div className="today-hero-plan">{body}</div>
       )}
@@ -492,7 +541,31 @@ function HeroShell({
 }
 
 /**
- * The heaviest prescribed set, set as the figure it is.
+ * The hero's own button.
+ *
+ * A white capsule inked in the card's deep stop — which is to say the card's
+ * own colour, inverted. It is what iOS puts on a coloured card, and it is the
+ * loudest control on the screen without borrowing a second hue to be it.
+ */
+function HeroButton({
+  children, onPress, icon,
+}: {
+  children: ReactNode
+  onPress: () => void
+  icon?: IconName
+}) {
+  return (
+    <button type="button" className="btn btn-on-wash" onClick={onPress}>
+      {icon && <Icon name={icon} size={19} weight={2.1} />}
+      {children}
+    </button>
+  )
+}
+
+/**
+ * The heaviest prescribed set, set as the figure it is — the biggest number on
+ * the screen, because it is the one a lifter is actually deciding about on the
+ * way to the gym.
  *
  * A percentage-based block has no weights until the working maxes are in, and
  * dropping the load out of the line leaves "5 reps · RPE 7" reading as the
@@ -507,6 +580,16 @@ function TopSet({ top, liftName, units }: { top: ResolvedSet; liftName?: string;
       <span className="eyebrow today-top-label">
         Top set{liftName ? ` · ${liftName}` : ''}
       </span>
+      {top.rpe != null ? (
+        <span className="rpe-ink today-top-rpe">
+          {/* On the wash the type has to be white, so the ramp is carried by
+              the pip instead — the one place its colour has to be exact. */}
+          <span className="today-top-pip" aria-hidden="true" />
+          {formatRpe(top.rpe)}
+        </span>
+      ) : (
+        <span className="today-top-rpe t-footnote dim">{top.loadLabel}</span>
+      )}
       <span className="today-top-figure figure">
         {top.targetWeight != null ? (
           <>
@@ -529,11 +612,6 @@ function TopSet({ top, liftName, units }: { top: ResolvedSet; liftName?: string;
           </>
         )}
       </span>
-      {top.rpe != null ? (
-        <span className="rpe-ink today-top-rpe">{formatRpe(top.rpe)}</span>
-      ) : (
-        <span className="today-top-rpe t-footnote dim">{top.loadLabel}</span>
-      )}
       {pending && (
         <span className="today-top-pending t-caption1">
           of your {liftName ?? 'working'} max, which has no number on it yet
@@ -587,12 +665,12 @@ function NextSessionCard({
             set={maxesSet}
             total={maxesTotal}
             onPress={onSetMaxes}
-            alt={<Button variant="plain" onPress={onStart}>Start workout anyway</Button>}
+            alt={<button type="button" className="btn btn-plain" onClick={onStart}>Start workout anyway</button>}
           />
         ) : (
-          <Button icon="play.fill" onPress={onStart}>
+          <HeroButton icon="play.fill" onPress={onStart}>
             {isRestDay ? 'Start early' : 'Start workout'}
-          </Button>
+          </HeroButton>
         )
       }
     >
@@ -620,7 +698,7 @@ function MaxesRung({
 }) {
   return (
     <>
-      <Button icon="chart.bar" onPress={onPress}>Set your working maxes</Button>
+      <HeroButton icon="chart.bar" onPress={onPress}>Set your working maxes</HeroButton>
       <p className="today-hero-why t-caption1">
         <span className="data">{set}</span> of <span className="data">{total}</span>
         {' '}on file. Every weight in this block is a share of them.
@@ -646,8 +724,9 @@ function CompletedCard({
   ].filter(Boolean).join(' · ')
   return (
     <HeroShell
+      done
       eyebrow="Session complete"
-      tags={<Icon name="check.circle.fill" size={19} color="var(--green)" />}
+      tags={<Icon name="check.circle.fill" size={21} color="var(--green)" />}
       name={log.sessionName}
       facts={
         <>
@@ -666,12 +745,13 @@ function CompletedCard({
             set={maxesSet}
             total={maxesTotal}
             onPress={onSetMaxes}
-            alt={<Button variant="plain" onPress={onPress}>Review your sets</Button>}
+            alt={<button type="button" className="btn btn-plain" onClick={onPress}>Review your sets</button>}
           />
         ) : (
-          <Button variant="tinted" icon="list" onPress={onPress}>
+          <button type="button" className="btn btn-tinted" onClick={onPress}>
+            <Icon name="list" size={19} weight={2.1} />
             Review your sets
-          </Button>
+          </button>
         )
       }
     />
@@ -693,12 +773,12 @@ function ResumeCard() {
       name={found?.name ?? 'Session'}
       facts={`${done}/${total} sets logged`}
       action={
-        <Button
+        <HeroButton
           icon="play.fill"
           onPress={() => navPresent('runner', { weekIndex: active.weekIndex, sessionId: active.sessionId })}
         >
           Resume
-        </Button>
+        </HeroButton>
       }
     />
   )
@@ -718,15 +798,15 @@ function BlockCompleteCard({
   return (
     <HeroShell
       eyebrow="Block complete"
-      tags={<Icon name="check.circle.fill" size={19} color="var(--green)" />}
+      tags={<Icon name="seal.fill" size={21} color="#fff" />}
       name={program.name}
       facts={`${summary.sessions}/${summary.scheduled} sessions · ${summary.sets} sets · ${compact(summary.tonnage)} ${units}`}
       action={
         <>
-          <Button onPress={onStart}>Start the next block</Button>
-          <div className="t-caption1 dim" style={{ marginTop: 9 }}>
+          <HeroButton onPress={onStart}>Start the next block</HeroButton>
+          <p className="today-hero-why t-caption1">
             Update your working maxes in Settings first if you tested a new single.
-          </div>
+          </p>
         </>
       }
     />
@@ -737,11 +817,12 @@ function BlockCompleteCard({
  * The training week as one object: which days carry a session and how they
  * went, then the three counts that describe it.
  *
- * These used to be a row of tiles above the strip, which said "2 of 4" twice
- * and left the week itself as an afterthought at the bottom of the group.
+ * Seven bubbles, each coloured by what that day turned out to be — banked,
+ * missed, owed, or nobody's. It is the warmest thing on the screen after the
+ * hero, because a training week is what the client is actually here for.
  */
 function WeekCard({
-  weekIndex, label, done, total, streak, weighDays, startedOn, units,
+  weekIndex, label, done, total, streak, weighDays, startedOn, units, emphasis,
 }: {
   weekIndex: number
   label?: string
@@ -751,14 +832,17 @@ function WeekCard({
   weighDays: number
   startedOn?: string
   units: Units
+  emphasis?: string
 }) {
   const today = todayISO()
+  const still = useReducedMotion()
   const program = useProgram()
   const logs = useStore((s) => s.logs)
   const schedule = weekSchedule(program, weekIndex, logs)
   const weekStart = addDays(program.startDate, (weekIndex - 1) * 7)
   const tonnage = weekTonnage(logs, weekStart, addDays(weekStart, 6))
   const LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+  const pct = total > 0 ? (done / total) * 100 : 0
 
   return (
     <>
@@ -768,6 +852,15 @@ function WeekCard({
         <span className="data" style={{ fontSize: 'calc(13 * var(--pt))' }}>
           {done}/{total}<span className="plan-unit"> done</span>
         </span>
+      </div>
+
+      <div className="track">
+        <motion.div
+          className="track-fill"
+          initial={still ? false : { width: 0 }}
+          animate={{ width: `${pct}%` }}
+          transition={{ type: 'spring', stiffness: 130, damping: 20, delay: 0.1 }}
+        />
       </div>
 
       <div className="today-week-days">
@@ -823,7 +916,12 @@ function WeekCard({
           read as an emphatic nothing. They keep their place and step back a
           tone until there is something to report. */}
       <div className="today-week-stats">
-        <WeekStat value={streak} label="Streak" zero={streak === 0} />
+        <WeekStat
+          value={streak}
+          label="Streak"
+          zero={streak === 0}
+          tone={streak > 0 ? 'var(--tint-ink)' : undefined}
+        />
         <WeekStat
           value={<>{compact(tonnage)}<span className="plan-unit"> {units}</span></>}
           label="Moved"
@@ -836,6 +934,14 @@ function WeekCard({
           tone={weighDays >= 5 ? 'var(--green-text)' : undefined}
         />
       </div>
+
+      {/* Jud's instruction for the week, on the same surface as the week it is
+          about rather than loose on the ground under it. */}
+      {emphasis && (
+        <div style={{ marginTop: 15 }}>
+          <CoachNote>{emphasis}</CoachNote>
+        </div>
+      )}
     </>
   )
 }
@@ -850,7 +956,7 @@ function WeekStat({
 }) {
   return (
     <div className="today-stat" data-zero={zero ? 'true' : undefined}>
-      <span className="data today-stat-value truncate" style={tone ? { color: tone } : undefined}>{value}</span>
+      <span className="figure today-stat-value truncate" style={tone ? { color: tone } : undefined}>{value}</span>
       <span className="eyebrow today-stat-label truncate">{label}</span>
     </div>
   )

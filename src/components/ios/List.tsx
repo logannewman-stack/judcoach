@@ -50,7 +50,7 @@ export function ListSection({
 const HEADER_TEXT: CSSProperties = { font: 'inherit', letterSpacing: 'inherit', color: 'inherit' }
 
 /** The row's own left padding and the gap it puts between leading and text. */
-const ROW_GUTTER = 16
+const ROW_GUTTER = 18
 const ROW_GAP = 12
 
 /**

@@ -87,11 +87,11 @@ export function StatTile({
       type={onPress ? 'button' : undefined}
       className={onPress ? 'surface pressable' : 'surface'}
       style={{
-        padding: '11px 13px 12px',
+        padding: '13px 15px 14px',
         textAlign: 'left',
         display: 'flex',
         flexDirection: 'column',
-        gap: 5,
+        gap: 6,
         minWidth: 0,
         width: '100%',
       }}
@@ -119,9 +119,22 @@ export function StatTile({
           number run into one phrase. The commas are the pause the layout gives a
           sighted reader. */}
       <span className="sr-only">, </span>
+      {/* A figure, not a data cell. A tile exists to show one number off, and
+          DESIGN.md §4 is clear that a number worth a label above it is a number
+          to be proud of — so it takes the hero role, at the size a tile three
+          across a phone can hold. */}
       <span
-        className="data truncate"
-        style={{ color: toneColor, fontSize: 'calc(20 * var(--pt))', lineHeight: 'calc(23 * var(--pt))', fontWeight: 700, marginTop: 'auto' }}
+        className="figure truncate"
+        // The leading is 1.3, not the 1.15 a line of SF wants. The rounded face
+        // draws well outside its em — measured, a 20pt figure needs 25pt of line
+        // box — and `truncate` clips whatever does not fit, so a tighter figure
+        // here loses the top of every digit rather than merely touching it.
+        style={{
+          color: toneColor,
+          fontSize: 'calc(23 * var(--pt))',
+          lineHeight: 'calc(30 * var(--pt))',
+          marginTop: 'auto',
+        }}
       >
         {value}
       </span>
@@ -177,7 +190,12 @@ export function EmptyState({
 }) {
   return (
     <div className="empty-state">
-      <Icon name={icon} size={38} weight={1.5} color="var(--label-3)" />
+      {/* The glyph sits in a disc of the domain's own colour. Nothing here yet
+          is not the same as something having gone wrong, and a grey outline
+          alone in the middle of a screen says the second. */}
+      <span className="empty-state-badge">
+        <Icon name={icon} size={34} weight={1.8} color="var(--tint)" />
+      </span>
       <div className="t-headline" style={{ color: 'var(--label)' }}>{title}</div>
       {message && <div className="t-subhead" style={{ maxWidth: 280 }}>{message}</div>}
       {action && <div style={{ marginTop: 8 }}>{action}</div>}

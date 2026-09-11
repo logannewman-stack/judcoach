@@ -3,7 +3,7 @@
 
    Three screens, one job: put the client's own numbers in front of them and
    name the single thing to do about them. So everything here is either a figure
-   in the data face or the structure holding one up — see DESIGN.md.
+   in the rounded face or the structure holding one up — see DESIGN.md.
 
    No colour is declared here: every value is a token, or is mixed from one.
    That is what keeps the three theme states honest — light, system-dark and the
@@ -12,6 +12,90 @@
 
    Press states key off `data-pressed`, not `:active` — see lib/press.ts.
    ========================================================================== */
+
+/* ============================== domain hues ===============================
+   DESIGN.md §2: every domain owns a colour and `--tint` resolves to the one in
+   front of you. TabBar stamps the live tab on the document and base.css reads
+   `--tint` off that, so Today is already blue and Train already orange without
+   a word here.
+
+   Today is the one screen that is a map of the other four, though — the plate,
+   the scale, the training week, Jud — so it sets the hue per *section*. A
+   client finds the part of their morning they came for by colour before they
+   have read a word of it.
+
+   `--tint-ink` is that same hue as *type* on a light ground. iOS ships a
+   second, darker value for every bright system colour for exactly this reason
+   (see --green-text and friends), and these point at those. Purple and pink
+   have no such twin yet, so they are deepened here — named in the report.
+   ========================================================================= */
+
+.today-screen { --tint-ink: var(--accent); }
+.train-screen,
+.session-screen { --tint-ink: var(--orange-text); }
+
+.today-sec[data-domain='train'] { --tint: var(--tint-train); --tint-ink: var(--orange-text); }
+.today-sec[data-domain='meals'] { --tint: var(--tint-meals); --tint-ink: var(--green-text); }
+.today-sec[data-domain='weigh'] { --tint: var(--tint-weigh); --tint-ink: color-mix(in srgb, var(--tint) 80%, #000); }
+.today-sec[data-domain='coach'] { --tint: var(--tint-coach); --tint-ink: color-mix(in srgb, var(--tint) 80%, #000); }
+
+/* On a dark ground the bright hue is already legible, so the two converge —
+   which is what tokens.css does with its own -text set. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .today-sec[data-domain='weigh'],
+  :root:not([data-theme='light']) .today-sec[data-domain='coach'] { --tint-ink: var(--tint); }
+}
+:root[data-theme='dark'] .today-sec[data-domain='weigh'],
+:root[data-theme='dark'] .today-sec[data-domain='coach'] { --tint-ink: var(--tint); }
+
+/* ---------------------------- section titles ----------------------------
+   A rounded tile of the domain's own colour in front of the heading, the way
+   Health puts a category's symbol in front of its group. It is the brightest
+   thing on the screen after the hero and it costs one 26pt square.
+   --------------------------------------------------------------------- */
+.sec-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+.sec-badge {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: var(--r-chip);
+  background: var(--tint);
+  background-image: linear-gradient(180deg, color-mix(in srgb, #fff 22%, transparent), transparent 70%);
+  color: #fff;
+  box-shadow: 0 3px 9px color-mix(in srgb, var(--tint) 40%, transparent);
+}
+
+/* A secondary action inside a section belongs to that section's hue. */
+.today-sec .btn-tinted {
+  background: color-mix(in srgb, var(--tint) 14%, transparent);
+  color: var(--tint-ink);
+}
+
+/* So does a marker on it. DESIGN.md §2 keeps --accent for "this is the
+   action", and "Today", "Week 5" and "Deload" are labels on the week in front
+   of you, not things to press. */
+.today-sec .pill.tinted,
+.train-screen .pill.tinted,
+.session-screen .pill.tinted {
+  background: color-mix(in srgb, var(--tint) 15%, transparent);
+  color: var(--tint-ink);
+}
+
+/* Jud's note is prescription, not a control, so its rule takes the hue of
+   whatever it is prescribing rather than the accent. coach.css owns the
+   component and reaches for --accent there; flagged in the report. */
+.today-sec .coach-quote,
+.train-screen .coach-quote,
+.session-screen .coach-quote { border-left-color: var(--tint); }
+.today-sec .coach-quote-label,
+.train-screen .coach-quote-label,
+.session-screen .coach-quote-label { color: var(--tint-ink); }
 
 /* ------------------------------- intensity ------------------------------- */
 
@@ -40,237 +124,401 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 10px;
+  margin-bottom: 11px;
 }
 /* Whose data this is, said at the rank of a fact rather than of a label. The
    eyebrow grey is right above a column and too quiet for the one line standing
    between a client and their own weigh-in in somebody else's history. */
 .today-lede .eyebrow { color: var(--label-2); }
 
-/* ============================== today's hero ============================== */
+/* A greeting is the one line on the screen addressed to a person rather than
+   about their training, so it carries the screen's own colour. */
+.today-greeting { margin-bottom: 11px; }
+.today-greeting .eyebrow { color: var(--tint-ink); }
 
-/* The one card a client sees before they have decided anything. It earns the
-   top of the screen by being the only thing there with a filled action, not by
-   being coloured in: a gradient hero shouts at a reader who has not been told
-   anything yet, and DESIGN.md §7 rules it out. */
+/* ============================== today's hero ==============================
+
+   The surface a client sees before they have decided anything, and the most
+   important one in the app. It is a two-stop wash of the screen's own hue —
+   DESIGN.md §2 allows a gradient exactly here, soft and within one family —
+   with the plan set in white on it and the action as a white capsule, which is
+   what iOS does on a coloured card.
+
+   The stops are mixed towards black rather than typed, so the wash follows
+   whatever `--tint` is in front of it and stays one hue by construction. At
+   these two mixes white clears 5.4:1 on the light end and 9.4:1 on the deep
+   end, so every label on the card is above AA rather than merely on a
+   gradient the checker cannot measure. Local until tokens.css names them.
+   ========================================================================= */
+
 .today-hero {
-  background: var(--grouped-2);
-  border-radius: var(--r-card);
+  --wash-a: color-mix(in srgb, var(--tint) 84%, #000);
+  --wash-b: color-mix(in srgb, var(--tint) 56%, #000);
+  /* Recessed into the wash: a well of the same hue, not a pane of frosted
+     white, which at any usable opacity takes white type under 4.5:1. */
+  --wash-well: color-mix(in srgb, #000 16%, transparent);
+  position: relative;
   margin: 0 var(--gutter);
+  border-radius: var(--r-card);
   overflow: hidden;
+  color: #fff;
+  background: linear-gradient(152deg, var(--wash-a), var(--wash-b));
+  box-shadow:
+    inset 0 var(--hairline) 0 color-mix(in srgb, #fff 26%, transparent),
+    0 10px 28px color-mix(in srgb, var(--tint) 34%, transparent);
+  transition: transform var(--dur-state) var(--ease-spring);
+}
+/* The squeeze belongs to the whole card, and the plan half is the button
+   inside it — so the card watches its own child for the press. */
+.today-hero:has(.today-hero-plan[data-pressed]) { transform: scale(0.985); }
+
+/* Nothing done to the day's work is ever undone, so a finished session stops
+   shouting: the wash means there is something to do. */
+.today-hero[data-tone='done'] {
+  background: var(--grouped-2);
+  color: var(--label);
+  box-shadow: var(--shadow-card);
 }
 
 /* The plan half is one target: tapping anywhere in it opens the full session.
-   It presses like a card rather than fading, which is what `.pressable` in
-   base.css is for. */
+   On a coloured card a press sinks the fill rather than tinting it grey. */
 .today-hero-plan {
   display: block;
   width: 100%;
-  padding: 13px 15px 12px;
+  padding: 15px 17px 14px;
   text-align: left;
-  color: var(--label);
+  color: inherit;
+  transition: background var(--dur-state) var(--ease-ios);
 }
+/* The opacity holds the floor base.css gives anything tappable with no press
+   style of its own: this has one, and fading the hero out as well as sinking it
+   reads as the card leaving rather than as being pushed. */
+.today-hero-plan[data-pressed] {
+  background: color-mix(in srgb, #000 12%, transparent);
+  opacity: 1;
+  transition-duration: 0s;
+}
+.today-hero[data-tone='done'] .today-hero-plan[data-pressed] { background: var(--fill-4); }
 
 .today-hero-head {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
+  align-items: center;
+  gap: 7px;
+  min-height: 22px;
   margin-bottom: 7px;
 }
 .today-hero-head .spacer { flex: 1; }
 
+/* Everything on the wash is full white. Hierarchy comes from size and weight,
+   not from opacity: a 15pt label at 86% white measures 4.1:1 on the light end
+   of the gradient, and a client on a bright pavement is exactly who loses it. */
+.today-hero .eyebrow { color: #fff; }
+.today-hero .pill,
+.today-hero .pill.tinted {
+  background: var(--wash-well);
+  color: #fff;
+}
+.today-hero .chev { color: #fff; }
+
 /* Apple's title1 carries positive tracking, which opens up a two-word session
    name until it reads as a headline rather than a label. */
 .today-hero-name {
-  font-size: calc(27 * var(--pt));
-  line-height: 1.185185;
+  font-size: calc(30 * var(--pt));
+  line-height: 1.1;
   font-weight: 700;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.022em;
 }
-
-/* ------------------------------- top set --------------------------------- */
-
-/* The heaviest set of the session, which is what a lifter actually wants to
-   know on the way to the gym. It takes the intensity ramp, so the morning
-   glance carries how hard the day is as well as how heavy. */
-.today-top {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 10px;
-  padding: 7px 11px 8px;
-  border-radius: var(--r-inset);
-  background: var(--rpe-fill);
-}
-.today-top-label {
-  flex: 0 0 100%;
-  /* Full label colour, not the usual eyebrow grey: an eyebrow sitting on the
-     ramp's own wash loses about a point of contrast, and the hottest fills take
-     --label-2 down to the floor iOS itself ships at. */
-  color: var(--label);
-}
-.today-top-figure {
-  font-size: calc(25 * var(--pt));
-}
-.today-top-figure .figure-unit { font-size: calc(16 * var(--pt)); }
-.today-top-x {
-  color: var(--label-2);
-  font-weight: 500;
-  padding: 0 3px;
-}
-.today-top-rpe {
-  margin-left: auto;
+.today-hero-detail {
+  margin-top: 3px;
   font-size: calc(15 * var(--pt));
+  line-height: calc(20 * var(--pt));
+  letter-spacing: -0.015333em;
 }
-
-/* What the percentage above is a percentage of, while there is no max to take
-   it from. A sentence, so it stays in SF — the figure beside it is the data. */
-.today-top-pending {
-  flex: 0 0 100%;
-  margin-top: 1px;
-  color: var(--label-2);
-}
-
-/* The same object on a screen whose title already named the session: one line,
-   because there it is context rather than the headline. */
-.today-top[data-size='sm'] { padding: 7px 11px; }
-.today-top[data-size='sm'] .today-top-label { flex: 0 0 auto; }
-.today-top[data-size='sm'] .today-top-figure { font-size: calc(19 * var(--pt)); }
-.today-top[data-size='sm'] .today-top-figure .figure-unit { font-size: calc(14 * var(--pt)); }
+.today-hero[data-tone='done'] .today-hero-detail { color: var(--label-2); }
 
 /* The facts under the plan, and the chevron that says there is more of it. */
 .today-hero-facts {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 9px;
-  color: var(--label-2);
+  margin-top: 11px;
   font-size: calc(13 * var(--pt));
   line-height: 1.307692;
 }
+.today-hero[data-tone='done'] .today-hero-facts { color: var(--label-2); }
 .today-hero-facts .chev { margin-left: auto; }
 
-/* A hairline, not a shadow: the action is part of the card, not floating over
-   it. See DESIGN.md §3. */
+/* A rule of light rather than of ink: the action is part of the card, and on a
+   wash a dark hairline reads as a crack in it. */
 .today-hero-act {
-  padding: 11px 15px 13px;
-  box-shadow: inset 0 var(--hairline) 0 var(--sep);
+  padding: 12px 17px 15px;
+  box-shadow: inset 0 var(--hairline) 0 color-mix(in srgb, #fff 22%, transparent);
+}
+.today-hero[data-tone='done'] .today-hero-act { box-shadow: inset 0 var(--hairline) 0 var(--sep); }
+
+/* The button on a coloured card is the card's own colour, inverted: a white
+   capsule with the wash's deep stop as its label. That stop is 9.4:1 on white,
+   and it is literally the colour the card is already made of. */
+.btn-on-wash {
+  background: #fff;
+  color: var(--wash-b);
 }
 
 /* The reason the button above it is the button, on the one screen where the
    obvious action is the wrong one. */
 .today-hero-why {
-  margin: 9px 0 2px;
-  color: var(--label-2);
+  margin: 10px 0 2px;
+  color: inherit;
 }
+.today-hero[data-tone='done'] .today-hero-why { color: var(--label-2); }
 /* The way past the setup step. Set a rank below the filled button rather than
    beside it: at a full 17pt the two read as a choice, and it is not one. */
-.today-hero-act .btn-plain { font-size: calc(15 * var(--pt)); }
+.today-hero-act .btn-plain {
+  font-size: calc(15 * var(--pt));
+  font-weight: 500;
+  color: #fff;
+}
+.today-hero[data-tone='done'] .today-hero-act .btn-plain { color: var(--accent); }
 
-/* ============================== the week ================================= */
+/* ------------------------------- top set --------------------------------- */
+
+/* The heaviest set of the session, which is what a lifter actually wants to
+   know on the way to the gym — so it is the biggest number on the screen.
+
+   Off the hero it takes the intensity ramp's own wash, so a glance carries how
+   hard the day is as well as how heavy. On the hero it cannot: an amber wash on
+   a blue card is two hues arguing, and the ramp survives instead as the solid
+   pip beside the effort, which is the one place the colour has to be exact. */
+.today-top {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin-top: 13px;
+  padding: 10px 13px 11px;
+  border-radius: var(--r-inset);
+  background: var(--rpe-fill);
+}
+.today-top-label {
+  /* Full label colour, not the usual eyebrow grey: an eyebrow sitting on the
+     ramp's own wash loses about a point of contrast, and the hottest fills take
+     --label-2 down to the floor iOS itself ships at. */
+  color: var(--label);
+}
+.today-top-figure {
+  grid-column: 1 / -1;
+  font-size: calc(34 * var(--pt));
+  line-height: 1.05;
+}
+.today-top-figure .figure-unit { font-size: calc(18 * var(--pt)); }
+.today-top-x {
+  font-weight: 500;
+  padding: 0 4px;
+  opacity: 0.62;
+}
+.today-top-rpe {
+  grid-column: 2;
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: calc(15 * var(--pt));
+  white-space: nowrap;
+}
+/* The ramp as a mark rather than as ink, for the one place the type has to be
+   white. Six to ten, cool to hot, unchanged. */
+.today-top-pip {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--rpe-solid);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--rpe-solid) 26%, transparent);
+}
+
+/* What the percentage above is a percentage of, while there is no max to take
+   it from. A sentence, so it stays in SF — the figure beside it is the data. */
+.today-top-pending {
+  grid-column: 1 / -1;
+  margin-top: 3px;
+  color: var(--label-2);
+}
+
+.today-hero .today-top {
+  background: var(--wash-well);
+  margin-top: 14px;
+}
+.today-hero .today-top-label,
+.today-hero .today-top-rpe,
+.today-hero .today-top-pending,
+.today-hero .today-top .figure-unit { color: #fff; }
+
+/* The same object on a screen whose title already named the session. It keeps
+   the big figure — this is still the one number the screen is about — and only
+   drops the second line. */
+.today-top[data-size='sm'] {
+  border-radius: var(--r-card);
+  padding: 11px 15px 13px;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--rpe-solid) 20%, transparent);
+}
+.today-top[data-size='sm'] .today-top-figure { font-size: calc(30 * var(--pt)); }
+.today-top[data-size='sm'] .today-top-figure .figure-unit { font-size: calc(17 * var(--pt)); }
+
+/* ============================== the week =================================
+
+   The training week as one object. Seven bubbles across: what each day holds,
+   how it went, and which one is today.
+   ========================================================================= */
 
 .today-week-head {
   display: flex;
   align-items: baseline;
   gap: 10px;
-  padding-bottom: 8px;
+  padding-bottom: 9px;
 }
 .today-week-head .spacer { flex: 1; }
+
+/* The week's progress is `.track` from base.css, which already fills in the
+   domain's own hue at full strength — one of the gradients DESIGN.md §2
+   sanctions, on a capsule with nothing set on it. */
 
 /* Seven days across, so every cell clears 44pt on the narrowest phone the app
    supports without a scroller hiding half the week. */
 .today-week-days {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-top: 14px;
 }
 
 .today-day {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
-  padding: 6px 0 6px;
+  gap: 5px;
+  padding: 4px 0 5px;
   border-radius: var(--r-inset);
   color: var(--label);
   min-height: 44px;
+  transition: transform var(--dur-state) var(--ease-spring);
+}
+.today-day[data-pressed] { transform: scale(0.9); opacity: 1; }
+.today-day:disabled { opacity: 1; }
+
+.today-day-wd {
+  color: var(--label-3);
+  font-size: calc(10 * var(--pt));
+  line-height: calc(12 * var(--pt));
 }
 
-.today-day-wd { color: var(--label-2); }
+/* The date itself, in a rounded tile of whatever that day turned out to be.
+   Sized off the column so seven of them fit a 320pt screen without a scroller,
+   and square by ratio so the tile stays a tile at any text size. */
 .today-day-num {
-  font-size: calc(15 * var(--pt));
-  line-height: 1.266667;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  max-width: calc(34 * var(--pt));
+  aspect-ratio: 1;
+  border-radius: var(--r-chip);
+  font-size: calc(16 * var(--pt));
+  line-height: 1;
+  background: var(--fill-4);
+  color: var(--label);
 }
 /* A rest day is information, not decoration: it keeps a legible weekday and
-   says what it is with the mark, rather than being dimmed out of readability. */
-.today-day[data-state='rest'] .today-day-num { color: var(--label-2); }
-.today-day[data-state='today'] .today-day-wd,
-.today-day[data-state='today'] .today-day-num { color: var(--accent); }
-/* A day that fell before the client's first one. The session is still there to
-   read, so the cell stays legible; it simply makes no claim on them. */
-.today-day[data-state='before'] .today-day-num { color: var(--label-2); }
-.today-day[data-state='today'] { box-shadow: inset 0 0 0 1.5px var(--accent); }
-
-.today-day-mark {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  margin-top: 2px;
-  background: var(--label-4);
-}
-.today-day[data-state='due'] .today-day-mark,
-.today-day[data-state='today'] .today-day-mark { background: var(--accent); }
-/* Hollow, because nothing was ever owed on that day. */
-.today-day[data-state='before'] .today-day-mark {
+   says what it is with the mark, rather than being dimmed out of readability.
+   A day that fell before the client's first one reads the same way — the
+   session is still there, it simply makes no claim on them. */
+.today-day[data-state='rest'] .today-day-num,
+.today-day[data-state='before'] .today-day-num {
   background: none;
-  box-shadow: inset 0 0 0 1.5px var(--label-4);
+  color: var(--label-2);
 }
-.today-day[data-state='missed'] .today-day-mark { background: var(--orange); }
-.today-day[data-state='done'] .today-day-mark {
-  background: var(--green);
-  width: 9px;
-  height: 9px;
-  margin-top: 1px;
+.today-day[data-state='missed'] .today-day-num {
+  background: color-mix(in srgb, var(--orange) 18%, transparent);
+  color: var(--orange-text);
+}
+.today-day[data-state='done'] .today-day-num {
+  background: color-mix(in srgb, var(--green) 20%, transparent);
+  color: var(--green-text);
+}
+/* Today is ringed rather than filled: at full strength the domain hues that
+   own this card are too light to set white type on, and a ring is the louder
+   mark anyway. */
+.today-day[data-state='today'] .today-day-num {
+  background: color-mix(in srgb, var(--tint) 18%, transparent);
+  color: var(--tint-ink);
+  box-shadow: inset 0 0 0 2px var(--tint);
+  font-weight: 800;
+}
+
+/* The second channel, so done and missed are not told apart by hue alone:
+   filled, hollow, or absent. */
+.today-day-mark {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: none;
+}
+.today-day[data-state='due'] .today-day-mark { background: var(--label-4); }
+.today-day[data-state='today'] .today-day-mark { background: var(--tint); }
+.today-day[data-state='done'] .today-day-mark { background: var(--green); }
+/* Hollow, because the day came and the work did not. */
+.today-day[data-state='missed'] .today-day-mark {
+  box-shadow: inset 0 0 0 2px var(--orange);
 }
 
 /* Three counts on one hairline under the strip, rather than three cards of
-   their own saying what the strip already showed. */
+   their own saying what the strip already showed.
+
+   In week zero all three are honestly zero, and three full-weight zeros read as
+   an emphatic nothing. They keep their place and step back a tone until there
+   is something to report. */
 .today-week-stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
-  margin-top: 9px;
-  padding-top: 9px;
+  margin-top: 13px;
+  padding-top: 12px;
   box-shadow: inset 0 var(--hairline) 0 var(--sep);
 }
 .today-stat { min-width: 0; }
 .today-stat-value {
   display: block;
-  font-size: calc(18 * var(--pt));
-  line-height: 1.222222;
-  font-weight: 700;
+  font-size: calc(20 * var(--pt));
+  line-height: 1.15;
+  font-weight: 800;
 }
-.today-stat-label { display: block; margin-top: 1px; }
-/* Nothing to report yet. The count is still the count — it steps back a tone
-   rather than turning into a dash, so week one's zeros do not read as three
-   emphatic noughts and the row comes alive the moment anything lands in it. */
+.today-stat-label { display: block; margin-top: 4px; }
 .today-stat[data-zero='true'] .today-stat-value { color: var(--label-2); }
 
-/* ============================== the block ================================ */
+/* ============================== the block ================================
 
-/* Eight weeks of a block have a shape — three building, a deload, four
+   Eight weeks of a block have a shape — three building, a deload, four
    sharpening — and a row of identical boxes hides it. Each week is a bar as
    tall as its heaviest prescribed set and coloured by the effort that set asks
    for, filled from the bottom by the share of it already done. A longer block
-   than fits keeps its 44pt cells and scrolls. */
+   than fits keeps its 44pt cells and scrolls.
+
+   It sits in the same card as the week it selects, because the two are one
+   object: the chart is how you choose, the panel under it is what you chose.
+   ========================================================================= */
+
+.train-block { padding: 15px 16px 16px; }
+
+/* Bled out to the card's own edges: eight weeks at the 44pt minimum need more
+   width than a padded card has, and a block that scrolled by half a week on a
+   393pt phone was hiding the end of its own shape. */
 .block-strip {
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: minmax(44px, 1fr);
+  margin: 0 -16px;
+  padding: 0 2px;
   overflow-x: auto;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
-  margin: 0 var(--gutter);
 }
 .block-strip::-webkit-scrollbar { width: 0; height: 0; }
 
@@ -278,14 +526,17 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 4px;
-  /* No side padding: the cells butt up, so the baseline under the bars runs the
-     whole width of the strip instead of breaking into eight dashes. */
-  padding: 4px 0 6px;
+  gap: 5px;
+  padding: 5px 0 6px;
   border-radius: var(--r-inset);
   color: var(--label);
+  transition: transform var(--dur-state) var(--ease-spring),
+    background var(--dur-state) var(--ease-ios);
 }
-.block-week[aria-pressed='true'] { background: var(--fill-4); }
+.block-week[data-pressed] { transform: scale(0.93); opacity: 1; }
+.block-week[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--tint) 13%, transparent);
+}
 
 /* The cells butt up against each other, so the baseline they sit on runs the
    whole width of the strip and the bars read as one chart. */
@@ -294,13 +545,13 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  height: 54px;
+  height: 58px;
   box-shadow: inset 0 calc(var(--hairline) * -1) 0 var(--sep);
 }
 
 /* A bar is a fill, so it takes the ramp's fill values rather than the deeper
-   twins tokens.css keeps for type: #8a6100 is the colour of the *words* "RPE 8",
-   not of an amber bar. A week that claims no RPE — a deload sits below the
+   twins tokens.css keeps for type: the amber of the *words* "RPE 8" is not the
+   amber of an amber bar. A week that claims no RPE — a deload sits below the
    chart's floor — stays grey rather than borrowing a temperature. */
 .block-bar { --bar: var(--gray); }
 .block-bar[data-rpe='6'],  .block-bar[data-rpe='6.5'] { --bar: var(--rpe-6); }
@@ -317,16 +568,16 @@
   align-items: flex-end;
   width: 100%;
   max-width: 26px;
-  min-height: 3px;
+  min-height: 4px;
   overflow: hidden;
   border-radius: var(--r-chip) var(--r-chip) 0 0;
-  background: color-mix(in srgb, var(--bar) 30%, transparent);
+  background: color-mix(in srgb, var(--bar) 32%, transparent);
 }
 /* Square across the top and clipped by the bar above it, so a part-finished
    week reads as a level rather than as a second bar inside the first. */
 .block-bar-done {
   width: 100%;
-  min-height: 3px;
+  min-height: 4px;
   background: var(--bar);
 }
 
@@ -336,16 +587,106 @@
   line-height: 1.307692;
   color: var(--label-2);
 }
-.block-week[aria-pressed='true'] .block-num { color: var(--label); }
-.block-week[data-live='true'] .block-num { color: var(--accent); }
+.block-week[data-live='true'] .block-num { color: var(--tint-ink); }
+.block-week[aria-pressed='true'] .block-num { color: var(--label); font-weight: 800; }
 
-/* =============================== the plan ================================ */
+/* The week the chart above is pointing at. */
+.train-week {
+  margin-top: 12px;
+  padding-top: 13px;
+  box-shadow: inset 0 var(--hairline) 0 var(--sep);
+}
+.train-week-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.train-week-meter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 11px;
+}
+.train-week-meter .track { flex: 1; }
 
-/* A prescription is a table, because that is what a lifter reads down: which
+/* --------------------------- the session rows ---------------------------
+   A date is a small object holding one thing, so it gets a chip — and the chip
+   is where the row says how that day went. Warm for the day in front of you,
+   green for a day already banked.
+   --------------------------------------------------------------------- */
+.train-daybadge {
+  flex: none;
+  width: 42px;
+  padding: 4px 0 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  border-radius: var(--r-chip);
+  background: var(--fill-4);
+  color: var(--label-2);
+}
+.train-daybadge .eyebrow {
+  color: inherit;
+  font-size: calc(9 * var(--pt));
+  line-height: calc(11 * var(--pt));
+}
+.train-daybadge .data {
+  color: inherit;
+  font-size: calc(17 * var(--pt));
+  line-height: calc(19 * var(--pt));
+  font-weight: 800;
+}
+.train-daybadge[data-state='done'] {
+  background: color-mix(in srgb, var(--green) 18%, transparent);
+  color: var(--green-text);
+}
+.train-daybadge[data-state='missed'] {
+  background: color-mix(in srgb, var(--orange) 16%, transparent);
+  color: var(--orange-text);
+}
+.train-daybadge[data-state='today'] {
+  background: color-mix(in srgb, var(--tint) 18%, transparent);
+  color: var(--tint-ink);
+  box-shadow: inset 0 0 0 2px var(--tint);
+}
+
+/* ---------------------------- the goal card ----------------------------- */
+
+.train-goal {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.train-goal-badge {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: var(--r-chip);
+  background: color-mix(in srgb, var(--tint) 16%, transparent);
+  color: var(--tint-ink);
+}
+
+/* =============================== the plan ================================
+
+   A prescription is a table, because that is what a lifter reads down: which
    set, how many reps, how much, how hard. Set as a stack of sentences it took
-   four lines and two pills to say what one row says here. */
+   four lines and two pills to say what one row says here.
+
+   It is ruled by nothing, though: the rows sit in one soft rounded well and are
+   held apart by air, which is what DESIGN.md §7 means by no hairline-ruled
+   table where a card would do.
+   ========================================================================= */
+
 .plan-wrap {
-  margin-top: 10px;
+  margin-top: 12px;
+  padding: 10px 13px 12px;
+  border-radius: var(--r-inset);
+  background: var(--fill-4);
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -357,20 +698,19 @@
   white-space: nowrap;
 }
 .plan th {
-  padding: 0 0 5px;
+  padding: 0 0 7px;
   text-align: right;
-  box-shadow: inset 0 calc(var(--hairline) * -1) 0 var(--sep);
 }
 .plan th:first-child,
 .plan th.plan-load { text-align: left; }
 .plan td {
-  padding: 5px 0 0;
+  padding: 6px 0 0;
   text-align: right;
-  vertical-align: baseline;
-  font-size: calc(15 * var(--pt));
-  line-height: 1.333333;
+  vertical-align: middle;
+  font-size: calc(16 * var(--pt));
+  line-height: 1.3125;
 }
-.plan tbody tr:first-child td { padding-top: 7px; }
+.plan tbody tr:first-child td { padding-top: 2px; }
 .plan td:first-child,
 .plan td.plan-load { text-align: left; }
 
@@ -385,7 +725,22 @@
 .plan-reps { width: 1%; padding-right: 12px !important; }
 .plan-load { width: auto; }
 .plan-pct { width: 1%; padding-left: 9px !important; color: var(--label-2); }
-.plan .plan-effort { width: 1%; padding-left: 9px !important; }
+.plan .plan-effort { width: 1%; padding-left: 10px !important; }
+
+/* The effort as the ramp's own chip, the way a logged set carries it — so the
+   shape of a session is readable straight down the column. */
+.plan-rpe {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  background: var(--rpe-fill);
+  color: var(--rpe);
+  font-size: calc(14 * var(--pt));
+  line-height: calc(18 * var(--pt));
+  font-weight: 700;
+}
 
 /* A load's unit belongs to the load: same face, quieter, never SF. */
 .plan-unit { color: var(--label-2); font-weight: 500; }
@@ -399,7 +754,7 @@
 }
 
 .plan-note {
-  padding: 3px 0 1px;
+  padding: 4px 0 1px;
   white-space: normal;
   font-family: var(--font);
   font-size: calc(12 * var(--pt));
@@ -419,9 +774,33 @@
 /* The line under a block that applies to all of it — a tempo, the coach's own
    note on the movement. */
 .plan-foot {
-  margin-top: 9px;
+  margin-top: 11px;
   display: flex;
   align-items: baseline;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+/* ---------------------------- the exercise ------------------------------ */
+
+.plan-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+/* The movement's place in the session, in the screen's own hue. A grey pip in
+   front of every exercise was the last thing on these screens with no reason
+   to be grey. */
+.plan-index {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: var(--r-chip);
+  background: color-mix(in srgb, var(--tint) 16%, transparent);
+  color: var(--tint-ink);
+  font-size: calc(13 * var(--pt));
+  line-height: 1;
+  font-weight: 800;
 }

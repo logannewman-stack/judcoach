@@ -45,17 +45,18 @@ export function SearchField({
         <span
           style={{
             position: 'absolute',
-            left: 10,
+            left: 12,
             top: '50%',
             transform: 'translateY(-50%)',
             pointerEvents: 'none',
           }}
           aria-hidden="true"
         >
-          <Icon name="search" size={17} weight={2.2} color="var(--label-3)" />
+          <Icon name="search" size={17} weight={2.4} color="var(--label-3)" />
         </span>
         <input
           ref={inputRef}
+          className="search-input"
           type="search"
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -67,15 +68,6 @@ export function SearchField({
           autoComplete="off"
           spellCheck={false}
           enterKeyHint="search"
-          style={{
-            width: '100%',
-            padding: '11px 34px 12px 34px',
-            borderRadius: 'var(--r-field)',
-            border: 'none',
-            background: 'var(--fill-3)',
-            appearance: 'none',
-            WebkitAppearance: 'none',
-          }}
         />
         {value.length > 0 && (
           /* A 44pt target on an 18pt glyph, drawn inside the field so it cannot

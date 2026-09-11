@@ -3,7 +3,7 @@ import { Screen } from '../../components/ios/Screen'
 import { Card, CoachNote, SectionHeader } from '../../components/Bits'
 import { Icon } from '../../components/Icon'
 import { Button, Pill } from '../../components/ios/Controls'
-import { BlockHeading, LastTimeLine, LoggedSetChip, WarmupList } from './parts'
+import { LastTimeLine, LoggedSetChip, SupersetTag, WarmupList } from './parts'
 import { resolvePrescription, topPrescribedSet } from './prescription'
 import { Barbell } from '../../components/Barbell'
 import { useStore } from '../../store/useStore'
@@ -15,6 +15,7 @@ import { buildWarmup, formatRpe, rpeToRir, topSet } from '../../domain/strength'
 import { formatMediumDate, formatMinutes, todayISO } from '../../lib/date'
 import { fixed, num } from '../../lib/format'
 import { navPresent, useNav } from '../../nav/nav'
+import '../../styles/today.css'
 
 export function SessionDetail({ weekIndex, sessionId }: { weekIndex: number; sessionId: string }) {
   const program = useProgram()
@@ -44,13 +45,18 @@ export function SessionDetail({ weekIndex, sessionId }: { weekIndex: number; ses
 
   const { week, session } = found
   const top = topPrescribedSet(session.blocks[0], profile)
+  // Same rule as Today's hero: with no working max on file the load is a
+  // percentage of nothing, and dropping it leaves "5 reps" reading as the whole
+  // prescription. The share is the half that is true either way, so it takes
+  // the figure's place and the line under it names what it is a share of.
+  const topPending = top != null && top.targetWeight == null && top.percent != null
 
   return (
     <Screen
       title={session.name}
       back={{ onPress: pop }}
       titleAccessory={
-        <div className="gutter" style={{ marginTop: -6, marginBottom: 18 }}>
+        <div className="gutter session-screen" style={{ marginTop: -6, marginBottom: 18 }}>
           <div className="t-subhead dim">{session.focus}</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginTop: 10 }}>
             <Pill tone="tinted">{week.label.split(' — ')[0]}</Pill>
@@ -58,15 +64,31 @@ export function SessionDetail({ weekIndex, sessionId }: { weekIndex: number; ses
             {log && <Pill tone="good" icon="check">Completed</Pill>}
           </div>
           {/* The heaviest set the session asks for, which is the one thing a
-              lifter wants off this screen before anything else on it. */}
+              lifter wants off this screen before anything else on it — so it
+              gets the ramp's own wash and the biggest figure on the page. */}
           {top && (
-            <div className="today-top" data-size="sm" data-rpe={top.rpe ?? ''} style={{ marginTop: 12 }}>
+            <div className="today-top" data-size="sm" data-rpe={top.rpe ?? ''} style={{ marginTop: 13 }}>
               <span className="eyebrow today-top-label">Top set</span>
+              {top.rpe != null ? (
+                <span className="rpe-ink today-top-rpe">
+                  <span className="today-top-pip" aria-hidden="true" />
+                  {formatRpe(top.rpe)}
+                </span>
+              ) : (
+                <span className="today-top-rpe t-footnote dim">{top.loadLabel}</span>
+              )}
               <span className="today-top-figure figure">
                 {top.targetWeight != null ? (
                   <>
                     {num(top.targetWeight, 1)}
                     <span className="figure-unit"> {profile.units}</span>
+                    <span className="today-top-x">×</span>
+                    {top.repsLabel}
+                  </>
+                ) : topPending ? (
+                  <>
+                    {num(top.percent!, 1)}
+                    <span className="figure-unit">%</span>
                     <span className="today-top-x">×</span>
                     {top.repsLabel}
                   </>
@@ -77,22 +99,24 @@ export function SessionDetail({ weekIndex, sessionId }: { weekIndex: number; ses
                   </>
                 )}
               </span>
-              {top.rpe != null ? (
-                <span className="rpe-ink today-top-rpe">{formatRpe(top.rpe)}</span>
-              ) : (
-                <span className="today-top-rpe t-footnote dim">{top.loadLabel}</span>
+              {topPending && (
+                <span className="today-top-pending t-caption1">
+                  of your working max, which has no number on it yet
+                </span>
               )}
             </div>
           )}
-          <div className="data dim" style={{ fontSize: 13, marginTop: 10 }}>
-            {formatMediumDate(date)} · {formatMinutes(session.estMinutes * 60)} ·{' '}
-            {session.blocks.length} exercises · {totalSets} sets
+          <div className="t-footnote dim" style={{ marginTop: 12 }}>
+            <span className="data">{formatMediumDate(date)}</span> ·{' '}
+            <span className="data">{formatMinutes(session.estMinutes * 60)}</span> ·{' '}
+            <span className="data">{session.blocks.length}</span> exercises ·{' '}
+            <span className="data">{totalSets}</span> sets
           </div>
         </div>
       }
       right={log ? { label: 'Log', onPress: () => push('logDetail', { logId: log.id }) } : undefined}
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+      <div className="session-screen" style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
         {/* The action comes before the reading: this screen exists to be walked
             into a gym, and Jud's note is the thing you read on the way. */}
         {!log && (
@@ -112,7 +136,7 @@ export function SessionDetail({ weekIndex, sessionId }: { weekIndex: number; ses
         {/* ------------------------------- blocks ------------------------------ */}
         <div>
           <SectionHeader title="The work" />
-          <div className="gutter" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {session.blocks.map((block, blockIndex) => {
               const exercise = getExercise(block.exerciseId)
               const last = lastPerformance(logs, block.exerciseId, date)
@@ -130,39 +154,38 @@ export function SessionDetail({ weekIndex, sessionId }: { weekIndex: number; ses
               const sharedTempo = tempo && resolved.every((r) => r.prescription.tempo === tempo)
 
               return (
-                <div key={block.id} className="card" style={{ margin: 0, padding: 14 }}>
-                  <BlockHeading
-                    index={blockIndex + 1}
-                    name={
-                      <button
-                        type="button"
-                        className="hit-expand"
-                        onClick={() => push('exerciseDetail', { exerciseId: block.exerciseId })}
-                        style={{ textAlign: 'left', color: 'inherit', font: 'inherit' }}
-                      >
-                        {exercise?.name ?? block.exerciseId}
-                      </button>
-                    }
-                    supersetGroup={block.supersetGroup}
-                    right={
-                      <button
-                        type="button"
-                        aria-label="Exercise details"
-                        className="hit-expand"
-                        onClick={() => push('exerciseDetail', { exerciseId: block.exerciseId })}
-                      >
-                        <Icon name="info" size={17} color="var(--label-3)" weight={2} />
-                      </button>
-                    }
-                  />
+                <Card key={block.id}>
+                  {/* The movement's place in the session, in the screen's own
+                      hue — a grey pip in front of every exercise was the last
+                      thing on this page with no reason to be grey. */}
+                  <div className="plan-head">
+                    <span className="plan-index" aria-hidden="true">{blockIndex + 1}</span>
+                    <button
+                      type="button"
+                      className="t-headline truncate hit-expand"
+                      onClick={() => push('exerciseDetail', { exerciseId: block.exerciseId })}
+                      style={{ flex: 1, minWidth: 0, textAlign: 'left', color: 'inherit', font: 'inherit' }}
+                    >
+                      {exercise?.name ?? block.exerciseId}
+                    </button>
+                    {block.supersetGroup && <SupersetTag group={block.supersetGroup} />}
+                    <button
+                      type="button"
+                      aria-label={`About ${exercise?.name ?? block.exerciseId}`}
+                      className="hit-expand"
+                      onClick={() => push('exerciseDetail', { exerciseId: block.exerciseId })}
+                    >
+                      <Icon name="info" size={18} color="var(--label-3)" weight={2} />
+                    </button>
+                  </div>
 
-                  <div style={{ marginTop: 8 }}>
+                  <div style={{ marginTop: 9 }}>
                     <LastTimeLine performance={last} units={profile.units} />
                   </div>
 
                   {blockIndex === 0 && warmup.length > 0 && (
-                    <div style={{ marginTop: 11 }}>
-                      <div className="eyebrow" style={{ marginBottom: 5 }}>Warm-up</div>
+                    <div style={{ marginTop: 12 }}>
+                      <div className="eyebrow" style={{ marginBottom: 6 }}>Warm-up</div>
                       <WarmupList sets={warmup} units={profile.units} />
                     </div>
                   )}
@@ -186,14 +209,14 @@ export function SessionDetail({ weekIndex, sessionId }: { weekIndex: number; ses
                   )}
 
                   {showPlates && exercise?.barLoaded && heaviest.targetWeight && (
-                    <div style={{ marginTop: 13 }}>
+                    <div style={{ marginTop: 14 }}>
                       <Barbell target={heaviest.targetWeight} profile={profile} height={52} />
                     </div>
                   )}
 
                   {logged && logged.sets.length > 0 && (
-                    <div style={{ marginTop: 13 }}>
-                      <div className="eyebrow" style={{ marginBottom: 6 }}>What you did</div>
+                    <div style={{ marginTop: 14 }}>
+                      <div className="eyebrow" style={{ marginBottom: 7 }}>What you did</div>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         {logged.sets.map((s) => (
                           <LoggedSetChip key={s.id} set={s} units={profile.units} />
@@ -201,7 +224,7 @@ export function SessionDetail({ weekIndex, sessionId }: { weekIndex: number; ses
                       </div>
                     </div>
                   )}
-                </div>
+                </Card>
               )
             })}
           </div>
@@ -317,12 +340,15 @@ function PlanTable({
                   {hasPercent && (
                     <td className="data plan-pct">{set.percent != null ? `${fixed(set.percent, 1)}%` : '—'}</td>
                   )}
-                  <td className="rpe-ink plan-effort">
+                  {/* The effort as the ramp's own chip, the way a logged set
+                      carries it, so the shape of a session is readable straight
+                      down the column rather than word by word. */}
+                  <td className="plan-effort">
                     {set.rpe != null ? (
-                      <>
+                      <span className="plan-rpe data">
                         {num(set.rpe, 1)}
                         {showRir && <span className="plan-unit"> · {num(rpeToRir(set.rpe), 1)}</span>}
-                      </>
+                      </span>
                     ) : (
                       <span className="plan-unit">—</span>
                     )}

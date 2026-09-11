@@ -15,6 +15,12 @@ const SHEET_TRANSITION = IOS_PUSH
    whatever speed the finger had. Damped hard: iOS does not bounce a sheet. */
 const SHEET_SETTLE = { bounceStiffness: 500, bounceDamping: 46 }
 
+/* An alert does bounce, a little. It does not slide in from anywhere — it
+   appears in the middle of the screen — so the only thing that can say "this
+   just arrived" is the way it settles into its own size (DESIGN.md §5). The
+   dismissal stays on the push curve: leaving is not an event. */
+const ALERT_ARRIVE = { type: 'spring', stiffness: 560, damping: 30, mass: 0.8 } as const
+
 /** Distance, in points, the drag has to be heading past to dismiss. */
 const DISMISS_AT = 120
 
@@ -374,7 +380,7 @@ export function Alert({
               initial={{ opacity: 0, scale: 1.14 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1 }}
-              transition={SHEET_TRANSITION}
+              transition={{ ...ALERT_ARRIVE, opacity: SHEET_TRANSITION }}
               role="alertdialog"
               aria-modal="true"
               aria-labelledby={titleId}

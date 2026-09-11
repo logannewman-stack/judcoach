@@ -217,55 +217,40 @@ export function Stepper({
           {format(value)}
         </span>
       )}
-      {/* No `overflow: hidden` here: it would clip the pseudo-element that
-          grows each half to a 44pt target, so the halves round their own outer
-          corners instead. */}
-      <div
-        style={{
-          display: 'grid',
-          gridAutoFlow: 'column',
-          background: 'var(--fill-3)',
-          borderRadius: 'var(--r-chip)',
-        }}
-      >
+      {/* No `overflow: hidden` on the capsule: it would clip the pseudo-element
+          that grows each half to a 44pt target, so each half rounds its own
+          outer corners instead and the two meet flush in the middle. */}
+      <div className="stepper">
         <button
           type="button"
-          className="hit-expand"
+          className="stepper-btn hit-expand"
           aria-label={label ? `Decrease ${label}` : 'Decrease'}
           disabled={value <= min}
           onClick={() => bump(-step)}
           onPointerDown={() => startRepeat(-step)}
           onPointerUp={stopRepeat}
           onPointerLeave={stopRepeat}
-          style={{ ...stepperBtn, borderRadius: 'var(--r-chip) 0 0 var(--r-chip)' }}
+          style={{ borderRadius: 'var(--r-pill) 0 0 var(--r-pill)' }}
         >
-          <Icon name="minus" size={17} weight={2.4} />
+          <Icon name="minus" size={17} weight={2.6} />
         </button>
-        <span style={{ width: 'var(--hairline)', background: 'var(--sep)' }} />
+        <span className="stepper-sep" />
         <button
           type="button"
-          className="hit-expand"
+          className="stepper-btn hit-expand"
           aria-label={label ? `Increase ${label}` : 'Increase'}
           disabled={value >= max}
           onClick={() => bump(step)}
           onPointerDown={() => startRepeat(step)}
           onPointerUp={stopRepeat}
           onPointerLeave={stopRepeat}
-          style={{ ...stepperBtn, borderRadius: '0 var(--r-chip) var(--r-chip) 0' }}
+          style={{ borderRadius: '0 var(--r-pill) var(--r-pill) 0' }}
         >
-          <Icon name="plus" size={17} weight={2.4} />
+          <Icon name="plus" size={17} weight={2.6} />
         </button>
       </div>
     </div>
   )
-}
-
-const stepperBtn: CSSProperties = {
-  width: 46,
-  height: 32,
-  display: 'grid',
-  placeItems: 'center',
-  color: 'var(--label)',
 }
 
 const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v)
