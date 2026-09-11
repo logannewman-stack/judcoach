@@ -62,16 +62,73 @@ export function formatMediumDate(iso: string): string {
   return `${WEEKDAYS_SHORT[d.getDay()]}, ${MONTHS_SHORT[d.getMonth()]} ${d.getDate()}`
 }
 
-/** Today / Yesterday / Tomorrow, falling back to a short date. */
-export function relativeDay(iso: string, today = todayISO()): string {
-  const diff = daysBetween(today, iso)
-  if (diff === 0) return 'Today'
-  if (diff === -1) return 'Yesterday'
-  if (diff === 1) return 'Tomorrow'
-  if (diff > 1 && diff < 7) return weekdayName(iso)
-  if (diff < -1 && diff > -7) return `${Math.abs(diff)} days ago`
-  return formatShortDate(iso)
+/** What a relative phrase is made of, which is what a caller has to know. */
+export type WhenKind = 'adverb' | 'weekday' | 'date'
+
+export interface RelativeWhen {
+  /** Ready for a headline: "Today", "3 days ago", "Monday", "Aug 20". */
+  label: string
+  /** The same thing mid-sentence: "today", but still "Monday" and "Aug 20". */
+  lower: string
+  /**
+   * What `label` is made of. `'adverb'` is the app's own wording and the only
+   * kind whose case changes; `'date'` tells a caller that is already showing the
+   * date not to show it twice.
+   */
+  kind: WhenKind
 }
+
+/**
+ * When something was, in the one wording the whole app uses.
+ *
+ * There were three of these and they disagreed. A Check-ins card printed one
+ * date as both "6 days ago" and "Sep 4", because the only way it could tell
+ * whether the phrase was already a date was to ask whether the date ended with
+ * it — so `kind` answers that outright. Callers needing the words mid-sentence
+ * lower-cased the whole return value, which turned a weekday into "monday" and a
+ * date into "aug 20", so the casing is settled here too: only the app's own
+ * words change.
+ *
+ * Minutes and hours only where the value carries a clock and the instant is
+ * still today. "23h ago" about yesterday reads like a riddle, and counting in
+ * 24-hour blocks called something sent thirty hours ago "yesterday" when it was
+ * two mornings back.
+ */
+export function relativeTime(iso: string, now: Date | string = new Date()): RelativeWhen {
+  const name = (label: string, kind: WhenKind): RelativeWhen => ({ label, lower: label, kind })
+  const adverb = (label: string): RelativeWhen =>
+    ({ label, lower: label.toLowerCase(), kind: 'adverb' })
+
+  // A caller that passed a day rather than an instant has no clock to measure
+  // against, so the answer stays at day granularity.
+  const instant = typeof now === 'string' || iso.length <= 10 ? null : new Date(iso)
+  const at = instant && Number.isFinite(instant.getTime()) ? instant : null
+  // Local, not the UTC slice of the string: a timestamp just after midnight in
+  // one zone belongs to the other day in the other.
+  const date = at ? toISODate(at) : iso.slice(0, 10)
+  const today = typeof now === 'string' ? now : toISODate(now)
+  const diff = daysBetween(today, date)
+
+  if (diff === 0 && at) {
+    const minutes = Math.floor(((now as Date).getTime() - at.getTime()) / 60_000)
+    if (minutes < 1) return adverb('Just now')
+    if (minutes < 60) return adverb(`${minutes}m ago`)
+    return adverb(`${Math.floor(minutes / 60)}h ago`)
+  }
+  if (diff === 0) return adverb('Today')
+  if (diff === -1) return adverb('Yesterday')
+  if (diff === 1) return adverb('Tomorrow')
+  if (diff > 1 && diff < 7) return name(weekdayName(date), 'weekday')
+  if (diff < -1 && diff > -7) return adverb(`${Math.abs(diff)} days ago`)
+  return name(formatShortDate(date), 'date')
+}
+
+/**
+ * The headline wording on its own, for the callers that want nothing else.
+ * `relativeTime` is the rule; this is the one field of it they read.
+ */
+export const relativeDay = (iso: string, today: string = todayISO()): string =>
+  relativeTime(iso, today).label
 
 /** "2:30" / "1:04:09" */
 export function formatDuration(totalSeconds: number): string {

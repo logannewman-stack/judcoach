@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef } from 'react'
 import type { ReactNode, RefObject } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, animate, motion, useMotionValue } from 'framer-motion'
 import { SheetPortal } from './SheetLayer'
 import { cancelPress } from '../../lib/press'
 import { useKeyboardInset } from '../../lib/useKeyboardInset'
@@ -13,7 +13,7 @@ const SHEET_TRANSITION = IOS_PUSH
 
 /* Released mid-drag the sheet settles rather than eases, so the return carries
    whatever speed the finger had. Damped hard: iOS does not bounce a sheet. */
-const SHEET_SETTLE = { bounceStiffness: 500, bounceDamping: 46 }
+const SHEET_SETTLE = { type: 'spring', stiffness: 500, damping: 46 } as const
 
 /* An alert does bounce, a little. It does not slide in from anywhere — it
    appears in the middle of the screen — so the only thing that can say "this
@@ -23,6 +23,14 @@ const ALERT_ARRIVE = { type: 'spring', stiffness: 560, damping: 30, mass: 0.8 } 
 
 /** Distance, in points, the drag has to be heading past to dismiss. */
 const DISMISS_AT = 120
+/* Downward travel before the sheet starts following the finger — UIKit's own
+   pan threshold. Under it, and in every other direction, the sheet claims
+   nothing: it is already at its detent, so there is nothing an upward or
+   sideways drag could be asking it for, and claiming those is what turned a
+   thumb sliding 16px on a number-pad key into a press that did nothing at all. */
+const DRAG_AT = 10
+/** Once it is following the finger, pushing back up past the detent barely gives. */
+const UP_GIVE = 0.06
 
 /* ============================================================================
    Presentation plumbing.
@@ -129,6 +137,147 @@ function useEscape(open: boolean, onDismiss: () => void) {
   }, [open, onDismiss])
 }
 
+/* ============================================================================
+   Pull-to-dismiss.
+
+   The sheet follows the finger from anywhere on it, and framer's own `drag`
+   could not do that. It sits on the sheet, and the browser hands any vertical
+   touch that starts inside the scrolling body to the scroll container — and
+   cancels the pointer — long before the drag sees it, so the only way to put a
+   sheet away with a finger was its 73px header. It
+   also stamped `touch-action: pan-x` across the whole sheet, and the browser
+   cancels a pointer the moment it decides a touch is a pan: a key pressed with
+   a thumb's worth of travel lit up and then did nothing at all.
+
+   So the sheet recognises its own pull. It watches the pointer and takes it
+   over only once the finger has committed to a drag the content under it cannot
+   answer — a scroll view already at its top, or one with nothing to scroll,
+   which is what iOS does. Under that threshold it claims nothing, which is what
+   leaves a press a press.
+   ========================================================================== */
+
+/** The scroll view the finger landed in, if any, looking no further than the sheet. */
+function scrollerUnder(from: Element | null, within: Element): HTMLElement | null {
+  let el = from
+  while (el && el !== within) {
+    if (el instanceof HTMLElement) {
+      const overflow = getComputedStyle(el).overflowY
+      if ((overflow === 'auto' || overflow === 'scroll') && el.scrollHeight > el.clientHeight + 1) {
+        return el
+      }
+    }
+    el = el.parentElement
+  }
+  return null
+}
+
+function useSheetDrag(onDismiss: () => void, ref: RefObject<HTMLElement>) {
+  const y = useMotionValue<number | string>(0)
+  const pointer = useRef<number | null>(null)
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    const sheet = ref.current
+    if (!sheet || !e.isPrimary || pointer.current !== null) return
+    const id = e.pointerId
+    const startX = e.clientX
+    const startY = e.clientY
+    const scroller = scrollerUnder(e.target as Element, sheet)
+    let decided = false
+    let owned = false
+    let engaged = false
+    pointer.current = id
+    // Enough of a trail to read the speed of the release: a sheet flicked down
+    // an inch goes away, the way one flicked an inch does on iOS.
+    const trail: { y: number; t: number }[] = [{ y: startY, t: performance.now() }]
+
+    const speed = () => {
+      const last = trail.at(-1)!
+      const from = trail.find((s) => last.t - s.t < 90) ?? trail[0]!
+      const dt = last.t - from.t
+      if (dt < 1) return 0
+      return ((last.y - from.y) / dt) * 1000
+    }
+
+    const cleanup = () => {
+      pointer.current = null
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', cancel)
+      window.removeEventListener('touchmove', block)
+    }
+
+    /* Said on the first move of the sequence, which is the last one the browser
+       is still willing to have cancelled. */
+    function block(ev: TouchEvent) {
+      if (owned && ev.cancelable) ev.preventDefault()
+    }
+
+    /** Whether this gesture belongs to the sheet or to the content under it. */
+    function decide(dy: number) {
+      decided = true
+      // Nothing under the finger scrolls, so no touch here is a scroll.
+      if (!scroller) return (owned = true)
+      // A scroll view already at its top hands a downward pull to the sheet.
+      if (dy > 0 && scroller.scrollTop <= 0) return (owned = true)
+      cleanup()
+      return false
+    }
+
+    function move(ev: PointerEvent) {
+      if (ev.pointerId !== id) return
+      const dy = ev.clientY - startY
+      if (!decided) {
+        if (Math.abs(dy) < 2 && Math.abs(ev.clientX - startX) < 2) return
+        if (!decide(dy)) return
+      }
+      trail.push({ y: ev.clientY, t: performance.now() })
+      if (trail.length > 8) trail.shift()
+      if (!engaged) {
+        if (dy < DRAG_AT) return
+        const el = ref.current
+        if (!el) return cleanup()
+        engaged = true
+        // The finger is moving the sheet now, so it is no longer pressing
+        // whatever it landed on, and the release must not fire it either.
+        cancelPress()
+        el.setPointerCapture(id)
+        const swallow = (click: Event) => {
+          click.preventDefault()
+          click.stopPropagation()
+        }
+        el.addEventListener('click', swallow, { capture: true, once: true })
+        // Nothing arrived to swallow, so the guard must not outlive the gesture.
+        setTimeout(() => el.removeEventListener('click', swallow, true), 0)
+      }
+      y.set(dy > 0 ? dy : dy * UP_GIVE)
+    }
+
+    function up(ev: PointerEvent) {
+      if (ev.pointerId !== id) return
+      cleanup()
+      if (!engaged) return
+      // Where the drag was heading, not only where it stopped — the same
+      // projection a scroll view decelerates with. Dismissing leaves the sheet
+      // exactly where the finger left it, so the exit carries on from there.
+      if (ev.clientY - startY + speed() * 0.2 > DISMISS_AT) onDismiss()
+      else animate(y, 0, SHEET_SETTLE)
+    }
+
+    function cancel(ev: PointerEvent) {
+      if (ev.pointerId !== id) return
+      cleanup()
+      if (engaged) animate(y, 0, SHEET_SETTLE)
+    }
+
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', cancel)
+    window.addEventListener('touchmove', block, { passive: false })
+  }
+
+  return { y, onPointerDown }
+}
+
 /** The whole presentation contract, keyed to the overlay's own element. */
 function usePresentation(open: boolean, onDismiss: () => void) {
   const ref = useRef<HTMLDivElement>(null)
@@ -167,6 +316,7 @@ export function Sheet({
 }) {
   const keyboard = useKeyboardInset()
   const ref = usePresentation(open, onClose)
+  const drag = useSheetDrag(onClose, ref)
   const titleId = useId()
 
   return (
@@ -189,24 +339,13 @@ export function Sheet({
               // Sit on top of the keyboard rather than behind it.
               maxHeight: keyboard > 0 ? `calc(${detent * 100}% - ${keyboard}px)` : `${detent * 100}%`,
               bottom: keyboard,
+              y: drag.y,
             }}
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={SHEET_TRANSITION}
-            drag="y"
-            // Down follows the finger exactly; up gives the little resistance
-            // iOS gives a sheet already at its detent. It used to track down at
-            // 0.6, which reads as the sheet lagging behind the thumb.
-            dragElastic={{ top: 0.06, bottom: 1 }}
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragTransition={SHEET_SETTLE}
-            onDragStart={cancelPress}
-            onDragEnd={(_, info) => {
-              // Where the drag was heading, not only where it stopped — the
-              // same projection a scroll view decelerates with.
-              if (info.offset.y + info.velocity.y * 0.2 > DISMISS_AT) onClose()
-            }}
+            onPointerDownCapture={drag.onPointerDown}
             role="dialog"
             aria-modal="true"
             aria-labelledby={title ? titleId : undefined}

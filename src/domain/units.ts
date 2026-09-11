@@ -10,9 +10,9 @@
    Two kinds of number, converted two different ways:
 
    · What was *recorded* — weigh-ins, check-ins, logged sets, the tape — already
-     happened, so it converts faithfully and is rounded only to the precision the
-     app writes it at. Snapping a 315 lb set onto a kilo plate grid would claim
-     the client lifted 142.5 kg, which they did not.
+     happened, so it converts faithfully and is rounded no more coarsely than it
+     can be rounded and still convert back. Snapping a 315 lb set onto a kilo
+     plate grid would claim the client lifted 142.5 kg, which they did not.
 
    · What will be *prescribed* — working maxes, the bar, the plate rack, the
      rounding step — is kit and forward-looking, so it becomes the equivalent kit
@@ -118,6 +118,38 @@ const places = (value: number, decimals: number): number => {
   return Math.round(value * factor) / factor
 }
 
+/** Decimals a stored figure actually carries, so a conversion knows what it has to bring home. */
+const carried = (value: number, max: number): number => {
+  for (let d = 0; d < max; d++) if (places(value, d) === value) return d
+  return max
+}
+
+/**
+ * A figure that already happened, converted into the new unit.
+ *
+ * Rounding straight to the decimal the app writes looks right and quietly
+ * rewrites the record. A kilo is worth 2.2 lb, so one decimal of kilos is a grid
+ * 2.2× coarser than the pounds the number came off: a 305 lb squat went out
+ * 138.3 kg and came home 304.9, and one switch and back left 207 of this
+ * client's logged sets carrying a fractional pound. These are loads on a barbell
+ * and the app prints them raw, so the coarse figure is taken only where
+ * converting it back lands on the number the client logged. Where it does not,
+ * one more decimal does — that is as fine as either unit's grid ever has to get,
+ * and every figure the app writes itself now survives the trip unchanged,
+ * however many times it is made.
+ */
+const faithful = (
+  forward: (v: number) => number,
+  inverse: (v: number) => number,
+  value: number,
+  decimals: number,
+): number => {
+  const exact = forward(value)
+  const home = Math.max(decimals, carried(value, decimals + 1))
+  const coarse = places(exact, decimals)
+  return places(inverse(coarse), home) === value ? coarse : places(exact, decimals + 1)
+}
+
 /**
  * The goal label carries its unit as prose — "Lean gain · 0.4 lb / week" — so a
  * converted rate under the old unit's name is the same lie in words. Only a
@@ -152,23 +184,26 @@ export function convertUnits(state: UnitScopedState, to: Units): UnitScopedState
   if (profile.units === to) return state
 
   const toWeight = to === 'kg' ? lbToKg : kgToLb
+  const fromWeight = to === 'kg' ? kgToLb : lbToKg
   const toLength = to === 'kg' ? inToCm : cmToIn
+  const fromLength = to === 'kg' ? cmToIn : inToCm
   const increment = convertIncrement(profile.roundingIncrement, to)
 
   let failed = false
   const convert = (
     transform: (v: number) => number,
+    inverse: (v: number) => number,
     value: number,
     decimals: number,
   ): number => {
-    const next = places(transform(value), decimals)
+    const next = faithful(transform, inverse, value, decimals)
     if (!Number.isFinite(next)) failed = true
     return next
   }
-  /** A weight as recorded or displayed: one decimal, the app's own precision. */
-  const recorded = (value: number) => convert(toWeight, value, 1)
+  /** A weight as recorded or displayed: the app writes these to one decimal. */
+  const recorded = (value: number) => convert(toWeight, fromWeight, value, 1)
   /** A tape reading: a length, so inches and centimetres — never pounds. */
-  const tape = (value: number) => convert(toLength, value, 1)
+  const tape = (value: number) => convert(toLength, fromLength, value, 1)
   /** Kit the programme loads a bar from, so it has to sit on the new gym's grid. */
   const snapped = (value: number, step: number) => {
     const next = roundToIncrement(toWeight(value), step)
@@ -176,7 +211,7 @@ export function convertUnits(state: UnitScopedState, to: Units): UnitScopedState
     return next
   }
 
-  const rate = convert(toWeight, profile.weeklyRateTarget, 2)
+  const rate = convert(toWeight, fromWeight, profile.weeklyRateTarget, 2)
   const nextProfile: Profile = {
     ...profile,
     units: to,

@@ -59,6 +59,10 @@ function write(name: string, value: string): boolean {
   }
 }
 
+/* Every writer registers here so a write arriving from another tab can cancel
+   whatever this one still has queued for the same key. */
+const droppers: Array<(name: string) => void> = []
+
 /**
  * One debounced writer: the newest value per key is held, coalesced inside a
  * short window, and turned into text only when it is actually written.
@@ -66,6 +70,7 @@ function write(name: string, value: string): boolean {
 function createWriter<V>(delay: number, serialise: (value: V) => string) {
   const pending = new Map<string, V>()
   let timer: number | undefined
+  droppers.push((name) => pending.delete(name))
 
   const flush = () => {
     if (timer != null) {
@@ -164,6 +169,34 @@ export function createResilientJSONStorage<S>(): PersistStorage<S> {
       }
     },
   }
+}
+
+/* ------------------------------ other tabs -------------------------------- */
+
+/**
+ * Adopt a snapshot another tab has just written.
+ *
+ * A tab persists its whole memory to one key and only ever read that key once,
+ * at hydration — so the second tab to touch anything wrote its own stale picture
+ * of the database over the first tab's, all of it, with no merge and no notice.
+ * Three sets logged in one tab died to a weigh-in saved in another, and reversing
+ * the order lost the weigh-in instead.
+ *
+ * `storage` fires only in the tabs that did not write, which makes it exactly the
+ * signal to re-read on: each tab follows the other, so the next thing either of
+ * them writes is composed on top of what the other did rather than instead of it.
+ */
+export function onForeignWrite(name: string, adopt: () => void) {
+  if (typeof window === 'undefined') return
+  window.addEventListener('storage', (event) => {
+    // A null key is `localStorage.clear()` and a null value is the key being
+    // removed; neither carries a snapshot worth adopting.
+    if (event.key !== name || event.newValue == null) return
+    // Anything still queued here was composed before the snapshot that just
+    // landed, so letting it flush would put the stale picture straight back.
+    for (const drop of droppers) drop(name)
+    adopt()
+  })
 }
 
 /* ------------------------------- photo store ----------------------------- */

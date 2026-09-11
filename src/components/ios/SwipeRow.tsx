@@ -56,6 +56,14 @@ export function SwipeRow({
   // The action tray only needs to paint while the row is actually moving.
   const trayOpacity = useTransform(x, [-8, -28], [0, 1])
   const from = useRef<{ x: number; y: number } | null>(null)
+  /* Whether the press now on the row is only here to put a tray away. Decided
+     on the way down, because by the time it is released the group has changed
+     under it — and acted on at the release, because framer's drag owns `x`
+     from the pointerdown onwards and simply ignores the `animate` below while
+     it does. Closing on the way down is what left the sled wedged at -82 with
+     the row believing it was shut: the tray still on screen, still deleting
+     things a finger landed on, and out of the tab order the whole time. */
+  const dismissing = useRef(false)
   const armed = useRef(false)
   const root = useRef<HTMLDivElement>(null)
   const tray = useRef<HTMLDivElement>(null)
@@ -127,6 +135,11 @@ export function SwipeRow({
         className="swipe-row-tray"
         style={{
           opacity: trayOpacity,
+          // A tray the reader is told is not there must not be reachable by a
+          // finger either. It sits behind the sled, so this only matters when
+          // something has gone wrong — and when something goes wrong, the thing
+          // left under the thumb here is Delete.
+          pointerEvents: open ? 'auto' : 'none',
           background: last ? (last.destructive ? 'var(--red)' : 'var(--gray)') : undefined,
         }}
         aria-hidden={!open}
@@ -181,21 +194,35 @@ export function SwipeRow({
         }}
         onPointerDownCapture={(e) => {
           from.current = { x: e.clientX, y: e.clientY }
-          if (open) {
-            setOpen(false)
-            onOpenChange?.(null)
+          // An open tray anywhere in the list is what this press is for — iOS's
+          // first tap on a swiped-open row only puts it away, and puts away a
+          // neighbour's just the same rather than following the row you hit.
+          dismissing.current = open || (openId != null && openId !== id)
+        }}
+        onPointerUpCapture={(e) => {
+          if (!dismissing.current) return
+          const start = from.current
+          // A press that travelled is a drag, and the drag's own release has
+          // already decided what the tray does.
+          if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > TAP_SLOP) {
+            dismissing.current = false
+            return
           }
+          shut()
         }}
         // A press that turned into a swipe must not also fire the row's own
-        // action: the gesture and the tap ride the same pointer sequence.
-        // Keyboard activation (`detail === 0`) is never suppressed.
+        // action, and neither must one that was only here to shut a tray: the
+        // gesture and the tap ride the same pointer sequence. Keyboard
+        // activation (`detail === 0`) is never suppressed.
         onClickCapture={(e) => {
+          if (e.detail === 0) return
           const start = from.current
-          if (!start || e.detail === 0) return
-          if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > TAP_SLOP) {
+          const swiped = !!start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > TAP_SLOP
+          if (dismissing.current || swiped) {
             e.preventDefault()
             e.stopPropagation()
           }
+          dismissing.current = false
         }}
       >
         {children}

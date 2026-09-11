@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Icon } from '../Icon'
 import { useNav } from '../../nav/nav'
@@ -53,9 +53,50 @@ function NavButton({ action }: { action: NavAction }) {
       type="button"
     >
       {action.icon && <Icon name={action.icon} size={21} weight={2} />}
-      {action.label}
+      {/* In its own element so it can carry the ellipsis: a bar button title
+          truncates, and text-overflow never reaches the anonymous box a flex
+          container wraps bare text in. */}
+      {action.label && <span className="nav-btn-label">{action.label}</span>}
     </button>
   )
+}
+
+/* UIKit puts the previous screen's own name on the back button and swaps it for
+   the generic "Back" the moment the bar cannot hold it. What it never does is
+   show half a word, and it never sets the title on two lines — which is what
+   this bar used to do with "Weigh-In", stretching itself past --nav-h while the
+   scroll view below went on padding the unstretched token.
+
+   Which of the two names fits is a question about this label, at this text size,
+   in this bar, on this screen, so it is measured rather than guessed: the label
+   is briefly filled with the name it would rather show and asked whether it
+   overflows. The probe is written and undone inside one layout effect, before
+   the browser paints, so neither state is ever seen. */
+function useBackLabelFits(label: string) {
+  const slot = useRef<HTMLDivElement>(null)
+  const text = useRef<HTMLSpanElement>(null)
+  const [fits, setFits] = useState(true)
+
+  useLayoutEffect(() => {
+    const el = text.current
+    const box = slot.current
+    if (!el || !box) return
+    const probe = () => {
+      const shown = el.textContent
+      el.textContent = label
+      setFits(el.scrollWidth <= el.clientWidth + 1)
+      el.textContent = shown
+    }
+    probe()
+    // The label's own box stops changing size once it has fallen back, so it is
+    // the column that has to be watched: a wider screen, or a smaller text size,
+    // is what gives the real name its room back.
+    const ro = new ResizeObserver(probe)
+    ro.observe(box)
+    return () => ro.disconnect()
+  }, [label])
+
+  return { slot, text, fits }
 }
 
 /** The previous route's short title, so Back always names where it goes. */
@@ -106,16 +147,19 @@ export function Screen({
 
   const rights = right ? (Array.isArray(right) ? right : [right]) : []
   const backLabel = useBackLabel(back?.label)
+  const fitted = useBackLabelFits(backLabel)
 
   return (
     <div className="screen">
       <div className="navbar" data-scrolled={scrolled} data-inline={inlineTitle}>
         <div className="navbar-inner">
-          <div className="navbar-side">
+          <div className="navbar-side" ref={fitted.slot}>
             {back ? (
               <button className="nav-btn" onClick={back.onPress} type="button" aria-label="Back">
                 <Icon name="chevron.left" size={20} weight={2.6} />
-                {backLabel}
+                <span className="nav-btn-label" ref={fitted.text}>
+                  {fitted.fits ? backLabel : 'Back'}
+                </span>
               </button>
             ) : left ? (
               <NavButton action={left} />

@@ -10,10 +10,12 @@ import {
   seedStartDate, seedWeighIns, seedWorkoutLogs,
 } from '../data/seed'
 import { getProgram } from '../data/program'
-import { startOfWeek, todayISO } from '../lib/date'
+import { MEAL_PLAN } from '../data/mealPlan'
+import { addDays, startOfWeek, todayISO } from '../lib/date'
 import { uid } from '../lib/id'
 import {
-  createResilientJSONStorage, mergePersisted, readPhotos, schedulePhotoWrite, writePhotos,
+  createResilientJSONStorage, mergePersisted, onForeignWrite, readPhotos, schedulePhotoWrite,
+  writePhotos,
 } from './persist'
 import { useCoach } from './coach'
 import { guardPersistedShape, validateImport } from './importState'
@@ -110,6 +112,8 @@ export interface AppState {
   importState: (raw: unknown) => ImportResult
 }
 
+const STORE_KEY = 'grit-store-v1'
+
 export const emptyDay = (date: string): DayNutrition => ({
   date,
   checked: {},
@@ -118,6 +122,85 @@ export const emptyDay = (date: string): DayNutrition => ({
   extras: [],
   skippedMeals: [],
 })
+
+/** As far back as the Meals day strip reaches. */
+const SEED_NUTRITION_DAYS = 14
+
+/** Same date, same demo, every launch — the seed is a story, not a lottery. */
+function dayNoise(date: string): number {
+  let h = 0
+  for (let i = 0; i < date.length; i++) h = (h * 31 + date.charCodeAt(i)) >>> 0
+  return (h % 997) / 997
+}
+
+/**
+ * The sample client's fuelling, for the fortnight the day strip can reach.
+ *
+ * Without it the one tab carrying no sample data was the nutrition tab: four
+ * grey rings around "0 of 2920", three macro bars at zero, fourteen blank cells
+ * in the strip and nowhere to tap to see the screen working — a demo of its own
+ * fuelling surface as day zero. Adherence is deliberately imperfect, because a
+ * fortnight followed to the gram is not a fortnight any coach recognises.
+ */
+function seedNutrition(today: string): Record<string, DayNutrition> {
+  const now = new Date()
+  const clock = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+  const out: Record<string, DayNutrition> = {}
+
+  for (let back = SEED_NUTRITION_DAYS - 1; back >= 0; back--) {
+    const date = addDays(today, -back)
+    const noise = dayNoise(date)
+    const day = emptyDay(date)
+    // A meal goes missing about one day in eleven — a missed pre-workout feed is
+    // the one a working client actually drops.
+    if (noise < 0.09) day.skippedMeals = [MEAL_PLAN.meals[3]!.id]
+    let eaten = 0
+
+    for (const meal of MEAL_PLAN.meals) {
+      if (day.skippedMeals.includes(meal.id)) continue
+      // Today is only as far along as the clock: a demo opened over breakfast
+      // must not show dinner already eaten.
+      if (back === 0 && meal.time > clock) continue
+      eaten += 1
+      for (const [i, item] of meal.items.entries()) {
+        // The last thing on a plate is the thing that gets left.
+        if (noise > 0.84 && i === meal.items.length - 1) continue
+        day.checked[item.id] = true
+      }
+    }
+
+    // Water in glasses, and today's only as far as the day has got.
+    const glasses = 11 + Math.round(noise * 5)
+    const served = back === 0 ? Math.round((glasses * eaten) / MEAL_PLAN.meals.length) : glasses
+    day.waterOz = served * 8
+    out[date] = day
+  }
+  return out
+}
+
+/**
+ * A profile with the person taken out of it, for a wipe or a fresh start.
+ *
+ * Units, bar, plates and rounding describe the gym a client walks into rather
+ * than the client, so they survive. Everything else is the person — and that
+ * includes height and age, which setup never asks for: carrying the sample
+ * client's forward told a 5'4" woman she was a 5'11" 32-year-old and nothing
+ * ever asked her. Zero is the unset number here, as it already is for the
+ * weights either side of it. `sex` has no unset state in the type, so it cannot
+ * be blanked the same way and keeps the default until setup asks for it.
+ */
+function blankProfile(profile: Profile): Profile {
+  return {
+    ...profile,
+    name: '',
+    goalLabel: '',
+    startWeight: 0,
+    goalWeight: 0,
+    heightIn: 0,
+    birthYear: 0,
+    trainingMaxes: {},
+  }
+}
 
 function seedState() {
   const today = todayISO()
@@ -128,10 +211,13 @@ function seedState() {
     programStartDate: startDate,
     weighIns: seedWeighIns(today),
     measurements: seedMeasurements(today),
-    photos: readPhotos<ProgressPhoto>(),
+    // The sample client has no photographs. Reading the real ones back out of
+    // their own key here meant reloading the demo kept them and captioned them
+    // with Alex's bodyweight — the demo client's weight on a real client's body.
+    photos: [] as ProgressPhoto[],
     logs: seedWorkoutLogs(today, startDate),
     checkIns: seedCheckIns(today),
-    nutrition: {} as Record<string, DayNutrition>,
+    nutrition: seedNutrition(today),
     dayModes: {} as Record<string, 'training' | 'rest'>,
     active: null,
     restTimer: null,
@@ -140,6 +226,22 @@ function seedState() {
     blockStartedOn: startDate,
     blockNumber: SEED_BLOCK_NUMBER,
   }
+}
+
+/**
+ * Drop a rest timer that has nothing left to count.
+ *
+ * `endsAt` is an absolute instant, so a timer whose countdown ran out while the
+ * app was closed comes back permanently finished: a green "Rest complete" bar on
+ * every launch, a success buzz for a set finished yesterday, and the floating
+ * resume bar suppressed behind it for as long as it sits there. A timer is only
+ * worth rehydrating while it is still running and there is still a session to
+ * rest between.
+ */
+function expireRest<T extends Pick<AppState, 'active' | 'restTimer'>>(state: T): T {
+  if (!state.restTimer) return state
+  if (state.active && state.restTimer.endsAt > Date.now()) return state
+  return { ...state, restTimer: null }
 }
 
 /** Mutate one day's nutrition record, creating it on first touch. */
@@ -156,6 +258,9 @@ export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
       ...seedState(),
+      // Photos are not in `partialize`, so nothing rehydrates them: this first
+      // read of their own key is the only one the app gets on launch.
+      photos: readPhotos<ProgressPhoto>(),
 
       completeOnboarding: () => set(() => ({ onboarded: true })),
 
@@ -185,14 +290,7 @@ export const useStore = create<AppState>()(
           blockNumber: 1,
           // A new client must not inherit the sample client's body or
           // strength — a pre-filled 465 lb deadlift reads as a suggestion.
-          profile: {
-            ...SEED_PROFILE,
-            name: '',
-            goalLabel: '',
-            startWeight: 0,
-            goalWeight: 0,
-            trainingMaxes: {},
-          },
+          profile: blankProfile(SEED_PROFILE),
         }))
       },
       /**
@@ -493,11 +591,12 @@ export const useStore = create<AppState>()(
           restTimer: null,
           onboarded: true,
           // Deleting your data must not hand you the sample client's name,
-          // maxes and mid-block calendar back.
+          // maxes and mid-block calendar back. Their own units, bar and plate
+          // rack are not the sample client's, so those stay.
           programStartDate: startOfWeek(todayISO(), 1),
           blockStartedOn: todayISO(),
           blockNumber: 1,
-          profile: { ...s.profile, name: s.profile.name },
+          profile: blankProfile(s.profile),
         }))
       },
       /**
@@ -512,7 +611,14 @@ export const useStore = create<AppState>()(
         const next = result.state
         set(() => ({
           profile: { ...get().profile, ...next.profile },
-          settings: { ...get().settings, ...next.settings },
+          settings: {
+            ...get().settings,
+            ...next.settings,
+            // One level deeper, for the same reason `mergePersisted` goes there:
+            // a file written before a notification switch existed must not
+            // rehydrate that switch as undefined.
+            notifications: { ...get().settings.notifications, ...next.settings.notifications },
+          },
           programStartDate: next.programStartDate ?? get().programStartDate,
           blockStartedOn: next.blockStartedOn ?? get().blockStartedOn,
           blockNumber: next.blockNumber ?? get().blockNumber,
@@ -534,12 +640,13 @@ export const useStore = create<AppState>()(
       },
     }),
     {
-      name: 'grit-store-v1',
+      name: STORE_KEY,
       version: 3,
       storage: createResilientJSONStorage(),
       /* A top-level spread would drop any `profile` or `settings` field added
          after a client's first launch, rehydrating it as undefined. */
-      merge: (persisted, current) => mergePersisted(guardPersistedShape(persisted), current),
+      merge: (persisted, current) =>
+        expireRest(mergePersisted(guardPersistedShape(persisted), current)),
       migrate: (persisted, version) => {
         const state = { ...(persisted as Record<string, unknown> | null) }
         if (version < 2 && Array.isArray(state.photos)) {
@@ -588,7 +695,21 @@ useStore.subscribe((state, previous) => {
   if (state.photos !== previous.photos) schedulePhotoWrite(state.photos)
 })
 
-/** Serialise everything the client owns, for the Settings export button. */
+/* A second tab holds the same database, not a copy of it. */
+onForeignWrite(STORE_KEY, () => {
+  void useStore.persist.rehydrate()
+})
+
+/**
+ * Serialise everything the client owns, for the Settings export button.
+ *
+ * The block identity travels with the calendar it belongs to. Leaving it out
+ * took the file's `programStartDate` and the device's block number, so restoring
+ * your own backup onto a wiped phone demoted you to "Block 1 · week 5 of 8" —
+ * and left `blockStartedOn` at the wipe's date, which is the floor
+ * `missedSessions` counts from, so a restored history could never show a missed
+ * session again.
+ */
 export function exportSnapshot(): string {
   const s = useStore.getState()
   return JSON.stringify(
@@ -598,6 +719,8 @@ export function exportSnapshot(): string {
       profile: s.profile,
       settings: s.settings,
       programStartDate: s.programStartDate,
+      blockStartedOn: s.blockStartedOn,
+      blockNumber: s.blockNumber,
       weighIns: s.weighIns,
       measurements: s.measurements,
       photos: s.photos,

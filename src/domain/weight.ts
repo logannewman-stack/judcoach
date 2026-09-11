@@ -176,19 +176,38 @@ function daysAgoISO(fromISO: string, days: number): string {
   return toISODate(d)
 }
 
+/**
+ * How close to the goal counts as standing on it. Scale weight moves further
+ * than this between two readings of the same morning, so a quarter of a unit
+ * either side is the same weight as far as a client is concerned. Shared, so the
+ * bar cannot read full on a card whose own line says "goal reached" — or the
+ * reverse.
+ */
+const GOAL_REACHED = 0.25
+
 /** Weeks until the goal at the current trend, or null when moving the wrong way. */
 export function weeksToGoal(current: number, goal: number, perWeek: number): number | null {
   const remaining = goal - current
-  if (Math.abs(remaining) < 0.25) return 0
+  if (Math.abs(remaining) < GOAL_REACHED) return 0
   if (Math.abs(perWeek) < 0.05) return null
   if (Math.sign(remaining) !== Math.sign(perWeek)) return null
   return remaining / perWeek
 }
 
-/** How far along the start → goal journey the client is, 0..1. */
+/**
+ * How far along the start → goal journey the client is, 0..1.
+ *
+ * A goal the same weight as the start has no journey to be a fraction of, and
+ * reporting that as complete is the default way out of setup rather than an
+ * exotic state: the start-weight pad seeds the goal from today's weight, so a
+ * client who taps through without editing it arrives with start === goal and
+ * watches the bar fill the track under a caption reading how far there still is
+ * to go. With nowhere to travel the only honest reading is whether the client is
+ * standing on the goal, which is the same test the finish line uses.
+ */
 export function goalProgress(start: number, current: number, goal: number): number {
   const total = goal - start
-  if (Math.abs(total) < 0.01) return 1
+  if (Math.abs(total) < 0.01) return Math.abs(current - goal) < GOAL_REACHED ? 1 : 0
   const done = current - start
   const p = done / total
   return p < 0 ? 0 : p > 1 ? 1 : p

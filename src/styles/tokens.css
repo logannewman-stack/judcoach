@@ -29,7 +29,16 @@
   --accent-pink: #ff2d55;
   --accent-purple: #af52de;
   --accent: var(--accent-blue);
-  --accent-soft: rgba(0, 122, 255, 0.14);
+  /* The wash behind a tinted control — the live accent at the alpha this
+     appearance calls for, rather than a colour of its own. Spelled out per
+     accent, it drifted: the :root[data-accent] rules are declared after both
+     dark blocks and at equal specificity, so their light hex *and* their light
+     alpha won in dark mode too, and Indigo or Violet came out as a wash of one
+     violet under type of another, a third fainter than the same control in
+     blue. Mixed from --accent it cannot: pick an accent, pick an appearance,
+     and the wash is always that accent at that appearance's strength. */
+  --accent-soft-alpha: 14%;
+  --accent-soft: color-mix(in srgb, var(--accent) var(--accent-soft-alpha), transparent);
 
   /* ---- system colours ---- */
   --blue: #007aff;
@@ -184,9 +193,19 @@
      --------------------------------------------------------------------- */
   --data-line: var(--accent);
 
-  /* ---- metrics ---- */
-  --nav-h: 44px;
-  --tab-h: 49px;
+  /* ---- metrics -------------------------------------------------------------
+     A bar grows with Dynamic Type rather than clipping what it holds, the way
+     UIKit's nav and tab bars do. Both are measured in --pt-chrome, so they stop
+     growing where the chrome's type stops (1.4×, see base.css), and both are
+     floored at the plain value so a text size *below* default can never shrink a
+     44pt target. Because the height is the sum of what the bar actually carries,
+     every layout that reserves room for one — `.scroll`'s top padding,
+     `.scroll-pad-bottom`, the toast's offset — stays exact at every text size.
+     -------------------------------------------------------------------- */
+  --nav-h: max(44px, calc(44 * var(--pt-chrome)));
+  /* A 28pt icon capsule, a 2pt gap and a 13pt title, plus 6px of air — half of
+     it the room the unread badge hangs into above the capsule. */
+  --tab-h: max(49px, calc(43 * var(--pt-chrome) + 6px));
   --gutter: 16px;
   --row-h: 44px;
   /* A UIKit cell with a subtitle is 58pt: 17pt title over a 13pt detail, with
@@ -254,7 +273,8 @@
     --accent-orange: #ff9f0a;
     --accent-pink: #ff375f;
     --accent-purple: #bf5af2;
-    --accent-soft: rgba(76, 141, 255, 0.20);
+    /* A wash has to carry further on iron than it does on paper. */
+    --accent-soft-alpha: 20%;
 
     --blue: #0a84ff;
     --green: #30d158;
@@ -347,7 +367,7 @@
   --accent-orange: #ff9f0a;
   --accent-pink: #ff375f;
   --accent-purple: #bf5af2;
-  --accent-soft: rgba(76, 141, 255, 0.20);
+  --accent-soft-alpha: 20%;
 
   --blue: #0a84ff;
   --green: #30d158;
@@ -429,9 +449,11 @@
   color-scheme: dark;
 }
 
-/* Accent overrides written by Settings. */
-:root[data-accent='indigo'] { --accent: var(--accent-indigo); --accent-soft: rgba(88, 86, 214, 0.14); }
-:root[data-accent='green']  { --accent: var(--accent-green);  --accent-soft: rgba(52, 199, 89, 0.14); }
-:root[data-accent='orange'] { --accent: var(--accent-orange); --accent-soft: rgba(255, 149, 0, 0.14); }
-:root[data-accent='pink']   { --accent: var(--accent-pink);   --accent-soft: rgba(255, 45, 85, 0.14); }
-:root[data-accent='purple'] { --accent: var(--accent-purple); --accent-soft: rgba(175, 82, 222, 0.14); }
+/* Accent overrides written by Settings. Only --accent: --accent-soft is mixed
+   from it above, so each of these is one line and cannot fall out of step with
+   the appearance the client is in. */
+:root[data-accent='indigo'] { --accent: var(--accent-indigo); }
+:root[data-accent='green']  { --accent: var(--accent-green); }
+:root[data-accent='orange'] { --accent: var(--accent-orange); }
+:root[data-accent='pink']   { --accent: var(--accent-pink); }
+:root[data-accent='purple'] { --accent: var(--accent-purple); }

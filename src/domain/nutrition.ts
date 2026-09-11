@@ -192,10 +192,25 @@ export function adherencePercent(plan: MealPlan, day: DayNutrition, restDay = fa
   return Math.round((eaten / planned.length) * 100)
 }
 
+/**
+ * Whether the protein target has been met, in the whole grams the card prints.
+ *
+ * One rule, because the Meals card makes three statements about protein at once:
+ * a pill, the colour of the bar, and the line counting what is still owed. A
+ * "hit" at 95% of target put "Protein hit" beside "243/247 g" and "4 g of
+ * protein still to go" — the target announced as met by the one signal that had
+ * stopped counting. Whole grams because that is the readout's own unit: half a
+ * gram short reads "247/247 g" on screen, and nothing beside it should still be
+ * asking for more.
+ */
+export function proteinMet(targets: MacroTargets, totals: MacroTotals): boolean {
+  return targets.protein > 0 && Math.round(targets.protein - totals.protein) <= 0
+}
+
 /** Protein is the macro that matters most — flag it separately. */
 export function proteinStatus(targets: MacroTargets, totals: MacroTotals) {
+  if (proteinMet(targets, totals)) return { status: 'good' as const, label: 'Protein hit' }
   const pct = targets.protein > 0 ? (totals.protein / targets.protein) * 100 : 0
-  if (pct >= 95) return { status: 'good' as const, label: 'Protein hit' }
   if (pct >= 70) return { status: 'warn' as const, label: 'Protein close' }
   return { status: 'bad' as const, label: 'Protein short' }
 }

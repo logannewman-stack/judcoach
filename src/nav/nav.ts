@@ -59,9 +59,11 @@ export const useNav = create<NavState>((set, get) => ({
     const { tab: current, stacks, scrollTopTick } = get()
     if (current === tab) {
       // Tapping the active tab pops its stack to root, then scrolls to the top
-      // on a second tap — exactly like iOS.
+      // on a second tap — exactly like iOS. Through popToRoot rather than a
+      // second copy of it: the two had drifted into being the same four lines
+      // written twice, and only one of them ever got read.
       if (stacks[tab].length > 1) {
-        set({ stacks: { ...stacks, [tab]: [stacks[tab][0]!] } })
+        get().popToRoot()
       } else {
         set({ scrollTopTick: scrollTopTick + 1 })
       }
@@ -84,6 +86,11 @@ export const useNav = create<NavState>((set, get) => ({
     set({ stacks: { ...stacks, [tab]: stacks[tab].slice(0, -1) } })
   },
 
+  /* Everything between the root and the top goes at once. Stack renders the top
+     two screens, so the one parked behind would otherwise become a second exit
+     animation and slide off in convoy across the root it is uncovering; it is
+     removed without animation there instead, the way UINavigationController
+     removes the view controllers under the one it animates off. */
   popToRoot: () => {
     const { tab, stacks } = get()
     set({ stacks: { ...stacks, [tab]: [stacks[tab][0]!] } })

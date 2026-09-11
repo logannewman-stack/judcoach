@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { CoachAuthor, CoachNote, NoteAnchor } from '../domain/coach'
 import { anchorKey, byTime, sameAnchor, unreadFrom } from '../domain/coach'
-import { createResilientStorage } from './persist'
+import { createResilientStorage, onForeignWrite } from './persist'
 import { seedCoachThread } from '../data/coachSeed'
 import { seedCheckIns, seedStartDate, seedWeighIns, seedWorkoutLogs } from '../data/seed'
 import { todayISO } from '../lib/date'
@@ -18,6 +18,8 @@ import { uid } from '../lib/id'
    Jud has a console of his own, and should not travel inside a client's backup
    of their training history.
    ========================================================================== */
+
+const COACH_KEY = 'grit-coach-v1'
 
 export interface CoachState {
   notes: CoachNote[]
@@ -76,7 +78,18 @@ export const useCoach = create<CoachState>()(
 
       remove: (id) => set((s) => ({ notes: s.notes.filter((n) => n.id !== id) })),
 
-      /** Without an anchor, marks the whole conversation read. */
+      /**
+       * Without an anchor, marks the whole conversation read — which is right,
+       * because the Messages screen shows every note, anchored or not.
+       *
+       * It is symmetric, and `readAt` is one field shared by both seats, so
+       * opening Messages as Jud stamps the client's own messages and their
+       * receipt turns from "Delivered" to "Read" with nobody having read it.
+       * Stamping only coach-authored notes would fix that and freeze Jud's own
+       * unread badge at whatever the client last sent, because `unreadFrom`
+       * reads the same field from the other side. One field cannot carry two
+       * receipts: the honest fix is a second stamp in domain/coach.ts.
+       */
       markRead: (anchor) =>
         set((s) => {
           const now = new Date().toISOString()
@@ -97,12 +110,17 @@ export const useCoach = create<CoachState>()(
       clear: () => set({ notes: [], viewAs: 'client' }),
     }),
     {
-      name: 'grit-coach-v1',
+      name: COACH_KEY,
       storage: createJSONStorage(createResilientStorage),
       partialize: (s) => ({ notes: s.notes, viewAs: s.viewAs }),
     },
   ),
 )
+
+/* The conversation is one conversation however many tabs are open on it. */
+onForeignWrite(COACH_KEY, () => {
+  void useCoach.persist.rehydrate()
+})
 
 /* -------------------------------- selectors ------------------------------- */
 

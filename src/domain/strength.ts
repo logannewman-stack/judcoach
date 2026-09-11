@@ -315,31 +315,35 @@ export function sessionTonnage(sets: LoggedSet[]): number {
 }
 
 /**
- * Whether a set says anything real about a one-rep max.
+ * Whether a set says anything real about a one-rep max. The one rule, because
+ * "your best estimated max" has to be one number wherever it is printed.
  *
- * Estimating a max from a 12-rep calf raise at RPE 8 is arithmetic, not
- * information: it put a 319 lb calf raise and a 430 lb hip thrust above the
- * client's bench press on the records board. Only near-maximal, low-rep work
- * earns an estimate.
+ * Near-maximal, low-rep work only: eight reps or fewer, taken to RPE 8 or above.
+ * There were two rules for this, a loose one behind Working maxes and this one
+ * behind the records board, and the same deadlift read 562 lb on the first screen
+ * and 475 lb on the second. The loose rule is the wrong one. It reached 562 from
+ * a set of ten at RPE 8.5 by a client whose heaviest deadlift ever is 400, and it
+ * is the same arithmetic that once put a 430 lb hip thrust and a 319 lb calf
+ * raise above their bench press: the chart's high-rep columns assume more rep
+ * strength than a heavy lifter has, so a long set over-reads, and it over-reads
+ * in the direction that matters — every percentage in the programme is a slice of
+ * this number, so an inflated max crushes the block it prescribes.
+ *
+ * A set logged without an RPE counts. `e1RM` already reads a missing one as a
+ * hard set at RPE 10, which is the *lowest* estimate the chart can give a load,
+ * so admitting it cannot inflate anything — and refusing it left a client who
+ * logs without RPE with no records at all.
  */
-/**
- * Whether a set supports a max estimate at all. The chart is measured data from
- * 1 to 12 reps, so anything inside that taken near enough to failure is fair
- * game. A set stopped well short (RPE under 7) says nothing about a max, and
- * past 12 reps the chart is extrapolated rather than observed.
- */
-export function isEstimable(set: LoggedSet): boolean {
-  return !set.warmup && set.reps > 0 && set.weight > 0 && set.reps <= 12 && (set.rpe ?? 10) >= 7
+export function supportsMaxEstimate(set: LoggedSet): boolean {
+  return !set.warmup && set.reps > 0 && set.weight > 0 && set.reps <= 8 && (set.rpe ?? 10) >= 8
 }
 
-/**
- * Whether a set is heavy and hard enough to call a record. Stricter than
- * `isEstimable`, because a records board led by a twelve-rep back-off set is not
- * a records board.
- */
-export function isMaxEffort(set: LoggedSet): boolean {
-  return isEstimable(set) && set.reps <= 8 && (set.rpe ?? 0) >= 8
-}
+/* The same rule under the two names the screens still import it by. They were
+   separate predicates until the deadlift above; neither has a job of its own, so
+   these are aliases only until those call sites take the name that says what it
+   is. */
+export const isEstimable = supportsMaxEstimate
+export const isMaxEffort = supportsMaxEstimate
 
 /**
  * Best estimated max across a group of sets. Returns 0 when no set in the group
@@ -347,7 +351,7 @@ export function isMaxEffort(set: LoggedSet): boolean {
  */
 export function bestE1RM(sets: LoggedSet[]): number {
   return sets.reduce(
-    (best, s) => (isEstimable(s) ? Math.max(best, e1RM(s.weight, s.reps, s.rpe)) : best),
+    (best, s) => (supportsMaxEstimate(s) ? Math.max(best, e1RM(s.weight, s.reps, s.rpe)) : best),
     0,
   )
 }

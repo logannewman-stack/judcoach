@@ -53,6 +53,28 @@ export interface ScheduledSession {
   log?: WorkoutLog
 }
 
+/**
+ * Whether a log belongs to the block currently running.
+ *
+ * A session id carries its week and its slot — `w1-lowerA` — but not the block,
+ * so the ids repeat every time a client rolls into the next eight weeks. Matching
+ * on the id alone handed block four's first month block three's logs: the week
+ * read 4/4 done against sessions nobody had trained, the streak counted them, and
+ * the next session jumped four weeks past the one actually due. A block starts on
+ * its own Monday and a log is dated the day it was finished, so the block's start
+ * date is what separates this `w1-lowerA` from the last one's.
+ */
+const inBlock = (program: Program, log: WorkoutLog): boolean => log.date >= program.startDate
+
+/** The log that belongs to one session of *this* block, if it has been trained. */
+export function findSessionLog(
+  program: Program,
+  logs: WorkoutLog[],
+  sessionId: string,
+): WorkoutLog | undefined {
+  return logs.find((l) => l.sessionId === sessionId && inBlock(program, l))
+}
+
 /** Every session in a week, with its calendar date and any completed log. */
 export function weekSchedule(
   program: Program,
@@ -63,7 +85,7 @@ export function weekSchedule(
   if (!week) return []
   return week.sessions.map((session) => {
     const date = sessionDate(program, weekIndex, session.weekday)
-    return { week, session, date, log: logs.find((l) => l.sessionId === session.id) }
+    return { week, session, date, log: findSessionLog(program, logs, session.id) }
   })
 }
 
@@ -292,7 +314,10 @@ export const logSetCount = (log: WorkoutLog): number =>
 
 /** Consecutive completed sessions counting back from the most recent one. */
 export function trainingStreak(program: Program, logs: WorkoutLog[], today = todayISO()): number {
-  const done = new Set(logs.map((l) => l.sessionId))
+  // Scoped to this block for the same reason `weekSchedule` is: the previous
+  // block's ids are the same ids, and counting them made every new block open on
+  // a streak the client had not earned.
+  const done = new Set(logs.filter((l) => inBlock(program, l)).map((l) => l.sessionId))
   let streak = 0
   for (let w = currentWeekIndex(program, today); w >= 1; w--) {
     // Today's session is still ahead of them — it can't break a streak yet.

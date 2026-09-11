@@ -119,23 +119,63 @@ function readProfile(v: unknown): Partial<Profile> {
   return out
 }
 
+const THEMES = ['system', 'light', 'dark'] as const
+const ACCENTS = ['blue', 'indigo', 'green', 'orange', 'pink', 'purple'] as const
+const SWITCHES = [
+  'haptics', 'restTimerAuto', 'restTimerSound', 'showRir', 'showPlateMath', 'keepAwake',
+] as const
+const NOTIFICATIONS = [
+  'workoutReminder', 'weighInReminder', 'mealReminder', 'coachMessages',
+] as const
+
+/** One of a fixed set of strings, or nothing. */
+function oneOf<T extends string>(v: unknown, allowed: readonly T[]): T | undefined {
+  return typeof v === 'string' && (allowed as readonly string[]).includes(v) ? (v as T) : undefined
+}
+
+/**
+ * Settings are a closed set: two enums, six switches, two small integers and
+ * four notification switches. So each one is read against what it can actually
+ * be, rather than any string or any finite number being waved through.
+ *
+ * Waving them through is how a one-character typo in the JSON the docs say a
+ * coach opens in a text editor — `weightUnitDecimals: 120` — imported cleanly,
+ * persisted, and then threw `RangeError: toFixed() digits argument must be
+ * between 0 and 100` inside render, replacing the whole app with the error
+ * screen on every launch from then on. A value nothing in the app can produce
+ * is not a setting, and this file exists to stop exactly that.
+ */
 function readSettings(v: unknown): Partial<Settings> {
   if (!isObject(v)) return {}
-  const out: Record<string, unknown> = {}
-  // Settings are all booleans, small enums and numbers; anything else is junk.
-  for (const [key, value] of Object.entries(v)) {
-    if (typeof value === 'boolean' || typeof value === 'string') out[key] = value
-    else if (typeof value === 'number' && Number.isFinite(value)) out[key] = value
-    else if (isObject(value)) {
-      const nested: Record<string, unknown> = {}
-      for (const [k, val] of Object.entries(value)) {
-        if (typeof val === 'boolean' || typeof val === 'string') nested[k] = val
-        else if (typeof val === 'number' && Number.isFinite(val)) nested[k] = val
-      }
-      out[key] = nested
-    }
+  const out: Partial<Settings> = {}
+
+  const theme = oneOf(v.theme, THEMES)
+  if (theme) out.theme = theme
+  const accent = oneOf(v.accent, ACCENTS)
+  if (accent) out.accent = accent
+
+  for (const key of SWITCHES) {
+    if (typeof v[key] === 'boolean') out[key] = v[key] as boolean
   }
-  return out as Partial<Settings>
+
+  // Whole pounds or tenths are the only two the app offers, and the value goes
+  // straight into `toFixed`, which throws on anything outside 0-100.
+  const decimals = optionalNumber(v.weightUnitDecimals)
+  if (decimals != null) out.weightUnitDecimals = Math.min(1, Math.max(0, Math.round(decimals)))
+
+  const firstDay = optionalNumber(v.firstDayOfWeek)
+  if (firstDay === 0 || firstDay === 1) out.firstDayOfWeek = firstDay
+
+  if (isObject(v.notifications)) {
+    const nested = v.notifications
+    const notifications: Partial<Settings['notifications']> = {}
+    for (const key of NOTIFICATIONS) {
+      if (typeof nested[key] === 'boolean') notifications[key] = nested[key] as boolean
+    }
+    // Any switch the file omits is filled from the live settings on the way in.
+    out.notifications = notifications as Settings['notifications']
+  }
+  return out
 }
 
 function readWeighIn(v: Record<string, unknown>): WeighIn | null {
@@ -354,8 +394,14 @@ export function validateImport(raw: unknown): ImportResult {
   if (checkIns.dropped) dropped['check-ins'] = checkIns.dropped
   if (nutrition.dropped) dropped.days = nutrition.dropped
 
-  const byDateDesc = <T extends { date: string }>(list: T[]) =>
-    [...list].sort((a, b) => b.date.localeCompare(a.date))
+  /* Oldest first, which is the order every writer in the store keeps and every
+     reader assumes: the Weigh-In screen takes the last entry as the latest
+     reading and the first as the baseline, and Guidelines reads today's
+     bodyweight off the end of the list. Handing them a reversed history made a
+     round trip through the client's own backup report a reading 74 days stale
+     and 3.7 lb wrong, and collapsed the chart's range control to a single day. */
+  const byDate = <T extends { date: string }>(list: T[]) =>
+    [...list].sort((a, b) => a.date.localeCompare(b.date))
 
   return {
     ok: true,
@@ -369,11 +415,13 @@ export function validateImport(raw: unknown): ImportResult {
         && raw.blockNumber >= 1
         ? Math.floor(raw.blockNumber)
         : undefined,
-      weighIns: byDateDesc(weighIns.out),
-      measurements: byDateDesc(measurements.out),
-      photos: byDateDesc(photos.out),
-      logs: byDateDesc(logs.out),
-      checkIns: byDateDesc(checkIns.out),
+      weighIns: byDate(weighIns.out),
+      measurements: byDate(measurements.out),
+      // Photos are the exception: `addPhoto` puts the newest at the head, and
+      // the library is read in that order.
+      photos: [...photos.out].sort((a, b) => b.date.localeCompare(a.date)),
+      logs: byDate(logs.out),
+      checkIns: byDate(checkIns.out),
       nutrition: nutrition.out,
     },
   }

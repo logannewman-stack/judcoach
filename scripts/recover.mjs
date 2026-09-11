@@ -88,7 +88,18 @@ check('junk plates are dropped and sorted', JSON.stringify(damaged.plates) === '
   JSON.stringify(damaged.plates))
 check('a null number keeps the default', typeof damaged.goalWeight === 'number' && damaged.goalWeight > 0,
   String(damaged.goalWeight))
-check('only valid weigh-ins land', JSON.stringify(damaged.weighIns) === '["2026-01-05:198.5","2026-01-02:201"]',
+check('only valid weigh-ins land',
+  damaged.weighIns.length === 2 && damaged.weighIns.every((w) => /^2026-01-0[25]:/.test(w)),
+  JSON.stringify(damaged.weighIns))
+/* Order is a separate claim from validity, and it is the store's to make:
+   saveWeighIn sorts ascending and every screen reads weighIns[length - 1] as the
+   latest reading, so an import that hands back descending makes the Weigh-In
+   screen report the oldest weight as today's. This check used to assert the
+   descending order, which is to say it asserted the bug — so it is stated here
+   as the invariant rather than as a literal, and it cannot go stale again. */
+check('imported weigh-ins land in the order the store keeps them',
+  damaged.weighIns.map((w) => w.split(':')[0]).join() === [...damaged.weighIns]
+    .map((w) => w.split(':')[0]).sort().join(),
   JSON.stringify(damaged.weighIns))
 check('a remote photo src is rejected', JSON.stringify(damaged.photos) === '["front"]',
   JSON.stringify(damaged.photos))
