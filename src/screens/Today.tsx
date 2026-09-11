@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import { motion } from 'framer-motion'
 import { Screen } from '../components/ios/Screen'
 import { Card, CoachNote, SectionHeader } from '../components/Bits'
@@ -367,12 +368,12 @@ function HeroShell({
   eyebrow, tags, name, detail, children, facts, action, onPress,
 }: {
   eyebrow: string
-  tags?: React.ReactNode
+  tags?: ReactNode
   name: string
   detail?: string
-  children?: React.ReactNode
-  facts?: React.ReactNode
-  action: React.ReactNode
+  children?: ReactNode
+  facts?: ReactNode
+  action: ReactNode
   onPress?: () => void
 }) {
   const body = (
@@ -654,7 +655,7 @@ function WeekCard({
   )
 }
 
-function WeekStat({ value, label, tone }: { value: React.ReactNode; label: string; tone?: string }) {
+function WeekStat({ value, label, tone }: { value: ReactNode; label: string; tone?: string }) {
   return (
     <div className="today-stat">
       <span className="data today-stat-value truncate" style={tone ? { color: tone } : undefined}>{value}</span>

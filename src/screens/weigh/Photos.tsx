@@ -179,7 +179,7 @@ export function Photos() {
                     style={{
                       position: 'absolute', top: 6, right: 6,
                       width: 28, height: 28, borderRadius: '50%',
-                      background: 'rgba(0,0,0,0.45)',
+                      background: 'var(--shot-scrim)',
                       display: 'grid', placeItems: 'center',
                     }}
                   >

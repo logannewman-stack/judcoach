@@ -45,9 +45,16 @@ export function anchorKey(anchor: NoteAnchor): string {
   return anchor.kind === 'thread' ? 'thread' : `${anchor.kind}:${anchor.id}`
 }
 
-/** Oldest first — a conversation reads down the page. */
+/**
+ * Oldest first — a conversation reads down the page.
+ *
+ * By instant, not by string. A sent message carries the Z that `toISOString`
+ * writes and a seeded one is local-naive, so comparing the text put a message
+ * sent at 00:57Z before one seeded at 07:05 the same morning, and the reply
+ * landed above the thing it was replying to.
+ */
 export function byTime(notes: CoachNote[]): CoachNote[] {
-  return [...notes].sort((a, b) => a.sentAt.localeCompare(b.sentAt))
+  return [...notes].sort((a, b) => Date.parse(a.sentAt) - Date.parse(b.sentAt))
 }
 
 /** What the other side has said and this one has not seen. */

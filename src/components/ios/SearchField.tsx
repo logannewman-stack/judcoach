@@ -41,7 +41,7 @@ export function SearchField({
           aria-label={label}
           style={{
             width: '100%',
-            padding: '9px 34px 9px 34px',
+            padding: '11px 34px 12px 34px',
             borderRadius: 'var(--r-inset)',
             border: 'none',
             background: 'var(--fill-3)',

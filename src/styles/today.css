@@ -5,9 +5,10 @@
    name the single thing to do about them. So everything here is either a figure
    in the data face or the structure holding one up — see DESIGN.md.
 
-   No colour is declared here. Every value is a token, which is what keeps the
-   three theme states honest: light, system-dark and the explicit toggle are all
-   decided in tokens.css and nothing below can disagree with them.
+   No colour is declared here: every value is a token, or is mixed from one.
+   That is what keeps the three theme states honest — light, system-dark and the
+   explicit toggle are all decided in tokens.css, and nothing below can disagree
+   with them.
 
    Press states key off `data-pressed`, not `:active` — see lib/press.ts.
    ========================================================================== */

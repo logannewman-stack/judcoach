@@ -7,6 +7,7 @@
 :root {
   /* Type over a photograph answers to the photograph, not to the theme, so this
      pair is deliberately the same in light and dark. */
+  /* conform-allow: type over a photograph answers to the photograph. */
   --shot-scrim: rgba(0, 0, 0, 0.55);
   --shot-label: #ffffff;
 }

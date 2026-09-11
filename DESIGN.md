@@ -26,11 +26,15 @@ Never running prose. Never a sentence.
 
 Roles, all with `font-variant-numeric: tabular-nums`:
 
-| role | token | use |
+| role | class | use |
 |---|---|---|
-| hero figure | `--type-figure` | the runner's target, today's weight, a PR, a headline total |
-| data figure | `--type-data` | set chips, logged loads, table cells, stat tiles |
-| eyebrow | `--type-eyebrow` | `SET 1 OF 4`, `PER SIDE`, `WORKOUT`, section labels above data |
+| hero figure | `.figure` | the runner's target, today's weight, a PR, a headline total |
+| data figure | `.data` | set chips, logged loads, table cells, stat tiles |
+| eyebrow | `.eyebrow` | `SET 1 OF 4`, `PER SIDE`, `WORKOUT`, section labels above data |
+
+Only the eyebrow carries a size. `.figure` and `.data` deliberately take the
+size of whatever they sit in, because the same role appears at 51px in the
+runner and at 11px in a list, and a default would fight both.
 
 The width axis carries the role: eyebrows sit slightly wide (112) so short
 uppercase strings hold a line; figures sit at normal width (100). Do not
@@ -52,7 +56,9 @@ action* and nothing else. It is not a decoration and never a background for
 large areas.
 
 **Intensity has its own ramp, and it is the idea that makes this app look like
-itself.** RPE is a scale from 6 to 10 and it should read as one: cool at 6, hot
+itself.** Set `data-rpe` on an element and it gets three variables: `--rpe` for
+type, `--rpe-fill` for a wash behind it, `--rpe-solid` for a bar or a series
+where the colour is the whole point. RPE is a scale from 6 to 10 and it should read as one: cool at 6, hot
 at 10. Anywhere intensity appears — a set chip, a target, the RPE guide, a
 session's average — it takes its colour from `--rpe-6` … `--rpe-10`. This is
 information design, not theming: a client should be able to see the shape of a

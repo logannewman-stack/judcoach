@@ -21,7 +21,7 @@
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--label-3);
+  color: var(--label-2);
 }
 .thread-day:first-child { margin-top: 4px; }
 
@@ -216,8 +216,8 @@
   display: grid;
   place-items: center;
   flex: none;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: var(--fill-3);
   color: var(--label-2);
@@ -242,9 +242,9 @@
 .compose-field {
   flex: 1;
   min-width: 0;
-  min-height: 36px;
+  min-height: 44px;
   max-height: 120px;
-  padding: 7px 13px 8px;
+  padding: 11px 13px 12px;
   border: 1px solid var(--sep);
   border-radius: var(--r-bubble);
   background: var(--bg);
@@ -263,8 +263,8 @@
   display: grid;
   place-items: center;
   flex: none;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: var(--accent);
   color: #fff;
@@ -337,6 +337,9 @@
 
 /* ------------------------- the coach on the plan -------------------------- */
 
+/* A quotation rule, which is a typographic convention older than the app, not
+   §7's accent bar stuck on a card that needed something. It marks speech, it is
+   only ever on Jud's words, and the card it sits in has no other emphasis. */
 .coach-quote {
   padding: 2px 0 2px 13px;
   border-left: 2.5px solid var(--accent);

@@ -65,7 +65,7 @@ export function Equipment() {
                 onClick={() => togglePlate(plate)}
                 className="data"
                 style={{
-                  padding: '9px 15px',
+                  padding: '11px 15px',
                   borderRadius: 'var(--r-chip)',
                   fontWeight: 700,
                   fontSize: 15,

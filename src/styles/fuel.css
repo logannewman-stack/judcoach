@@ -15,36 +15,10 @@
    because it is the remainder. Colour is kept back for the one thing worth
    reporting — a target actually met.
 
-   These belong in tokens.css; they are declared here until they land there.
    ========================================================================== */
 
-:root {
-  --fuel-1: #2f2f35;
-  --fuel-2: #74747e;
-  --fuel-3: #a4a4ad;
-  /* Deliberately heavier than --fill-4: an unfilled ring has to read as an
-     empty gauge, and at 8% a day with nothing logged had nothing on it. */
-  --fuel-track: rgba(116, 116, 128, 0.19);
-  /* The one colour on the card, and it means what green always means here. */
-  --fuel-hit: var(--green);
-  --fuel-hit-text: var(--green-text);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --fuel-1: #e9e9e3;
-    --fuel-2: #98989f;
-    --fuel-3: #6e6e78;
-    --fuel-track: rgba(232, 232, 226, 0.16);
-  }
-}
-
-:root[data-theme='dark'] {
-  --fuel-1: #e9e9e3;
-  --fuel-2: #98989f;
-  --fuel-3: #6e6e78;
-  --fuel-track: rgba(232, 232, 226, 0.16);
-}
+/* The --fuel-* values were promoted to tokens.css, where the reasoning above
+   now lives alongside the rest of the palette. */
 
 /* A unit belongs to the figure it serves: same face, one step lighter, never
    SF. base.css's .figure-unit is weighted for a hero number; at list sizes that
@@ -151,6 +125,7 @@
   background: transparent;
 }
 .day-cell[data-logged='true'] .day-cell-dot { background: var(--accent); }
+/* conform-allow: white over the accent-filled current day, not a theme colour. */
 .day-cell[aria-current][data-logged='true'] .day-cell-dot { background: rgba(255, 255, 255, 0.92); }
 
 /* ------------------------------- meal cards -------------------------------

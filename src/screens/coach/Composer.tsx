@@ -74,7 +74,7 @@ export function Composer({
         aria-label="Send"
         onClick={submit}
       >
-        <Icon name="send.fill" size={19} weight={2.6} />
+        <Icon name="send" size={19} weight={2.6} />
       </button>
     </div>
   )

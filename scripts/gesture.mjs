@@ -42,8 +42,27 @@ async function swipe(toX, steps, gap) {
   await page.waitForTimeout(600)
 }
 
+/**
+ * A flick, dispatched rather than driven: `page.mouse.move` carries about 20ms
+ * of latency per step, so six of them cover 40px in 117ms — 340 px/s, which is
+ * a slow drag wearing a flick's name. A real one off a thumb is nearer 1600.
+ */
+async function flick({ distance = 44, stepMs = 4, y = 420 } = {}) {
+  return page.evaluate(async ([dist, gap, yy]) => {
+    const edge = document.querySelector('[data-stack-active="true"] > div:last-child')
+    const fire = (type, x) => (edge ?? document.body).dispatchEvent(new PointerEvent(type, {
+      clientX: x, clientY: yy, bubbles: true, pointerId: 1, isPrimary: true, button: 0,
+    }))
+    fire('pointerdown', 4)
+    for (let i = 1; i <= 6; i += 1) {
+      await new Promise((r) => setTimeout(r, gap))
+      fire('pointermove', 4 + (dist * i) / 6)
+    }
+    fire('pointerup', 4 + dist)
+  }, [distance, stepMs, y])
+}
+
 const CASES = [
-  ['a fast flick from a tenth of the way pops', 44, 6, 0, true],
   ['a slow drag a tenth of the way springs back', 44, 10, 40, false],
   ['a slow drag past a third of the way pops', 240, 12, 40, true],
   ['a slow drag to a quarter springs back', 96, 10, 40, false],
@@ -56,6 +75,27 @@ for (const [name, toX, steps, gap, shouldPop] of CASES) {
   await swipe(toX, steps, gap)
   const after = await depth()
   check(name, shouldPop ? after === before - 1 : after === before, `depth ${before} -> ${after}`)
+}
+
+/* A genuine flick: a tenth of the way across, fast enough that distance alone
+   would refuse it. */
+{
+  await push()
+  const before = await depth()
+  await flick({ distance: 44, stepMs: 4 })
+  await page.waitForTimeout(700)
+  check('a fast flick from a tenth of the way pops', (await depth()) === before - 1,
+    `depth ${before} -> ${await depth()}`)
+}
+
+/* And the same distance taken slowly must still refuse. */
+{
+  await push()
+  const before = await depth()
+  await flick({ distance: 44, stepMs: 55 })
+  await page.waitForTimeout(700)
+  check('the same distance taken slowly does not', (await depth()) === before,
+    `depth ${before} -> ${await depth()}`)
 }
 
 /* A pull back toward the edge must cancel even past the distance threshold. */

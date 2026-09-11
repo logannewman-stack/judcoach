@@ -60,10 +60,20 @@ export function Stack({
     const trail: { x: number; t: number }[] = [{ x: startX, t: performance.now() }]
 
     const speed = () => {
-      const now = performance.now()
-      const from = trail.find((s) => now - s.t < 90) ?? trail[0]!
-      const dt = now - from.t
-      return dt > 8 ? ((trail.at(-1)!.x - from.x) / dt) * 1000 : 0
+      // Measured between the samples themselves, not against the moment of
+      // release: a finger that rests before lifting is not flicking, and
+      // including that dead time would say it was.
+      const last = trail.at(-1)!
+      const from = trail.find((s) => last.t - s.t < 90) ?? trail[0]!
+      const dx = last.x - from.x
+      const dt = last.t - from.t
+      // Barely moved in the window: not a flick in either direction.
+      if (Math.abs(dx) < 6) return 0
+      // Ground covered inside a millisecond is as fast as a gesture gets. The
+      // guard this replaces returned zero here, so the quickest flicks of all —
+      // the ones most obviously meant as a flick — read as standing still.
+      if (dt < 1) return dx > 0 ? Infinity : -Infinity
+      return (dx / dt) * 1000
     }
 
     const cleanup = () => {

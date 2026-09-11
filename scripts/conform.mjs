@@ -28,8 +28,9 @@ for (const file of SRC) {
   lines.forEach((code, i) => {
     const n = i + 1
     if (exemptFile) return
-    // A deliberate exception, stated on the line or just above it.
-    if (/conform-allow/.test(raw[i] ?? '') || /conform-allow/.test(raw[i - 1] ?? '')) return
+    // A deliberate exception, stated on the line or in the comment above it.
+    // Reasons run to two or three lines, so look back as far as one plausibly does.
+    if ([0, 1, 2, 3].some((back) => /conform-allow/.test(raw[i - back] ?? ''))) return
 
     // A shadow is defined in ink, not in a theme colour, so the token that
     // declares one is allowed to spell it out.
@@ -62,7 +63,9 @@ for (const file of SRC) {
         || value.split(/\s+/).every((v) => RADII.has(v.replace(/px$/, '')))
       if (!ok) add('radius', file, n, `${radius[1].trim()} — ${code.trim().slice(0, 50)}`)
     }
-    const shadow = code.match(/box-?[Ss]hadow:\s*'?([^;'"}]+)/)
+    // Take the whole expression, so a ternary is judged on its values rather
+    // than on the condition in front of them.
+    const shadow = code.match(/box-?[Ss]hadow:\s*([^;}]+)/)
     // A transparent shadow is an animation's end state, not an elevation.
     if (shadow && !/var\(--|inset|none|transparent/.test(shadow[1])) {
       add('shadow', file, n, `${shadow[1].trim().slice(0, 44)} — ${file}`)

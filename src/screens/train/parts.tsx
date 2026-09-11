@@ -1,9 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../../components/Icon'
-import { Pill } from '../../components/ios/Controls'
-import type { LoggedSet, SetPrescription } from '../../domain/types'
-import { describeReps, formatRir, formatRpe, rpeToRir } from '../../domain/strength'
-import type { ResolvedSet } from '../../domain/strength'
+import type { LoggedSet } from '../../domain/types'
 import { num } from '../../lib/format'
 import { relativeDay } from '../../lib/date'
 
@@ -18,50 +15,6 @@ import { relativeDay } from '../../lib/date'
 export const flushSection: CSSProperties = { marginBottom: 0 }
 
 /* --------------------------- prescription display ------------------------ */
-
-/** "5 reps · 330 lb" plus the intensity pills a percentage programme lives on. */
-export function TargetSummary({
-  resolved,
-  units,
-  showRir,
-  size = 'md',
-}: {
-  resolved: ResolvedSet
-  units: string
-  showRir: boolean
-  size?: 'sm' | 'md'
-}) {
-  const { prescription, targetWeight, percent, rpe } = resolved
-  const big = size === 'md'
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-      <span className="data" style={{ fontSize: big ? 17 : 15 }}>
-        {describeReps(prescription)}
-        <span className="dim" style={{ fontWeight: 500 }}> reps</span>
-        {targetWeight != null && (
-          <>
-            <span className="dim" style={{ fontWeight: 500 }}> · </span>
-            {num(targetWeight, 1)}
-            <span className="dim" style={{ fontWeight: 500 }}> {units}</span>
-          </>
-        )}
-      </span>
-      {percent != null && prescription.load.kind === 'percent' && (
-        <Pill tone="tinted">{num(percent, 1)}%</Pill>
-      )}
-      {prescription.load.kind === 'backoff' && <Pill>{prescription.load.pctOfTop}% of top</Pill>}
-      {prescription.load.kind === 'rpe' && targetWeight == null && <Pill>Work up</Pill>}
-      {rpe != null && (
-        <Pill tone={rpe >= 9 ? 'warn' : 'default'}>
-          {formatRpe(rpe)}
-          {showRir && ` · ${formatRir(rpeToRir(rpe))}`}
-        </Pill>
-      )}
-      {prescription.amrap && <Pill tone="warn" icon="flame.fill">AMRAP</Pill>}
-      {prescription.tempo && <Pill>Tempo {prescription.tempo}</Pill>}
-    </div>
-  )
-}
 
 /* ------------------------------- history bits --------------------------- */
 
@@ -210,9 +163,4 @@ export function WarmupList({
       ))}
     </div>
   )
-}
-
-export function setLabel(set: SetPrescription, index: number): string {
-  if (set.amrap) return `Set ${index + 1} · AMRAP`
-  return `Set ${index + 1}`
 }

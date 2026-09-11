@@ -42,7 +42,7 @@ export function Guidelines() {
         <div>
           <SectionHeader title="Where the calories come from" />
           <Card>
-            <div style={{ display: 'flex', height: 12, borderRadius: 99, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', height: 12, borderRadius: 'var(--r-pill)', overflow: 'hidden' }}>
               <div style={{ width: `${split.protein}%`, background: MACRO_COLORS.protein }} />
               <div style={{ width: `${split.carbs}%`, background: MACRO_COLORS.carbs }} />
               <div style={{ width: `${split.fat}%`, background: MACRO_COLORS.fat }} />
@@ -139,7 +139,7 @@ function SplitLegend({
   return (
     <div style={{ minWidth: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-        <span style={{ width: 8, height: 8, borderRadius: 2, background: color, flex: 'none' }} />
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flex: 'none' }} />
         <span className="eyebrow truncate">{label}</span>
       </div>
       <div className="data" style={{ fontSize: 17, lineHeight: '22px', fontWeight: 700 }}>{pct}%</div>

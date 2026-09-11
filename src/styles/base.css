@@ -186,14 +186,18 @@ img { max-width: 100%; display: block; }
    because an unrecorded effort is not a cool one.
    ------------------------------------------------------------------------ */
 [data-rpe] {
+  /* Three, because a ramp is used three ways: --rpe sets type, --rpe-fill
+     washes a chip behind it, and --rpe-solid paints a bar or a series where the
+     colour is the whole point and nothing sits on top of it. */
   --rpe: var(--label-2);
   --rpe-fill: var(--fill-4);
+  --rpe-solid: var(--gray3);
 }
-[data-rpe='6'],   [data-rpe='6.5'] { --rpe: var(--rpe-6-text);  --rpe-fill: color-mix(in srgb, var(--rpe-6) 15%, transparent); }
-[data-rpe='7'],   [data-rpe='7.5'] { --rpe: var(--rpe-7-text);  --rpe-fill: color-mix(in srgb, var(--rpe-7) 16%, transparent); }
-[data-rpe='8'],   [data-rpe='8.5'] { --rpe: var(--rpe-8-text);  --rpe-fill: color-mix(in srgb, var(--rpe-8) 20%, transparent); }
-[data-rpe='9'],   [data-rpe='9.5'] { --rpe: var(--rpe-9-text);  --rpe-fill: color-mix(in srgb, var(--rpe-9) 18%, transparent); }
-[data-rpe='10']                    { --rpe: var(--rpe-10-text); --rpe-fill: color-mix(in srgb, var(--rpe-10) 18%, transparent); }
+[data-rpe='6'],   [data-rpe='6.5'] { --rpe: var(--rpe-6-text);  --rpe-fill: color-mix(in srgb, var(--rpe-6) 15%, transparent); --rpe-solid: var(--rpe-6); }
+[data-rpe='7'],   [data-rpe='7.5'] { --rpe: var(--rpe-7-text);  --rpe-fill: color-mix(in srgb, var(--rpe-7) 16%, transparent); --rpe-solid: var(--rpe-7); }
+[data-rpe='8'],   [data-rpe='8.5'] { --rpe: var(--rpe-8-text);  --rpe-fill: color-mix(in srgb, var(--rpe-8) 20%, transparent); --rpe-solid: var(--rpe-8); }
+[data-rpe='9'],   [data-rpe='9.5'] { --rpe: var(--rpe-9-text);  --rpe-fill: color-mix(in srgb, var(--rpe-9) 18%, transparent); --rpe-solid: var(--rpe-9); }
+[data-rpe='10']                    { --rpe: var(--rpe-10-text); --rpe-fill: color-mix(in srgb, var(--rpe-10) 18%, transparent); --rpe-solid: var(--rpe-10); }
 
 /* A set as it was actually performed: load and reps in the data face, the
    effort carried by the chip's own colour rather than by a word. */
@@ -838,6 +842,10 @@ a.surface[data-pressed],
 .btn-gray { background: var(--fill-3); color: var(--label); }
 .btn-destructive { background: var(--red); color: #fff; }
 .btn-plain { background: none; color: var(--accent); min-height: 44px; }
+/* A small button is small on purpose, but a thumb still has to land on it, so
+   the target grows past the drawing rather than the drawing growing. */
+.btn-sm { position: relative; }
+.btn-sm::after { content: ''; position: absolute; inset: -5px -2px; }
 .btn-sm { min-height: 34px; font-size: 15px; padding: 0 14px; width: auto; border-radius: var(--r-btn); }
 .btn-pill { border-radius: var(--r-pill); }
 
@@ -916,7 +924,16 @@ a.surface[data-pressed],
 
 /* ================================ switch ================================ */
 
+/* UISwitch draws at 51x31, which is right, but iOS hit-tests it over the full
+   height of the cell it sits in. Without that the audit is correct to call it
+   a 31pt target — and a thumb misses it. */
+.switch::after {
+  content: '';
+  position: absolute;
+  inset: -7px -4px;
+}
 .switch {
+  position: relative;
   flex: none;
   width: 51px;
   height: 31px;

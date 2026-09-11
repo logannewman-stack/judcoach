@@ -26,6 +26,7 @@ export function TrainHome() {
   const logs = useStore((s) => s.logs)
   const profile = useStore((s) => s.profile)
   const active = useStore((s) => s.active)
+  const blockStartedOn = useStore((s) => s.blockStartedOn)
   const push = useNav((s) => s.push)
 
   const liveWeek = currentWeekIndex(program, today)
@@ -102,7 +103,9 @@ export function TrainHome() {
         <ListSection header="Sessions" style={flushSection}>
           {schedule.map(({ session, date, log }) => {
             const isToday = date === today
-            const isPast = date < today
+            // A session scheduled before the client's first day was never
+            // theirs to miss, which is the same floor Today's catch-up uses.
+            const isMissed = date < today && (!blockStartedOn || date >= blockStartedOn)
 
             return (
               <Row
@@ -139,7 +142,7 @@ export function TrainHome() {
                     <Icon name="check.circle.fill" size={17} color="var(--green)" />
                   ) : isToday ? (
                     <Pill tone="tinted">Today</Pill>
-                  ) : isPast ? (
+                  ) : isMissed ? (
                     <Icon name="clock" size={15} color="var(--orange)" weight={2.2} />
                   ) : undefined
                 }
@@ -210,8 +213,8 @@ export function TrainHome() {
 
 interface WeekShape {
   index: number
+  /** "Accumulation", "Deload" — the week's name, for the cell's spoken label. */
   label: string
-  deload?: boolean
   /** Heaviest share of the training max the week's main lift asks for. */
   percent: number
   /** The effort that set is prescribed at; absent on a deload, which makes no
@@ -246,7 +249,6 @@ function blockShape(program: Program, logs: WorkoutLog[], profile: Profile): Wee
     return {
       index: week.index,
       label: week.label.split(' — ')[1] ?? week.label,
-      deload: week.deload,
       percent,
       rpe,
       done: week.sessions.filter((s) => logs.some((l) => l.sessionId === s.id)).length,

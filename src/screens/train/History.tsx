@@ -66,7 +66,7 @@ function LedgerCell({
   )
 }
 
-/** Names the four columns, once at the top of a page of them. */
+/** Names the columns, once at the top of a page of them. */
 export function SetTableHead() {
   return (
     <div className="set-table set-head">
@@ -116,7 +116,7 @@ export function SetTable({
   units: string
   previous?: { date: string; sets: LoggedSet[] }
 }) {
-  const prevBest = previous && topSet(previous.sets)
+  const prevBest = previous ? topSet(previous.sets) : undefined
   return (
     <div className="set-table">
       {sets.map((set, i) => (
@@ -125,10 +125,10 @@ export function SetTable({
           <SetCells set={set} units={units} />
         </div>
       ))}
-      {prevBest && (
+      {previous && prevBest && (
         <>
           <span className="set-prev-rule" />
-          <span className="set-index set-prev">{formatShortDate(previous!.date)}</span>
+          <span className="set-index set-prev">{formatShortDate(previous.date)}</span>
           <span className="set-prev" style={{ display: 'contents' }}>
             <SetCells set={prevBest} units={units} />
           </span>

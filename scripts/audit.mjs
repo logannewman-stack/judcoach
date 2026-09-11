@@ -31,7 +31,9 @@ const PARAMS = {
 
 const server = await createServer({ server: { port: PORT } })
 await server.listen()
-const url = `http://127.0.0.1:${PORT}/`
+// Vite falls back to another port when this one is taken, silently, so read
+// back the one it actually bound rather than assuming.
+const url = server.resolvedUrls?.local?.[0] ?? `http://127.0.0.1:${PORT}/`
 
 /* The page-side sweep. Runs for one route, in whichever theme is active. */
 const SWEEP = (route) => {
@@ -39,10 +41,19 @@ const SWEEP = (route) => {
   const stack = document.querySelector('[data-stack-active="true"]')
   if (!stack) return [{ kind: 'route', text: `${route}: no active stack` }]
   // The screen underneath a push stays mounted at x: -26%, so sweeping the whole
-  // stack reports the previous screen's rows as overlapping this one's.
-  const root = [...stack.children]
-    .reduce((top, el) => (Number(getComputedStyle(el).zIndex || 0)
-      >= Number(getComputedStyle(top).zIndex || 0) ? el : top), stack.children[0]) ?? stack
+  // stack reports the previous screen's rows as overlapping this one's — take
+  // the topmost child instead.
+  //
+  // Only children that actually hold a screen are candidates. A pushed route
+  // also mounts an empty edge-swipe layer at z-index 50, and picking that as the
+  // root meant every pushed route in the list below swept an element with no
+  // descendants and reported, silently, nothing at all.
+  const screens = [...stack.children].filter((el) => el.querySelector('*'))
+  const root = screens.reduce(
+    (top, el) => (Number(getComputedStyle(el).zIndex || 0)
+      >= Number(getComputedStyle(top).zIndex || 0) ? el : top),
+    screens[0],
+  ) ?? stack
 
   const visible = (el) => {
     if (el.closest('[aria-hidden="true"]')) return false
@@ -54,6 +65,15 @@ const SWEEP = (route) => {
 
   /* ------------------------------- colour -------------------------------- */
   const parseColor = (c) => {
+    // Chromium serialises color-mix() as `color(srgb r g b / a)` on a 0-1 scale,
+    // which read as near-black through an rgb() parser — a mixed fill measured
+    // as a hard contrast failure it was nowhere near.
+    const srgb = c.match(/^color\(srgb\s+([\d.-]+)\s+([\d.-]+)\s+([\d.-]+)(?:\s*\/\s*([\d.%]+))?/)
+    if (srgb) {
+      const alpha = srgb[4] == null ? 1
+        : srgb[4].endsWith('%') ? parseFloat(srgb[4]) / 100 : +srgb[4]
+      return { r: +srgb[1] * 255, g: +srgb[2] * 255, b: +srgb[3] * 255, a: alpha }
+    }
     const m = c.match(/[\d.]+/g)
     if (!m) return null
     return { r: +m[0], g: +m[1], b: +m[2], a: m.length > 3 ? +m[3] : 1 }
@@ -140,8 +160,11 @@ const SWEEP = (route) => {
         out.push({ kind: 'clipped', text: `${route}: "${el.textContent.trim().slice(0, 30)}" is cut off` })
       }
 
+      // A disabled control is drawn dim on purpose — that is what disabled
+      // looks like on iOS, and WCAG exempts it for the same reason.
+      const disabled = el.closest('[disabled], [aria-disabled="true"]') != null
       // Contrast, where the background is a flat colour we can compute.
-      const fg = parseColor(s.color)
+      const fg = disabled ? null : parseColor(s.color)
       const { color: bg, gradient } = backdrop(el)
       if (fg && bg && fg.a > 0.1) {
         const flat = fg.a < 1 ? over(fg, bg) : fg

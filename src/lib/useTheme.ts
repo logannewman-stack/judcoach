@@ -45,7 +45,12 @@ export function useTheme() {
       themeColor.name = 'theme-color'
       document.head.appendChild(themeColor)
     }
-    themeColor.content = isDark ? '#000000' : '#f2f2f7'
+    // Read the ground rather than restating it: hard-coding meant the notch
+    // area kept Apple's grey for a fortnight after the app moved to chalk.
+    // conform-allow: the fallbacks are the ground's own values, for the case
+    // where the stylesheet has not resolved yet — a token cannot cover that.
+    themeColor.content = getComputedStyle(document.documentElement)
+      .getPropertyValue('--grouped').trim() || (isDark ? '#0b0b0c' : '#f1f1ef')
   }, [theme])
 
   useEffect(() => {

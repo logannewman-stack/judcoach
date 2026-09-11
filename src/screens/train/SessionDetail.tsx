@@ -167,7 +167,12 @@ export function SessionDetail({ weekIndex, sessionId }: { weekIndex: number; ses
                     </div>
                   )}
 
-                  <PlanTable rows={groupSets(resolved)} units={profile.units} showRir={showRir} />
+                  <PlanTable
+                    rows={groupSets(resolved)}
+                    label={exercise?.name ?? block.exerciseId}
+                    units={profile.units}
+                    showRir={showRir}
+                  />
 
                   {(sharedTempo || block.note) && (
                     <div className="plan-foot">
@@ -261,9 +266,10 @@ function groupSets(sets: ResolvedSet[]): PlanRow[] {
 }
 
 function PlanTable({
-  rows, units, showRir,
+  rows, label, units, showRir,
 }: {
   rows: PlanRow[]
+  label: string
   units: Units
   showRir: boolean
 }) {
@@ -274,7 +280,7 @@ function PlanTable({
 
   return (
     <div className="plan-wrap">
-      <table className="plan">
+      <table className="plan" aria-label={`${label} — prescribed sets`}>
         <thead>
           <tr>
             <th className="eyebrow plan-set">Set</th>

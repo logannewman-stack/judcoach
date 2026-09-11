@@ -12,7 +12,25 @@ import { summarizeTrend } from '../domain/weight'
    something else is the fastest way to make a demo feel fake.
    ========================================================================== */
 
-const at = (date: string, time: string) => `${date}T${time}:00.000`
+/**
+ * A seeded timestamp, never in the future.
+ *
+ * The conversation is written against clock times a coach would plausibly send
+ * at — 07:05, 20:10 — but the demo can be opened at any hour, and a message
+ * dated seven hours from now sorts after the reply to it and reads as a fault.
+ * Anything that would land ahead of the present is pulled back just behind it,
+ * keeping the order the script intends.
+ */
+let lastClamped = 0
+const at = (date: string, time: string) => {
+  const wanted = new Date(`${date}T${time}:00`)
+  const now = Date.now()
+  if (wanted.getTime() <= now) return `${date}T${time}:00.000`
+  // Each clamped message lands a minute after the one before it, so a run of
+  // them keeps its sequence instead of collapsing onto one instant.
+  lastClamped += 1
+  return new Date(now - 120_000 + lastClamped * 1000).toISOString()
+}
 const id = (n: number) => `note-seed-${n}`
 
 /** The heaviest working set in a log, for Jud to quote back. */

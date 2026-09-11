@@ -126,8 +126,8 @@
 .at { color: var(--rpe); font-weight: 700; }
 
 /* ============================== set table ================================
-   One session's work, ruled. Columns are fixed so every movement on the page
-   aligns on the same four verticals: the load column is a single run of
+   One session's work, ruled. Columns are fixed, so every movement on the page
+   aligns on the same verticals: the load column is a single run of
    right-aligned tabular digits from the top of the session to the bottom,
    which is the one thing a stack of wrapped chips could never give.
    ---------------------------------------------------------------------- */
@@ -136,7 +136,7 @@
      vertical: right-aligning "× 4" against "× 10" holds the digits still and
      swings the sign a character's width between rows. */
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) 15px 30px 46px;
+  grid-template-columns: 44px minmax(0, 1fr) 20px 30px 46px;
   align-items: center;
   row-gap: 3px;
 }
@@ -152,7 +152,7 @@
   white-space: nowrap;
 }
 .set-cell .unit { font-size: 12px; font-weight: 500; color: var(--label-2); }
-.set-times { color: var(--label-2); font-weight: 500; text-align: left; }
+.set-times { color: var(--label-2); font-weight: 500; text-align: center; }
 
 /* The set's ordinal, and on the reference line the date it came from. */
 .set-index {
@@ -265,9 +265,10 @@
 }
 
 /* ============================ records board ==============================
-   The four lifts the block is written around, at the size they deserve. The
-   grid gap paints the hairlines, so the board is one surface divided rather
-   than four cards adrift.
+   The four lifts the block is written around, at the size they deserve — one
+   surface ruled into quarters rather than four cards adrift. Empty, it is
+   still the board: four headings waiting for a number is what a records board
+   looks like before anyone has lifted.
    ---------------------------------------------------------------------- */
 .board {
   display: grid;
@@ -406,12 +407,12 @@
 .rpe-table tbody tr:last-child th.rpe-table-row-head { border-bottom: 0; }
 
 /* The row you are looking for, found by its colour rather than by counting. */
-.rpe-table-row-head {
+.rpe-table .rpe-table-row-head {
   position: sticky;
   left: 0;
   z-index: 1;
-  padding-left: 14px !important;
-  text-align: left !important;
+  padding-left: 14px;
+  text-align: left;
   font-size: 13px;
   font-weight: 700;
   color: var(--rpe);
@@ -427,12 +428,12 @@
   width: 3px;
   background: var(--rpe);
 }
-.rpe-table-corner {
+.rpe-table .rpe-table-corner {
   position: sticky;
   left: 0;
   z-index: 1;
-  padding-left: 14px !important;
-  text-align: left !important;
+  padding-left: 14px;
+  text-align: left;
   background: var(--grouped-2);
 }
 

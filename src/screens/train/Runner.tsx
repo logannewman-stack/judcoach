@@ -124,8 +124,7 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
   const totalSets = session.blocks.reduce((n, b) => n + b.sets.length, 0)
   const doneSets = Object.values(active.entries).reduce((n, sets) => n + sets.length, 0)
   const sessionVolume = Object.values(active.entries).reduce((n, sets) => n + sessionTonnage(sets), 0)
-  const sessionSets = Object.values(active.entries).flat()
-  const avgRpe = averageRpe(sessionSets)
+  const avgRpe = averageRpe(Object.values(active.entries).flat())
 
   // The session's plan, one cell per prescribed set, with the effort painted on
   // as the sets land. An extra set past the prescription adds a cell rather than
@@ -283,13 +282,13 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
                   background: current
                     ? 'var(--accent)'
                     : complete ? 'color-mix(in srgb, var(--green) 16%, transparent)' : 'var(--fill-3)',
-                  // systemGreen is a fill and a symbol colour, never a text one:
-                  // it is 2.2:1 on white. The darker twin is what iOS sets type
-                  // in, and on a dark ground the two converge anyway.
-                  color: current ? '#fff' : complete ? 'var(--green-text)' : 'var(--label-2)',
+                  // Green is the state, not the type: even iOS's text-safe green
+                  // is under 3:1 once it sits on its own tint. The tick and the
+                  // fill say "done"; the name stays a name.
+                  color: current ? '#fff' : 'var(--label-2)',
                 }}
               >
-                {complete && <Icon name="check" size={11} weight={3} />}
+                {complete && <Icon name="check" size={11} weight={3} color="var(--green)" />}
                 {ex?.shortName ?? ex?.name ?? '—'}
                 <span className="data" style={{ opacity: 0.65, fontSize: 12 }}>
                   {count}/{b.sets.length}

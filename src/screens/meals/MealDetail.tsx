@@ -244,7 +244,7 @@ function PortionSheet({
                 className="data"
                 style={{
                   minHeight: 46,
-                  borderRadius: 11,
+                  borderRadius: 'var(--r-inset)',
                   fontSize: 17,
                   background: on ? 'var(--accent)' : 'var(--fill-4)',
                   color: on ? '#fff' : 'var(--label)',

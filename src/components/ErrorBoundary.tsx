@@ -1,3 +1,5 @@
+/* conform-allow-file: see the note above the style block — every colour here
+   names a token and the value to use when that token resolves to nothing. */
 import { Component } from 'react'
 import type { ReactNode } from 'react'
 import { GritTile } from './Logo'
@@ -119,7 +121,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
   }
 }
 
-/* conform-allow-file: inline styles with literal fallbacks, on purpose. The
+/* Inline styles with literal fallbacks, on purpose. The
    stylesheet loading is one of the things that can have failed by the time this
    renders, so every colour here names a token *and* the value to use when that
    token resolves to nothing. */

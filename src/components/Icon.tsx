@@ -16,7 +16,7 @@ export type IconName =
   | 'chart.line' | 'lock' | 'pencil' | 'search' | 'star.fill' | 'seal.fill'
   | 'note' | 'photo' | 'reset' | 'question' | 'heart.fill' | 'list'
   | 'paintbrush' | 'hand.raised' | 'sparkle' | 'arrow.right' | 'video'
-  | 'message' | 'message.fill' | 'send.fill'
+  | 'message' | 'message.fill' | 'send'
 
 interface Part {
   d: string
@@ -130,7 +130,8 @@ const ICONS: Record<IconName, Part[]> = {
   // way round as the coach's own messages in the thread.
   message: [{ d: 'M12 3.6c-4.9 0-8.8 3.2-8.8 7.2 0 2.3 1.3 4.4 3.4 5.7-.2 1.2-.8 2.4-1.7 3.4 1.7-.2 3.3-.9 4.6-1.9 .8.2 1.7.3 2.5.3 4.9 0 8.8-3.2 8.8-7.5S16.9 3.6 12 3.6Z' }],
   'message.fill': [{ d: 'M12 3.6c-4.9 0-8.8 3.2-8.8 7.2 0 2.3 1.3 4.4 3.4 5.7-.2 1.2-.8 2.4-1.7 3.4 1.7-.2 3.3-.9 4.6-1.9 .8.2 1.7.3 2.5.3 4.9 0 8.8-3.2 8.8-7.5S16.9 3.6 12 3.6Z', fill: true }],
-  'send.fill': [{ d: 'M12 4.4 6.1 10.3M12 4.4l5.9 5.9M12 4.4v15.2' }],
+  // Drawn in strokes, so it is `send`, not `send.fill`.
+  send: [{ d: 'M12 4.4 6.1 10.3M12 4.4l5.9 5.9M12 4.4v15.2' }],
   list: [{ d: 'M9 6.4h11.4M9 12h11.4M9 17.6h11.4' }, { d: 'M4.6 7.5a1.1 1.1 0 1 0 0-2.2 1.1 1.1 0 0 0 0 2.2ZM4.6 13.1a1.1 1.1 0 1 0 0-2.2 1.1 1.1 0 0 0 0 2.2ZM4.6 18.7a1.1 1.1 0 1 0 0-2.2 1.1 1.1 0 0 0 0 2.2Z', fill: true }],
   ruler: [{ d: 'M3.4 8.6h17.2a1.4 1.4 0 0 1 1.4 1.4v4a1.4 1.4 0 0 1-1.4 1.4H3.4A1.4 1.4 0 0 1 2 14v-4a1.4 1.4 0 0 1 1.4-1.4Z' }, { d: 'M6.4 8.6v3M10 8.6v4.4M13.6 8.6v3M17.2 8.6v4.4' }],
   target: [{ d: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z' }, { d: 'M12 16.6a4.6 4.6 0 1 0 0-9.2 4.6 4.6 0 0 0 0 9.2Z' }, { d: 'M12 13.4a1.4 1.4 0 1 0 0-2.8 1.4 1.4 0 0 0 0 2.8Z', fill: true }],
