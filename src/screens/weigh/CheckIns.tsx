@@ -236,7 +236,7 @@ function ComposeSheet({
           rows={5}
           placeholder="Sleep, stress, aches, travel, a lift that felt different…"
           style={{
-            width: '100%', padding: '11px 13px', borderRadius: 12,
+            width: '100%', padding: '11px 13px', borderRadius: 'var(--r-card)',
             border: 'none', background: 'var(--fill-3)', resize: 'none', lineHeight: '22px',
           }}
         />

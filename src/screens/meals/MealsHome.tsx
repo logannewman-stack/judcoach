@@ -52,6 +52,10 @@ export function MealsHome() {
   const swipe = useSwipeGroup()
 
   const waterMet = day.waterOz >= targets.waterOz
+  // Nothing eaten is a different state from something eaten badly, and a day
+  // already behind you is a third: it cannot be "still to go".
+  const started = totals.kcal > 0
+  const past = date < today
   // The first meal still standing. A plan is executed top to bottom, so this is
   // literally the next thing to do — and on a day with nothing logged it is the
   // only instruction the screen would otherwise carry.
@@ -118,16 +122,36 @@ export function MealsHome() {
           </div>
 
           <div style={{ display: 'flex', gap: 7, marginTop: 14, flexWrap: 'wrap' }}>
-            <Pill tone={protein.status}>{protein.label}</Pill>
-            <Pill tone={adherence >= 80 ? 'good' : adherence >= 50 ? 'warn' : 'default'}>
-              {adherence}% of plan
-            </Pill>
+            {/* "Protein short" in red is a verdict, and at seven in the morning
+                on a day nobody has eaten yet it is a verdict on nothing. A plan
+                that has not been started is not a plan that has been failed. */}
+            {!started ? (
+              <Pill>{past ? 'Nothing logged' : 'Not started yet'}</Pill>
+            ) : (
+              <>
+                <Pill tone={protein.status}>{protein.label}</Pill>
+                {adherence >= 100 ? (
+                  <Pill tone="good" icon="seal.fill">Plan complete</Pill>
+                ) : (
+                  <Pill tone={adherence >= 80 ? 'good' : adherence >= 50 ? 'warn' : 'default'}>
+                    {adherence}% of plan
+                  </Pill>
+                )}
+              </>
+            )}
           </div>
 
           {/* What is still owed, in the two numbers the plan is actually judged
               on. The kcal pill this replaced repeated the ring's own centre. */}
           <div className="t-footnote dim" style={{ marginTop: 9 }}>
-            <Remaining targets={targets} totals={totals} />
+            <Remaining
+              targets={targets}
+              totals={totals}
+              started={started}
+              past={past}
+              complete={adherence >= 100}
+              opening={MEAL_PLAN.meals[0]}
+            />
           </div>
 
           <div style={{ marginTop: 14 }}>
@@ -181,7 +205,9 @@ export function MealsHome() {
         {/* -------------------------------- meals ---------------------------- */}
         <div>
           <SectionHeader
-            title="Today's meals"
+            // The strip goes back a fortnight, and a Tuesday three days ago was
+            // still being headed "Today's meals".
+            title={date === today ? "Today's meals" : "That day's meals"}
             action={{ label: 'Guidelines', onPress: () => push('guidelines') }}
           />
           <div className="gutter" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -364,9 +390,36 @@ function MacroReadout({
  */
 const KCAL_SLACK = 5
 
-function Remaining({ targets, totals }: { targets: MacroTargets; totals: MacroTotals }) {
+function Remaining({
+  targets, totals, started, past, complete, opening,
+}: {
+  targets: MacroTargets
+  totals: MacroTotals
+  /** False until something has actually been eaten. */
+  started: boolean
+  /** A day already behind the client, where nothing is "still to go". */
+  past: boolean
+  /** Every planned item ticked. */
+  complete: boolean
+  /** The first meal of the plan, for a day that has not begun. */
+  opening?: Meal
+}) {
   const kcalLeft = Math.round(targets.kcal - totals.kcal)
   const proteinLeft = Math.round(targets.protein - totals.protein)
+  // A plan waiting to be executed, stated as the plan rather than as a debt.
+  // "2920 kcal still to go" before breakfast reads as arrears on a day the
+  // client has done nothing wrong in.
+  if (!started) {
+    if (past) {
+      return <>Nothing logged for this day. Tick off what you remember — a half-recorded day still tells Jud more than a blank one.</>
+    }
+    return <>
+      <span className="data">{MEAL_PLAN.meals.length}</span> meals,{' '}
+      <span className="data">{targets.kcal}</span> kcal,{' '}
+      <span className="data">{targets.protein} g</span> of protein.
+      {opening && <> {opening.name} at {formatClock(opening.time)} starts it.</>}
+    </>
+  }
   if (kcalLeft < -KCAL_SLACK) {
     return <>
       <span className="data">{-kcalLeft}</span> kcal over the day&rsquo;s target.
@@ -378,7 +431,11 @@ function Remaining({ targets, totals }: { targets: MacroTargets; totals: MacroTo
       {' '}of protein still to go.
     </>
   }
-  if (kcalLeft <= KCAL_SLACK) return <>Protein and calories both landed. The day is on plan.</>
+  if (kcalLeft <= KCAL_SLACK) {
+    return complete
+      ? <>Every item ticked, protein and calories both landed. That is the day exactly as written.</>
+      : <>Protein and calories both landed. The day is on plan.</>
+  }
   return <>
     Protein is in. <span className="data">{kcalLeft}</span> kcal left today.
   </>

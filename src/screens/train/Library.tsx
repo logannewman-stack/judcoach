@@ -135,6 +135,15 @@ export function ExerciseLibrary() {
 
 /* ----------------------------- exercise detail --------------------------- */
 
+/**
+ * "today" / "on Monday" / "on Sep 17" — `relativeDay` returns a mix of adverbs
+ * and proper nouns, and lower-casing the lot gave "monday" and "sep 17".
+ */
+function whenPhrase(date: string): string {
+  const when = relativeDay(date)
+  return when === 'Today' || when === 'Tomorrow' ? when.toLowerCase() : `on ${when}`
+}
+
 /** "Back Squat and Front Squat" — a list a person reads, not a CSV. */
 function listNames(names: string[]): string {
   if (names.length <= 1) return names[0] ?? ''
@@ -244,7 +253,23 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
                   </span>
                 </div>
               )}
+              {/* A rule of figures needs more than one figure. Before a movement
+                  has been trained there is exactly one, and the strip ran two
+                  thirds empty; the fact that stands in for a record until then
+                  is when the programme next calls for it. */}
+              {!pr && tm && slot.next && (
+                <div className="ledger-cell">
+                  <span className="eyebrow">Next due</span>
+                  <span className="figure ledger-figure">{formatShortDate(slot.next.date)}</span>
+                </div>
+              )}
             </div>
+            {!pr && tm && slot.next && (
+              <div className="list-footer">
+                Nothing logged on it yet — the max above is what the bar gets loaded from. Next
+                programmed in {slot.next.session}.
+              </div>
+            )}
             {pr && (
               <div className="list-footer">
                 <span className="log-meta" style={{ display: 'inline' }}>
@@ -338,7 +363,7 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
               title="Not trained yet"
               message={
                 slot.next
-                  ? `Next up in ${slot.next.session}, ${relativeDay(slot.next.date).toLowerCase()}. Your sets land here as you log them.`
+                  ? `Next up in ${slot.next.session} ${whenPhrase(slot.next.date)}. Your sets land here as you log them.`
                   : slot.appears > 0
                     ? 'It is in this block but every session holding it is behind you. Log it and the table below writes itself.'
                     : slot.standsInFor.length > 0

@@ -42,6 +42,10 @@
   gap: 12px;
   margin-bottom: 10px;
 }
+/* Whose data this is, said at the rank of a fact rather than of a label. The
+   eyebrow grey is right above a column and too quiet for the one line standing
+   between a client and their own weigh-in in somebody else's history. */
+.today-lede .eyebrow { color: var(--label-2); }
 
 /* ============================== today's hero ============================== */
 

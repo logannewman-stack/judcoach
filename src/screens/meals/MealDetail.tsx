@@ -260,7 +260,7 @@ function PortionSheet({
           style={{
             marginTop: 18,
             padding: 14,
-            borderRadius: 12,
+            borderRadius: 'var(--r-card)',
             background: 'var(--fill-4)',
           }}
         >

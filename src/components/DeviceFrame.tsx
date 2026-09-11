@@ -163,14 +163,14 @@ function StagePanel() {
       </div>
       <p className="stage-lede">
         Percentage- and RPE-based programming, macro targets and weigh-in trends.
-        Jud’s coaching, on the phone it is executed from.
+        Jud’s coaching, on the phone his clients train from.
       </p>
       <div className="stage-install">
         <span className="eyebrow">On your phone</span>
         <div className="stage-install-row">
           {code && (
             <span className="stage-qr">
-              <QrSymbol code={code} size={104} />
+              <QrSymbol code={code} size={116} />
             </span>
           )}
           <div className="stage-install-copy">

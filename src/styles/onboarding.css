@@ -58,6 +58,19 @@
 
 .welcome-note { margin-top: 2px; }
 
+/* A short phone gets the same four questions, tighter. The introduction is what
+   gives way first: on 568pt of screen a client needs to see what they are being
+   asked for more than they need a 60pt mark. */
+@media (max-height: 760px) {
+  .onboarding-welcome .welcome-body { gap: 18px; padding-top: 10px; }
+  .onboarding-welcome .onboarding-hero { gap: 12px; }
+  .onboarding-welcome .welcome-blurb {
+    font-size: calc(15 * var(--pt));
+    line-height: 1.4;
+  }
+  .welcome-list .onboarding-list-row { padding: 9px 14px; }
+}
+
 /* The line under the demo button. Tighter than the foot's own rhythm, because
    it belongs to the button above it rather than to the page. */
 .onboarding-foot .welcome-demo-note {

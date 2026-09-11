@@ -7,7 +7,7 @@ const SRC = globSync('src/**/*.{ts,tsx,css}', { cwd: process.cwd() })
   .filter((f) => !f.endsWith('tokens.css'))
 
 /** Radii DESIGN.md §3 allows, in px, plus 50%/999px for a circle or pill. */
-const RADII = new Set(['10', '12', '14', '50%', '999', '9999', '0'])
+const RADII = new Set(['3', '6', '10', '50%', '999', '9999', '0'])
 
 const findings = []
 const add = (kind, file, line, text) => findings.push({ kind, where: `${file}:${line}`, text })

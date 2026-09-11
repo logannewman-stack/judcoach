@@ -693,8 +693,8 @@ function BoardCell({
             <span className="ledger-unit"> {units}</span>
           </span>
         ) : null}
-        <span className="board-source">
-          {trainingMax ? 'Working max · not tested' : 'Nothing logged'}
+        <span className="board-source said">
+          {trainingMax ? 'Working max, not tested' : 'Nothing logged'}
         </span>
       </button>
     )

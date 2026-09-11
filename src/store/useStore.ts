@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
+import { persist } from 'zustand/middleware'
 import type {
   ActiveSession, CheckIn, DayNutrition, FoodItem, LoggedSet, MeasurementEntry,
   Profile, ProgressPhoto, RestTimer, Settings, Units, WeighIn, WorkoutLog,
@@ -13,7 +13,7 @@ import { getProgram } from '../data/program'
 import { startOfWeek, todayISO } from '../lib/date'
 import { uid } from '../lib/id'
 import {
-  createResilientStorage, mergePersisted, readPhotos, schedulePhotoWrite, writePhotos,
+  createResilientJSONStorage, mergePersisted, readPhotos, schedulePhotoWrite, writePhotos,
 } from './persist'
 import { useCoach } from './coach'
 import { guardPersistedShape, validateImport } from './importState'
@@ -524,7 +524,7 @@ export const useStore = create<AppState>()(
     {
       name: 'grit-store-v1',
       version: 2,
-      storage: createJSONStorage(createResilientStorage),
+      storage: createResilientJSONStorage(),
       /* A top-level spread would drop any `profile` or `settings` field added
          after a client's first launch, rehydrating it as undefined. */
       merge: (persisted, current) => mergePersisted(guardPersistedShape(persisted), current),

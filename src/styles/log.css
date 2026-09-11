@@ -322,7 +322,12 @@
 
 /* With no record and no max there is nothing true to print, so the slot is
    left open and the status line drops to the foot of the cell — a scoreboard
-   before the match rather than a row of struck-out numbers. */
+   before the match rather than a row of struck-out numbers. A row of open
+   cells keeps less height than a row of figures, because it is holding less;
+   a mixed row still takes the filled cell's. */
+.board-cell[data-open] {
+  min-height: 62px;
+}
 .board-cell[data-open] .board-source { margin-top: auto; }
 
 .board-source {
@@ -337,6 +342,14 @@
   font-weight: 600;
   line-height: 15px;
   color: var(--label-2);
+}
+/* The same line when it carries words rather than a set. Archivo is the data
+   face and "Nothing logged" is not data — DESIGN.md §1, never a sentence. */
+.board-source.said {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.05px;
 }
 
 /* Powerlifting's one comparable number, and the only place on this screen

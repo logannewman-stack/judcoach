@@ -393,7 +393,9 @@ function WeightStep({ onNext, onBack }: { onNext: () => void; onBack: () => void
           they exist the row claims "gaining" on the strength of 0 minus 0. */}
       <div className="onboarding-rate" hidden={needsWeight}>
         <div className="eyebrow">
-          Weekly rate — {direction >= 0 ? 'gaining' : 'losing'}
+          {/* Two equal weights are not a direction; saying "gaining" of them is
+              the app deciding something the client has not. */}
+          Weekly rate — {direction > 0 ? 'gaining' : direction < 0 ? 'losing' : 'holding'}
         </div>
         <div className="onboarding-rate-row">
           {rateOptions.map((r) => {

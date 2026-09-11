@@ -12,10 +12,16 @@ import { num } from '../../lib/format'
 export function Guidelines() {
   const pop = useNav((s) => s.pop)
   const profile = useStore((s) => s.profile)
+  const weighIns = useStore((s) => s.weighIns)
   const training = MEAL_PLAN.targets
   const rest = MEAL_PLAN.restDayTargets ?? MEAL_PLAN.targets
   const split = macroSplitPercent(training)
-  const proteinPerLb = training.protein / Math.max(1, profile.startWeight)
+  // Against what the client actually weighs now, falling back to the weight
+  // they started at. `Math.max(1, …)` used to stand in for a missing body-
+  // weight, which printed the whole protein target as a per-pound ratio: a
+  // brand-new client was told to eat 247 g of protein per pound of themselves.
+  const bodyweight = weighIns[weighIns.length - 1]?.weight || profile.startWeight
+  const proteinPerUnit = bodyweight > 0 ? training.protein / bodyweight : 0
 
   return (
     <Screen
@@ -53,8 +59,19 @@ export function Guidelines() {
               <SplitLegend label="Fat" pct={split.fat} grams={training.fat} color={MACRO_COLORS.fat} />
             </div>
             <div className="t-caption1 dim" style={{ marginTop: 12 }}>
-              <span className="data">{num(proteinPerLb, 2)} g</span> of protein per lb of bodyweight
-              — the number that protects muscle while you&rsquo;re pushing the percentages.
+              {proteinPerUnit > 0 ? (
+                <>
+                  <span className="data">{num(proteinPerUnit, 2)} g</span> of protein per{' '}
+                  {profile.units} of bodyweight — the number that protects muscle while
+                  you&rsquo;re pushing the percentages.
+                </>
+              ) : (
+                <>
+                  <span className="data">{training.protein} g</span> of protein is the floor that
+                  protects muscle while you&rsquo;re pushing the percentages. Step on the scale and
+                  this reads back per {profile.units} of you.
+                </>
+              )}
             </div>
           </Card>
         </div>

@@ -1,4 +1,4 @@
-import type { StateStorage } from 'zustand/middleware'
+import type { PersistStorage, StateStorage, StorageValue } from 'zustand/middleware'
 
 /* ============================================================================
    Storage for the app's persisted state.
@@ -60,12 +60,11 @@ function write(name: string, value: string): boolean {
 }
 
 /**
- * Debounced, failure-tolerant storage. Writes coalesce inside a short window
- * and are flushed synchronously when the page is hidden, so nothing is lost to
- * a backgrounded tab or a phone going to sleep between sets.
+ * One debounced writer: the newest value per key is held, coalesced inside a
+ * short window, and turned into text only when it is actually written.
  */
-export function createResilientStorage(): StateStorage {
-  const pending = new Map<string, string>()
+function createWriter<V>(delay: number, serialise: (value: V) => string) {
+  const pending = new Map<string, V>()
   let timer: number | undefined
 
   const flush = () => {
@@ -73,28 +72,91 @@ export function createResilientStorage(): StateStorage {
       clearTimeout(timer)
       timer = undefined
     }
-    for (const [name, value] of pending) write(name, value)
+    for (const [name, value] of pending) {
+      let text: string
+      try {
+        text = serialise(value)
+      } catch {
+        // Nothing can be done with a value that will not serialise, and
+        // throwing here would land in a timer callback or in `pagehide`.
+        onProblem?.('unavailable')
+        continue
+      }
+      write(name, text)
+    }
     pending.clear()
   }
 
   onFlush(flush)
 
   return {
+    peek: (name: string) => pending.get(name),
+    has: (name: string) => pending.has(name),
+    queue: (name: string, value: V) => {
+      pending.set(name, value)
+      if (timer == null) timer = window.setTimeout(flush, delay)
+    },
+    drop: (name: string) => pending.delete(name),
+  }
+}
+
+/**
+ * Debounced, failure-tolerant storage. Writes coalesce inside a short window
+ * and are flushed synchronously when the page is hidden, so nothing is lost to
+ * a backgrounded tab or a phone going to sleep between sets.
+ */
+export function createResilientStorage(): StateStorage {
+  const writer = createWriter<string>(WRITE_DELAY_MS, (value) => value)
+  return {
     getItem: (name) => {
       // A read must see writes that haven't been flushed yet.
-      if (pending.has(name)) return pending.get(name)!
+      if (writer.has(name)) return writer.peek(name)!
       try {
         return localStorage.getItem(name)
       } catch {
         return null
       }
     },
-    setItem: (name, value) => {
-      pending.set(name, value)
-      if (timer == null) timer = window.setTimeout(flush, WRITE_DELAY_MS)
-    },
+    setItem: (name, value) => writer.queue(name, value),
     removeItem: (name) => {
-      pending.delete(name)
+      writer.drop(name)
+      try {
+        localStorage.removeItem(name)
+      } catch {
+        /* nothing useful to do */
+      }
+    },
+  }
+}
+
+/**
+ * The same debounce, one step earlier: it holds the state object rather than a
+ * string, so `JSON.stringify` runs once per flush instead of once per action.
+ *
+ * Going through zustand's own `createJSONStorage` debounced only the write.
+ * Measured on the sample client's 66 kB blob: six sets logged in a burst cost
+ * seven serialisations and 469 kB of string building for one 66 kB write, and
+ * ten keystrokes in the name field cost ten. The state is immutable, so holding
+ * the newest snapshot until the flush writes exactly what the last call asked
+ * for.
+ */
+export function createResilientJSONStorage<S>(): PersistStorage<S> {
+  const writer = createWriter<StorageValue<S>>(WRITE_DELAY_MS, (value) => JSON.stringify(value))
+  return {
+    getItem: (name) => {
+      if (writer.has(name)) return writer.peek(name)!
+      try {
+        const raw = localStorage.getItem(name)
+        return raw ? (JSON.parse(raw) as StorageValue<S>) : null
+      } catch {
+        // A blob that will not parse is no blob: rehydrate from the defaults
+        // rather than throwing out of the store's own constructor.
+        return null
+      }
+    },
+    setItem: (name, value) => writer.queue(name, value),
+    removeItem: (name) => {
+      writer.drop(name)
       try {
         localStorage.removeItem(name)
       } catch {

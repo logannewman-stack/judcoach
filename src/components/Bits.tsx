@@ -121,7 +121,7 @@ export function StatTile({
       <span className="sr-only">, </span>
       <span
         className="data truncate"
-        style={{ color: toneColor, fontSize: 'calc(20 * var(--pt))', lineHeight: 1.15, fontWeight: 700, marginTop: 'auto' }}
+        style={{ color: toneColor, fontSize: 'calc(20 * var(--pt))', lineHeight: 'calc(23 * var(--pt))', fontWeight: 700, marginTop: 'auto' }}
       >
         {value}
       </span>

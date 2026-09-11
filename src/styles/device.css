@@ -36,21 +36,21 @@
   :root:not([data-theme='light']) {
     /* conform-allow: hardware. */
     --rail: linear-gradient(147deg, #adadb8 0%, #4c4c55 8%, #1f1f23 23%, #151518 45%, #2f2f36 65%, #8e8e99 84%, #2a2a30 100%);
-    --key: #43434c;
+    --key: #3b3b43;
     --device-shadow: 0 34px 70px rgba(0, 0, 0, 0.62), 0 10px 24px rgba(0, 0, 0, 0.46);
-    /* conform-allow: paper, held back off white so a card does not glare on an
-       iron ground. Still 16:1 against the ink, which is all a camera asks. */
-    --qr-paper: #edede9;
+    /* conform-allow: paper, held back off white so the card does not glare on
+       an iron ground. Still far past the contrast a camera asks for. */
+    --qr-paper: #e4e5e0;
   }
 }
 
 :root[data-theme='dark'] {
   /* conform-allow: hardware. */
   --rail: linear-gradient(147deg, #adadb8 0%, #4c4c55 8%, #1f1f23 23%, #151518 45%, #2f2f36 65%, #8e8e99 84%, #2a2a30 100%);
-  --key: #43434c;
+  --key: #3b3b43;
   --device-shadow: 0 34px 70px rgba(0, 0, 0, 0.62), 0 10px 24px rgba(0, 0, 0, 0.46);
   /* conform-allow: paper, see above. */
-  --qr-paper: #edede9;
+  --qr-paper: #e4e5e0;
 }
 
 .stage {
@@ -207,7 +207,7 @@
     color: var(--label-2);
     margin: 0;
   }
-  .stage-caption strong { color: var(--label); font-weight: 600; }
+  .stage-caption strong { color: var(--label); font-weight: 600; white-space: nowrap; }
 }
 
 /* A short window loses the caption before the phone gives up any more height. */

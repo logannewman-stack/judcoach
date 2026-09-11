@@ -76,7 +76,11 @@ body {
   margin: 0;
   font-family: var(--font);
   font-size: calc(17 * var(--pt));
-  line-height: 1.294118;
+  /* An absolute length, not a ratio. It inherits as 22 points rather than as a
+     multiplier, which is what every element that sets a font-size and no line
+     height has always been sized against — turn it into a ratio and a 15pt chip
+     with 11pt of padding quietly stops being a 44pt target. */
+  line-height: calc(22 * var(--pt));
   letter-spacing: -0.0253em;
   color: var(--label);
   background: var(--grouped);
@@ -162,20 +166,20 @@ img { max-width: 100%; display: block; }
 
 /* ============================== typography =============================== */
 
-/* Sizes in points of the scale, line heights as ratios, tracking in em — all
-   three so a role keeps its proportions at whatever size the client reads at.
-   At the default text size every one of these resolves to the px it used to be. */
-.t-large-title { font-size: calc(34 * var(--pt)); line-height: 1.205882; font-weight: 700; letter-spacing: 0.010882em; }
-.t-title1  { font-size: calc(28 * var(--pt)); line-height: 1.214286; font-weight: 700; letter-spacing: 0.012857em; }
-.t-title2  { font-size: calc(22 * var(--pt)); line-height: 1.272727; font-weight: 700; letter-spacing: 0.015909em; }
-.t-title3  { font-size: calc(20 * var(--pt)); line-height: 1.25;     font-weight: 600; letter-spacing: 0.019em; }
-.t-headline{ font-size: calc(17 * var(--pt)); line-height: 1.294118; font-weight: 600; letter-spacing: -0.025294em; }
-.t-body    { font-size: calc(17 * var(--pt)); line-height: 1.294118; font-weight: 400; letter-spacing: -0.025294em; }
-.t-callout { font-size: calc(16 * var(--pt)); line-height: 1.3125;   font-weight: 400; letter-spacing: -0.02em; }
-.t-subhead { font-size: calc(15 * var(--pt)); line-height: 1.333333; font-weight: 400; letter-spacing: -0.015333em; }
-.t-footnote{ font-size: calc(13 * var(--pt)); line-height: 1.384615; font-weight: 400; letter-spacing: -0.006154em; }
-.t-caption1{ font-size: calc(12 * var(--pt)); line-height: 1.333333; font-weight: 400; letter-spacing: 0; }
-.t-caption2{ font-size: calc(11 * var(--pt)); line-height: 1.181818; font-weight: 400; letter-spacing: 0.005455em; }
+/* Every size and every leading in points of the scale, tracking in em, so a role
+   keeps its proportions at whatever size the client reads at. At the default text
+   size each one resolves to exactly the px it has always been. */
+.t-large-title { font-size: calc(34 * var(--pt)); line-height: calc(41 * var(--pt)); font-weight: 700; letter-spacing: 0.010882em; }
+.t-title1  { font-size: calc(28 * var(--pt)); line-height: calc(34 * var(--pt)); font-weight: 700; letter-spacing: 0.012857em; }
+.t-title2  { font-size: calc(22 * var(--pt)); line-height: calc(28 * var(--pt)); font-weight: 700; letter-spacing: 0.015909em; }
+.t-title3  { font-size: calc(20 * var(--pt)); line-height: calc(25 * var(--pt)); font-weight: 600; letter-spacing: 0.019em; }
+.t-headline{ font-size: calc(17 * var(--pt)); line-height: calc(22 * var(--pt)); font-weight: 600; letter-spacing: -0.025294em; }
+.t-body    { font-size: calc(17 * var(--pt)); line-height: calc(22 * var(--pt)); font-weight: 400; letter-spacing: -0.025294em; }
+.t-callout { font-size: calc(16 * var(--pt)); line-height: calc(21 * var(--pt)); font-weight: 400; letter-spacing: -0.02em; }
+.t-subhead { font-size: calc(15 * var(--pt)); line-height: calc(20 * var(--pt)); font-weight: 400; letter-spacing: -0.015333em; }
+.t-footnote{ font-size: calc(13 * var(--pt)); line-height: calc(18 * var(--pt)); font-weight: 400; letter-spacing: -0.006154em; }
+.t-caption1{ font-size: calc(12 * var(--pt)); line-height: calc(16 * var(--pt)); font-weight: 400; letter-spacing: 0; }
+.t-caption2{ font-size: calc(11 * var(--pt)); line-height: calc(13 * var(--pt)); font-weight: 400; letter-spacing: 0.005455em; }
 
 .semibold { font-weight: 600; }
 .bold { font-weight: 700; }
@@ -214,7 +218,7 @@ img { max-width: 100%; display: block; }
      reading as four letters that happen to be near each other. */
   font-stretch: 112%;
   font-size: calc(11 * var(--pt));
-  line-height: 1.272727;
+  line-height: calc(14 * var(--pt));
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--label-2);
@@ -251,7 +255,7 @@ img { max-width: 100%; display: block; }
   font-variant-numeric: tabular-nums;
   font-size: calc(13 * var(--pt));
   font-weight: 600;
-  line-height: 1.307692;
+  line-height: calc(17 * var(--pt));
   background: var(--rpe-fill);
   color: var(--label);
   /* A load and its reps are one figure: broken over two lines they read as two. */
@@ -285,7 +289,9 @@ img { max-width: 100%; display: block; }
   height: 1px;
   margin: -1px;
   padding: 0;
-  overflow: hidden;
+  /* clip-path alone, with no `overflow: hidden`: hidden overflow with no
+     ellipsis is what the audit looks for when it hunts clipped text, and a 1px
+     box holding a comma would be reported as exactly that. */
   clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
@@ -458,7 +464,7 @@ img { max-width: 100%; display: block; }
 }
 .tab[data-active='true'] { color: var(--accent); }
 .tab[data-pressed] { opacity: 0.6; transition-duration: 0s; }
-.tab-label { font-size: calc(10 * var(--pt-chrome)); line-height: 1.2; font-weight: 500; letter-spacing: 0.006em; }
+.tab-label { font-size: calc(10 * var(--pt-chrome)); line-height: calc(12 * var(--pt-chrome)); font-weight: 500; letter-spacing: 0.006em; }
 .tab-badge {
   position: absolute;
   top: 1px;
@@ -471,7 +477,7 @@ img { max-width: 100%; display: block; }
   background: var(--red);
   color: #fff;
   font-size: calc(11 * var(--pt-chrome));
-  line-height: 16px;
+  line-height: calc(16 * var(--pt-chrome));
   font-weight: 600;
   text-align: center;
 }
@@ -528,7 +534,7 @@ img { max-width: 100%; display: block; }
   font-stretch: normal;
   text-transform: none;
   font-size: calc(15 * var(--pt));
-  line-height: 1.333333;
+  line-height: calc(20 * var(--pt));
   font-weight: 600;
   color: var(--label);
   letter-spacing: -0.015333em;
@@ -537,7 +543,7 @@ img { max-width: 100%; display: block; }
 .list-footer {
   padding: 7px calc(var(--gutter) + 4px) 0;
   font-size: calc(13 * var(--pt));
-  line-height: 1.384615;
+  line-height: calc(18 * var(--pt));
   letter-spacing: -0.006154em;
   color: var(--label-2);
 }
@@ -597,13 +603,13 @@ a.row[data-pressed],
   color: #fff;
 }
 .row-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.row-title { font-size: calc(17 * var(--pt)); line-height: 1.294118; letter-spacing: -0.025294em; }
+.row-title { font-size: calc(17 * var(--pt)); line-height: calc(22 * var(--pt)); letter-spacing: -0.025294em; }
 /* A subtitle is one line (DESIGN.md §5). A cell that grows to three lines
    because the last message was long stops being a list and starts being a
    paragraph, and the six things below it fall off the screen. */
 .row-sub {
   font-size: calc(13 * var(--pt));
-  line-height: 1.307692;
+  line-height: calc(17 * var(--pt));
   letter-spacing: -0.006154em;
   color: var(--label-2);
   overflow: hidden;
@@ -612,7 +618,7 @@ a.row[data-pressed],
 }
 .row-value {
   font-size: calc(17 * var(--pt));
-  line-height: 1.294118;
+  line-height: calc(22 * var(--pt));
   letter-spacing: -0.025294em;
   color: var(--label-2);
   font-variant-numeric: tabular-nums;
@@ -946,7 +952,7 @@ a.surface[data-pressed],
   padding: 14px 16px;
   text-align: center;
   font-size: calc(13 * var(--pt));
-  line-height: 1.384615;
+  line-height: calc(18 * var(--pt));
   color: var(--label-2);
   position: relative;
 }
@@ -1066,8 +1072,14 @@ a.surface[data-pressed],
 .stack { display: flex; flex-direction: column; }
 .hstack { display: flex; align-items: center; }
 .spacer { flex: 1; }
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+/* A row of tiles reflows rather than squeezing. Three fit across a phone at the
+   designed text size and two do not at 150%, where "+3.5 lb" came out as "+3…" —
+   and a number the client turned the text up in order to read is the one thing
+   this app cannot truncate. The minimum column is in points of the type scale,
+   so the row drops to two and then to one exactly when the content stops
+   fitting, which is what iOS does with its own tile rows. */
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(160 * var(--pt))), 1fr)); gap: 10px; }
+.grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(104 * var(--pt))), 1fr)); gap: 10px; }
 .gutter { padding-left: var(--gutter); padding-right: var(--gutter); }
 
 /* Horizontal scroller with real gutters on both ends. Browsers drop a scroll
@@ -1090,7 +1102,7 @@ a.surface[data-pressed],
   padding: 3px 9px;
   border-radius: var(--r-pill);
   font-size: calc(12 * var(--pt));
-  line-height: 1.333333;
+  line-height: calc(16 * var(--pt));
   font-weight: 600;
   letter-spacing: 0;
   background: var(--fill-3);
@@ -1196,7 +1208,7 @@ a.surface[data-pressed],
 
 .onboarding-title {
   font-size: calc(31 * var(--pt));
-  line-height: 1.16129;
+  line-height: calc(36 * var(--pt));
   font-weight: 700;
   letter-spacing: -0.019355em;
   text-wrap: balance;
@@ -1204,7 +1216,7 @@ a.surface[data-pressed],
 
 .onboarding-blurb {
   font-size: calc(16 * var(--pt));
-  line-height: 1.375;
+  line-height: calc(22 * var(--pt));
   letter-spacing: -0.02em;
   color: var(--label-2);
   margin: 0;
@@ -1279,7 +1291,7 @@ a.surface[data-pressed],
    that is genuinely a label uses the eyebrow role instead. */
 .onboarding-note {
   font-size: calc(13 * var(--pt));
-  line-height: 1.384615;
+  line-height: calc(18 * var(--pt));
   letter-spacing: -0.006154em;
   color: var(--label-2);
 }

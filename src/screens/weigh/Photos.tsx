@@ -125,8 +125,8 @@ export function Photos() {
         )}
 
         {/* One shot is not half a comparison, it is a baseline — so it is shown
-            as one, beside a line saying what it is for, rather than as a lone
-            thumbnail in a two-column archive with nothing next to it. */}
+            as one, at the size the pair gets, rather than as a lone thumbnail
+            in a two-column archive with nothing beside it. */}
         {!pair && now && (
           <BaselineShot
             photo={now}
@@ -282,9 +282,9 @@ export function Photos() {
  * The first shot in a pose: a baseline, not half a comparison.
  *
  * A single photograph in a two-column archive grid reads as a gallery with one
- * thing in it. What it actually is, is the measurement everything after it gets
- * read against — so it is named, stamped with the weight it was taken at, and
- * told what turns it into a comparison.
+ * thing in it. What it actually is, is the measurement everything after it will
+ * be read against — so it is named, stamped with the weight it was taken at,
+ * and told what turns it into a comparison.
  */
 function BaselineShot({
   photo, weight, units, decimals, onOpen, onOptions,
@@ -310,8 +310,6 @@ function BaselineShot({
             >
               <img src={photo.dataUrl} alt="" />
             </button>
-            {/* Sibling, never nested: a button inside a button is invalid, and
-                only a real button answers to both Enter and Space. */}
             <button
               type="button"
               aria-label={`Options for ${photo.pose} photo from ${formatMediumDate(photo.date)}`}
@@ -404,15 +402,14 @@ function ComparePair({
             </span>
           </div>
         ) : (
-          // Dropping the figure on its own left the span of time captioning
-          // nothing — an eyebrow is a label, and a label needs something to
-          // label. Say why the number is missing instead.
+          // Without both weights there is no change to state, and dropping the
+          // figure on its own left the span of time captioning nothing.
           <div className="compare-delta" style={{ display: 'block' }}>
             <span className="eyebrow">over {weeks} {weeks === 1 ? 'week' : 'weeks'}</span>
             <div className="t-footnote dim" style={{ marginTop: 2, lineHeight: '18px' }}>
               No weigh-in within a few days of{' '}
-              {was == null && is == null ? 'either shot' : was == null ? 'the older shot' : 'the newer shot'},
-              so there is no weight to put on the change. The photographs are the comparison anyway.
+              {was == null && is == null ? 'either shot' : was == null ? 'the older shot' : 'the newer shot'}
+              , so there is no weight to put on it. The photographs are the comparison anyway.
             </div>
           </div>
         )}

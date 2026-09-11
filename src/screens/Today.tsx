@@ -25,7 +25,7 @@ import { consumedTotals } from '../domain/nutrition'
 import { formatRpe } from '../domain/strength'
 import { rateVerdict, rollingSeries, summarizeTrend, weighInsInLast } from '../domain/weight'
 import { formatLongDate, formatMinutes, relativeDay, timeOfDayGreeting, todayISO, addDays } from '../lib/date'
-import { compact, fixed, num, signed } from '../lib/format'
+import { compact, fixed, num, pluralize, signed } from '../lib/format'
 import { navPresent, navPush, navSwitchTab, useNav } from '../nav/nav'
 import { NumberPad } from '../components/NumberPad'
 import { toast } from '../components/ios/Toast'
@@ -111,7 +111,14 @@ export function TodayScreen() {
           ) : active ? (
             <ResumeCard />
           ) : todaysLog ? (
-            <CompletedCard log={todaysLog} onPress={() => push('logDetail', { logId: todaysLog.id })} />
+            <CompletedCard
+              log={todaysLog}
+              onPress={() => push('logDetail', { logId: todaysLog.id })}
+              onSetMaxes={() => push('trainingMaxes')}
+              maxesSet={maxesSet}
+              maxesTotal={MAIN_LIFTS.length}
+              needsMaxes={needsMaxes}
+            />
           ) : next ? (
             <NextSessionCard
               date={next.date}
@@ -575,20 +582,13 @@ function NextSessionCard({
       facts={`~${minutes} min · ${exercises} exercises · ${sets} sets`}
       onPress={onPreview}
       action={
-        /* The first morning's action is not "Start workout". Without the maxes
-           every target in the runner is a dash, so the button that leads the
-           screen is the one that puts weights on the block — DESIGN.md §4. The
-           workout stays reachable underneath, because refusing to let someone
-           train is not honesty. */
         needsMaxes ? (
-          <>
-            <Button icon="chart.bar" onPress={onSetMaxes}>Set your working maxes</Button>
-            <p className="today-hero-why t-caption1">
-              <span className="data">{maxesSet}</span> of <span className="data">{maxesTotal}</span>
-              {' '}on file. Every weight in this block is a share of them.
-            </p>
-            <Button variant="plain" onPress={onStart}>Start workout anyway</Button>
-          </>
+          <MaxesRung
+            set={maxesSet}
+            total={maxesTotal}
+            onPress={onSetMaxes}
+            alt={<Button variant="plain" onPress={onStart}>Start workout anyway</Button>}
+          />
         ) : (
           <Button icon="play.fill" onPress={onStart}>
             {isRestDay ? 'Start early' : 'Start workout'}
@@ -601,10 +601,48 @@ function NextSessionCard({
   )
 }
 
-function CompletedCard({ log, onPress }: { log: WorkoutLog; onPress: () => void }) {
+/**
+ * The setup step that outranks whatever the hero would otherwise offer.
+ *
+ * The first morning's action is not "Start workout", and it is not "Review your
+ * sets" either. Without the maxes every target in the runner is a dash, so the
+ * button that leads the screen is the one that puts weights on the block —
+ * DESIGN.md §4. Whatever the hero came to say stays reachable underneath,
+ * because refusing to let someone train is not honesty.
+ */
+function MaxesRung({
+  set, total, onPress, alt,
+}: {
+  set: number
+  total: number
+  onPress: () => void
+  alt: ReactNode
+}) {
+  return (
+    <>
+      <Button icon="chart.bar" onPress={onPress}>Set your working maxes</Button>
+      <p className="today-hero-why t-caption1">
+        <span className="data">{set}</span> of <span className="data">{total}</span>
+        {' '}on file. Every weight in this block is a share of them.
+      </p>
+      {alt}
+    </>
+  )
+}
+
+function CompletedCard({
+  log, onPress, onSetMaxes, maxesSet, maxesTotal, needsMaxes,
+}: {
+  log: WorkoutLog
+  onPress: () => void
+  onSetMaxes: () => void
+  maxesSet: number
+  maxesTotal: number
+  needsMaxes: boolean
+}) {
   const worked = [
     log.durationSec ? formatMinutes(log.durationSec) : null,
-    `${logSetCount(log)} sets`,
+    pluralize(logSetCount(log), 'set'),
   ].filter(Boolean).join(' · ')
   return (
     <HeroShell
@@ -621,9 +659,20 @@ function CompletedCard({ log, onPress }: { log: WorkoutLog; onPress: () => void 
       }
       onPress={onPress}
       action={
-        <Button variant="tinted" icon="list" onPress={onPress}>
-          Review your sets
-        </Button>
+        /* A session trained without targets is exactly when to ask for them:
+           tomorrow's is otherwise another page of dashes. */
+        needsMaxes ? (
+          <MaxesRung
+            set={maxesSet}
+            total={maxesTotal}
+            onPress={onSetMaxes}
+            alt={<Button variant="plain" onPress={onPress}>Review your sets</Button>}
+          />
+        ) : (
+          <Button variant="tinted" icon="list" onPress={onPress}>
+            Review your sets
+          </Button>
+        )
       }
     />
   )
