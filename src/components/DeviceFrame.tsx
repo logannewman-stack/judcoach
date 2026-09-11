@@ -26,7 +26,7 @@ const DEVICE_H = 858
    to whatever the stage has not already spent. Keep them in step. */
 const WIDE_W = 1000
 const WIDE_H = 700
-const PANEL_W = 340
+const PANEL_W = 372
 
 function useClock() {
   const [now, setNow] = useState(() => new Date())
@@ -170,12 +170,18 @@ function StagePanel() {
         <div className="stage-install-row">
           {code && (
             <span className="stage-qr">
-              <QrSymbol code={code} size={116} />
+              <QrSymbol code={code} size={108} />
             </span>
           )}
           <div className="stage-install-copy">
             <p>
-              Scan to open GRIT, then Share → <strong>Add to Home Screen</strong>.
+              {/* The arrow belongs to the phrase it points through, so the line
+                  never breaks after it and strands a "→" at the end of a row. */}
+              Scan to open GRIT, then{' '}
+              <span className="nowrap">
+                Share → <strong>Add to Home Screen</strong>
+              </span>
+              .
             </p>
             <span className="data stage-url">{shown}</span>
           </div>

@@ -27,9 +27,14 @@
      on paper in both — an inverted code is a coin toss on older scanners. */
   --qr-paper: #ffffff;
   --qr-ink: #101014;
-  /* One flat neutral a step away from the app's own ground, so the phone reads
-     as an object on a surface rather than as a poster with a glow behind it. */
-  --stage-bg: color-mix(in srgb, var(--bg-2) 90%, var(--label));
+  /* The desk the phone sits on. A flat neutral read as a grey studio backdrop,
+     which is the wrong room for this app: it is bright, so the surface it is
+     shown on is bright too. Two soft blooms in the app's own domain tints, far
+     enough down in saturation that the phone is still the only thing with
+     contrast on the page. */
+  --stage-bg: color-mix(in srgb, var(--bg-2) 92%, var(--tint-today));
+  --stage-bloom-a: color-mix(in srgb, var(--tint-today) 24%, transparent);
+  --stage-bloom-b: color-mix(in srgb, var(--tint-coach) 17%, transparent);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -41,6 +46,9 @@
     /* conform-allow: paper, held back off white so the card does not glare on
        an iron ground. Still far past the contrast a camera asks for. */
     --qr-paper: #e4e5e0;
+    --stage-bg: color-mix(in srgb, var(--bg) 95%, var(--tint-today));
+    --stage-bloom-a: color-mix(in srgb, var(--tint-today) 20%, transparent);
+    --stage-bloom-b: color-mix(in srgb, var(--tint-coach) 13%, transparent);
   }
 }
 
@@ -51,6 +59,9 @@
   --device-shadow: 0 34px 70px rgba(0, 0, 0, 0.62), 0 10px 24px rgba(0, 0, 0, 0.46);
   /* conform-allow: paper, see above. */
   --qr-paper: #e4e5e0;
+  --stage-bg: color-mix(in srgb, var(--bg) 95%, var(--tint-today));
+  --stage-bloom-a: color-mix(in srgb, var(--tint-today) 20%, transparent);
+  --stage-bloom-b: color-mix(in srgb, var(--tint-coach) 13%, transparent);
 }
 
 .stage {
@@ -78,7 +89,13 @@
 /* ========================= the framed window ============================= */
 
 @media (min-width: 720px) and (min-height: 680px) {
-  body { background: var(--stage-bg); }
+  body {
+    background:
+      radial-gradient(72% 58% at 10% -4%, var(--stage-bloom-a) 0%, transparent 70%),
+      radial-gradient(66% 62% at 104% 104%, var(--stage-bloom-b) 0%, transparent 72%),
+      var(--stage-bg);
+    background-attachment: fixed;
+  }
 
   .stage {
     align-items: center;
@@ -237,7 +254,7 @@
     flex: none;
     flex-direction: column;
     gap: 24px;
-    width: 340px;
+    width: 372px;
   }
 
   .stage-identity { display: flex; align-items: center; gap: 14px; }
@@ -249,19 +266,27 @@
     color: var(--label-2);
   }
 
+  /* A card and not a ruled-off block: this is the one thing on the page a
+     visitor is meant to act on, and a floating surface says so where a hairline
+     above a paragraph does not. */
   .stage-install {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    padding-top: 24px;
-    border-top: var(--hairline) solid var(--sep);
+    gap: 14px;
+    padding: 18px;
+    border-radius: var(--r-card);
+    background: var(--elevated);
+    box-shadow: var(--shadow-md);
   }
   .stage-install-row { display: flex; align-items: center; gap: 14px; }
 
+  /* Paper, with the margin a printed code gets. The quiet zone is already in
+     the symbol; this is so the paper reads as a card rather than as a crop. */
   .stage-qr {
     flex: none;
     line-height: 0;
-    border-radius: var(--r-card);
+    padding: 7px;
+    border-radius: var(--r-inset);
     background: var(--qr-paper);
     overflow: hidden;
   }
@@ -275,11 +300,19 @@
   }
   /* The one phrase a reader has to find in Safari's share sheet, so it never
      breaks across two lines looking for one. */
-  .stage-install-copy strong { color: var(--label); font-weight: 600; white-space: nowrap; }
+  .stage-install-copy strong { color: var(--label); font-weight: 600; }
+  .stage-install-copy .nowrap { white-space: nowrap; }
+  /* The address as a capsule, so it reads as the thing the code encodes rather
+     than as a footnote under the sentence. */
   .stage-url {
+    align-self: flex-start;
+    max-width: 100%;
+    padding: 4px 11px;
+    border-radius: var(--r-pill);
+    background: var(--fill-4);
     font-size: 12px;
-    line-height: 15px;
-    color: var(--label-3);
+    line-height: 16px;
+    color: var(--label-2);
     overflow-wrap: anywhere;
   }
 }
