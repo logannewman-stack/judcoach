@@ -150,7 +150,7 @@ export function Stack({
                 inset: 0,
                 zIndex: i,
                 ...(swiping ? { x: isTop ? dragX : belowX } : null),
-                boxShadow: i > 0 && isTop ? '-10px 0 30px rgba(0,0,0,0.13)' : undefined,
+                boxShadow: i > 0 && isTop ? 'var(--shadow-push)' : undefined,
               }}
             >
               <Component {...(r.params ?? {})} />
@@ -159,7 +159,7 @@ export function Stack({
                   style={{
                     position: 'absolute',
                     inset: 0,
-                    background: 'rgba(0,0,0,0.14)',
+                    background: 'var(--push-dim)',
                     pointerEvents: 'none',
                     ...(swiping ? { opacity: belowDim } : null),
                   }}

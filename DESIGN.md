@@ -80,8 +80,21 @@ Separation is done by hairlines and by the ground showing through, not by
 shadow. A shadow means "this is in front of the app", so anything that is not in
 front of the app does not get one.
 
-Radii: `--r-inset` 10 for inset lists, `--r-card` 12, `--r-btn` 12,
-`--r-sheet` / `--r-alert` 14, `--r-pill` full. Nothing else.
+Radii are named, and only named radii are used. A number typed into a style is
+drift, and `npm run conform` will find it.
+
+| token | px | what it is |
+|---|---|---|
+| `--r-chip` | 8 | a small object holding one value: a set chip, a day, a badge |
+| `--r-inset` | 10 | an inset-grouped list |
+| `--r-card` / `--r-btn` | 12 | a card, a button |
+| `--r-sheet` / `--r-alert` | 14 | a panel in front of the app |
+| `--r-bubble` | 18 | a speech bubble, which is not a card |
+| `--r-pill` | full | a pill |
+
+If a shape genuinely needs a radius none of these names, it needs a name — add
+the token and this row, do not type the number. Hardware (the desktop device
+frame) is exempt and says so with a `conform-allow` comment.
 
 ## 4. Hierarchy
 

@@ -84,6 +84,8 @@
   --chrome: rgba(249, 249, 249, 0.82);
   --chrome-solid: #f9f9f9;
   --sheet-scrim: rgba(0, 0, 0, 0.32);
+  /* Laid over the screen a push has moved behind the new one. */
+  --push-dim: rgba(0, 0, 0, 0.14);
   --elevated: #ffffff;
 
   /* ---- shadows ---- */
@@ -91,6 +93,8 @@
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.09);
   --shadow-lg: 0 12px 38px rgba(0, 0, 0, 0.16);
   --shadow-float: 0 6px 22px rgba(0, 0, 0, 0.15);
+  /* Cast leftward by a screen pushed over the one beneath it. */
+  --shadow-push: -10px 0 30px rgba(0, 0, 0, 0.13);
 
   /* ---- radii (iOS continuous-ish corners) ---- */
   --r-inset: 10px;
@@ -100,6 +104,12 @@
   --r-alert: 14px;
   --r-sheet: 14px;
   --r-btn: 12px;
+  /* A chip is a small object that holds one value — a logged set, a pill of
+     metadata, a day in a strip. It reads wrong at a card's radius. */
+  --r-chip: 8px;
+  /* A speech bubble is not a card and does not take a card's corner; this is
+     the radius iOS Messages uses. */
+  --r-bubble: 18px;
   --r-pill: 999px;
 
   /* ---- intensity ---------------------------------------------------------
@@ -245,12 +255,16 @@
     --chrome: rgba(22, 22, 24, 0.8);
     --chrome-solid: #161618;
     --sheet-scrim: rgba(0, 0, 0, 0.5);
+  --push-dim: rgba(0, 0, 0, 0.3);
+    --push-dim: rgba(0, 0, 0, 0.3);
     --elevated: #16161a;
 
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
     --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
     --shadow-lg: 0 12px 38px rgba(0, 0, 0, 0.62);
     --shadow-float: 0 6px 22px rgba(0, 0, 0, 0.55);
+    --shadow-push: -10px 0 34px rgba(0, 0, 0, 0.5);
+  --shadow-push: -10px 0 34px rgba(0, 0, 0, 0.5);
 
     color-scheme: dark;
   }
@@ -325,12 +339,14 @@
   --chrome: rgba(22, 22, 24, 0.8);
   --chrome-solid: #161618;
   --sheet-scrim: rgba(0, 0, 0, 0.5);
+  --push-dim: rgba(0, 0, 0, 0.3);
   --elevated: #16161a;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 12px 38px rgba(0, 0, 0, 0.62);
   --shadow-float: 0 6px 22px rgba(0, 0, 0, 0.55);
+  --shadow-push: -10px 0 34px rgba(0, 0, 0, 0.5);
 
   color-scheme: dark;
 }

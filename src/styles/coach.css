@@ -72,7 +72,7 @@
 .bubble {
   position: relative;
   padding: 8px 14px 9px;
-  border-radius: 19px;
+  border-radius: var(--r-bubble);
   font-size: 17px;
   line-height: 22px;
   letter-spacing: -0.41px;
@@ -148,7 +148,7 @@
   width: 100%;
   margin-bottom: 4px;
   padding: 9px 11px;
-  border-radius: 13px;
+  border-radius: var(--r-card);
   background: var(--grouped-2);
   box-shadow: var(--shadow-sm);
   text-align: left;
@@ -160,7 +160,7 @@
   flex: none;
   width: 30px;
   height: 30px;
-  border-radius: 8px;
+  border-radius: var(--r-chip);
   background: var(--accent-soft);
 }
 .msg-card-body { flex: 1; min-width: 0; }
@@ -191,6 +191,7 @@
   gap: 12px;
   margin-top: 8px;
   padding-top: 8px;
+  /* conform-allow: white over the accent fill, not a theme colour. */
   border-top: 1px solid rgba(255, 255, 255, 0.24);
   font-size: 13px;
 }
@@ -245,7 +246,7 @@
   max-height: 120px;
   padding: 7px 13px 8px;
   border: 1px solid var(--sep);
-  border-radius: 18px;
+  border-radius: var(--r-bubble);
   background: var(--bg);
   color: var(--label);
   font: inherit;
@@ -292,7 +293,7 @@
   flex: 1;
   min-width: 0;
   padding: 10px 13px 11px;
-  border-radius: 14px;
+  border-radius: var(--r-sheet);
   font-size: 15px;
   line-height: 21px;
   letter-spacing: -0.24px;
@@ -327,7 +328,7 @@
   100% { box-shadow: 0 0 0 6px transparent; }
 }
 .note-strip.spotlight {
-  border-radius: 14px;
+  border-radius: var(--r-sheet);
   animation: note-spotlight 1.8s ease-out 0.45s both;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -444,6 +445,7 @@
   min-height: 26px;
   padding: 0 11px;
   border-radius: var(--r-pill);
+  /* conform-allow: white over the purple seat bar, not a theme colour. */
   background: rgba(255, 255, 255, 0.24);
   color: #fff;
   font-size: 13px;

@@ -119,8 +119,10 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
   }
 }
 
-/* Inline styles only — the stylesheet loads before this mounts, but a failure
-   this deep should not depend on a class name still meaning what it did. */
+/* conform-allow-file: inline styles with literal fallbacks, on purpose. The
+   stylesheet loading is one of the things that can have failed by the time this
+   renders, so every colour here names a token *and* the value to use when that
+   token resolves to nothing. */
 
 const shell: React.CSSProperties = {
   minHeight: '100dvh',
@@ -128,7 +130,7 @@ const shell: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   padding: '24px max(20px, env(safe-area-inset-left)) 24px max(20px, env(safe-area-inset-right))',
-  background: 'var(--bg-grouped, #f2f2f7)',
+  background: 'var(--bg-grouped, #f1f1ef)',
   color: 'var(--label, #000)',
   fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif',
 }
@@ -179,20 +181,20 @@ const buttonBase: React.CSSProperties = {
 
 const filled: React.CSSProperties = {
   ...buttonBase,
-  background: 'var(--accent, #0a84ff)',
+  background: 'var(--accent, #0b57f0)',
   color: '#fff',
 }
 
 const tinted: React.CSSProperties = {
   ...buttonBase,
   background: 'var(--accent-fill, rgba(10,132,255,0.14))',
-  color: 'var(--accent, #0a84ff)',
+  color: 'var(--accent, #0b57f0)',
 }
 
 const plain: React.CSSProperties = {
   ...buttonBase,
   background: 'transparent',
-  color: 'var(--accent, #0a84ff)',
+  color: 'var(--accent, #0b57f0)',
   fontWeight: 500,
 }
 

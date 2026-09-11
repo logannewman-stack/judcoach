@@ -136,7 +136,7 @@ export function Coach() {
             <div key={i} style={{ display: 'flex', gap: 12, padding: '9px 0', alignItems: 'flex-start' }}>
               <span
                 style={{
-                  width: 30, height: 30, borderRadius: 9, flex: 'none',
+                  width: 30, height: 30, borderRadius: 'var(--r-chip)', flex: 'none',
                   background: 'var(--accent-soft)', display: 'grid', placeItems: 'center',
                 }}
               >

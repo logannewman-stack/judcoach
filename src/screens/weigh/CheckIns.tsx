@@ -196,7 +196,7 @@ function ComposeSheet({
                   style={{
                     flex: 1,
                     height: 42,
-                    borderRadius: 11,
+                    borderRadius: 'var(--r-inset)',
                     background: values[scale.key] === n ? 'var(--accent)' : 'var(--fill-4)',
                     color: values[scale.key] === n ? '#fff' : 'var(--label)',
                     fontWeight: 600,
