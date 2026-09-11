@@ -86,7 +86,7 @@ for (const [src, needle, shouldSurvive] of PROBES) {
   }
 }
 
-/** Radii DESIGN.md §3 allows, in px, plus 50%/999px for a circle or pill. */
+/** Radii DESIGN.md §1 allows, in px, plus 50%/999px for a circle or pill. */
 const RADII = new Set(['14', '16', '18', '22', '28', '50%', '999', '9999', '0'])
 
 const findings = []
