@@ -59,6 +59,22 @@ export function pluralize(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n === 1 ? one : many}`
 }
 
+/**
+ * Whether a value reads as data rather than as language, so a primitive can set
+ * it in the data face without every call site saying so.
+ *
+ * The test is the first character, which is all it takes: "315 lb", "+0.4", "8
+ * weeks" and "—" are figures; "Match iPhone" and "Jud Whitfield" are not. A dash
+ * counts because it is a figure with nothing in it yet, and a column of numbers
+ * must not change face where one of them is missing.
+ */
+export function readsAsFigure(value: unknown): boolean {
+  if (typeof value === 'number') return Number.isFinite(value)
+  if (typeof value !== 'string') return false
+  const first = value.trim()[0]
+  return first != null && (/[\d.+]/.test(first) || '-−–—'.includes(first))
+}
+
 export function initials(name: string): string {
   return name
     .trim()

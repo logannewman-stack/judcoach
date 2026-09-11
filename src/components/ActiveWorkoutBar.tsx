@@ -56,7 +56,7 @@ export function ActiveWorkoutBar({ bottomOffset }: { bottomOffset: number | stri
             alignItems: 'center',
             gap: 11,
             padding: '9px 10px 9px 13px',
-            borderRadius: 16,
+            borderRadius: 'var(--r-sheet)',
             background: 'var(--accent)',
             color: '#fff',
             boxShadow: 'var(--shadow-float)',
@@ -72,14 +72,15 @@ export function ActiveWorkoutBar({ bottomOffset }: { bottomOffset: number | stri
           />
           <span style={{ flex: 1, minWidth: 0 }}>
             <span
-              className="t-caption1 semibold truncate"
-              style={{ display: 'block', opacity: 0.85, letterSpacing: 0.3 }}
+              className="eyebrow truncate"
+              style={{ display: 'block', color: 'inherit', opacity: 0.82 }}
             >
-              WORKOUT IN PROGRESS
+              Workout in progress
             </span>
-            <span className="t-subhead semibold mono-nums truncate" style={{ display: 'block' }}>
-              {found?.session.name ?? 'Session'} · {formatDuration(elapsed)}
-              <span style={{ opacity: 0.8, fontWeight: 400 }}> · {done}/{total} sets</span>
+            <span className="t-subhead semibold truncate" style={{ display: 'block' }}>
+              {found?.session.name ?? 'Session'}
+              <span className="data"> · {formatDuration(elapsed)}</span>
+              <span className="data" style={{ opacity: 0.8, fontWeight: 500 }}> · {done}/{total} sets</span>
             </span>
           </span>
           <span
@@ -88,7 +89,7 @@ export function ActiveWorkoutBar({ bottomOffset }: { bottomOffset: number | stri
               width: 34,
               height: 34,
               borderRadius: '50%',
-              background: 'rgba(255,255,255,0.22)',
+              background: 'color-mix(in srgb, #fff 22%, transparent)',
               display: 'grid',
               placeItems: 'center',
             }}

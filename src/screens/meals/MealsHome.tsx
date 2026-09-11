@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { motion } from 'framer-motion'
 import { Screen } from '../../components/ios/Screen'
 import { ListSection, Row } from '../../components/ios/List'
@@ -11,7 +12,9 @@ import { RingStack, MACRO_COLORS } from '../../components/Rings'
 import { toast } from '../../components/ios/Toast'
 import { useStore, emptyDay } from '../../store/useStore'
 import { MEAL_PLAN, QUICK_ADDS } from '../../data/mealPlan'
+import '../../styles/fuel.css'
 import type { DayNutrition, FoodItem, MacroTargets, Meal } from '../../domain/types'
+import type { MacroTotals } from '../../domain/nutrition'
 import {
   adherencePercent, consumedTotals, foodTotals, plannedMealTotals, portionOf, proteinStatus, scaleFood,
 } from '../../domain/nutrition'
@@ -48,6 +51,16 @@ export function MealsHome() {
   const [quickAdd, setQuickAdd] = useState(false)
   const swipe = useSwipeGroup()
 
+  const waterMet = day.waterOz >= targets.waterOz
+  // The first meal still standing. A plan is executed top to bottom, so this is
+  // literally the next thing to do — and on a day with nothing logged it is the
+  // only instruction the screen would otherwise carry.
+  const nextMealId = date === today
+    ? MEAL_PLAN.meals.find(
+      (m) => !day.skippedMeals.includes(m.id) && m.items.some((i) => !day.checked[i.id]),
+    )?.id
+    : undefined
+
   return (
     <Screen
       title="Meals"
@@ -72,13 +85,17 @@ export function MealsHome() {
           </div>
         </div>
 
-        {/* -------------------------------- rings ---------------------------- */}
+        {/* -------------------------------- fuel ----------------------------- */}
         <Card>
           <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+            {/* 10pt arcs on a 122pt stack leave a 48pt hole, which is what a
+                four-digit calorie count and its target need. At the 12pt the
+                rings used to be drawn at, both strings crossed the innermost
+                arc. */}
             <RingStack
               size={122}
-              thickness={12}
-              gap={4}
+              thickness={10}
+              gap={3.5}
               rings={[
                 { value: totals.protein, target: targets.protein, color: MACRO_COLORS.protein },
                 { value: totals.carbs, target: targets.carbs, color: MACRO_COLORS.carbs },
@@ -86,19 +103,17 @@ export function MealsHome() {
               ]}
             >
               <div style={{ lineHeight: 1 }}>
-                <div className="mono-nums bold" style={{ fontSize: 23, letterSpacing: -0.6 }}>
-                  {Math.round(totals.kcal)}
-                </div>
-                <div className="t-caption2 dim" style={{ marginTop: 3 }}>
+                <div className="figure" style={{ fontSize: 20 }}>{Math.round(totals.kcal)}</div>
+                <div className="data" style={{ fontSize: 10, marginTop: 4, color: 'var(--label-2)' }}>
                   of {targets.kcal}
                 </div>
               </div>
             </RingStack>
 
-            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <MacroReadout label="Protein" value={totals.protein} target={targets.protein} color={MACRO_COLORS.protein} labelColor="var(--red-text)" />
-              <MacroReadout label="Carbs" value={totals.carbs} target={targets.carbs} color={MACRO_COLORS.carbs} labelColor="var(--orange-text)" />
-              <MacroReadout label="Fat" value={totals.fat} target={targets.fat} color={MACRO_COLORS.fat} labelColor="var(--yellow-text)" />
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 11 }}>
+              <MacroReadout label="Protein" value={totals.protein} target={targets.protein} color={MACRO_COLORS.protein} />
+              <MacroReadout label="Carbs" value={totals.carbs} target={targets.carbs} color={MACRO_COLORS.carbs} />
+              <MacroReadout label="Fat" value={totals.fat} target={targets.fat} color={MACRO_COLORS.fat} />
             </div>
           </div>
 
@@ -107,7 +122,12 @@ export function MealsHome() {
             <Pill tone={adherence >= 80 ? 'good' : adherence >= 50 ? 'warn' : 'default'}>
               {adherence}% of plan
             </Pill>
-            <Pill>{Math.max(0, Math.round(targets.kcal - totals.kcal))} kcal left</Pill>
+          </div>
+
+          {/* What is still owed, in the two numbers the plan is actually judged
+              on. The kcal pill this replaced repeated the ring's own centre. */}
+          <div className="t-footnote dim" style={{ marginTop: 9 }}>
+            <Remaining targets={targets} totals={totals} />
           </div>
 
           <div style={{ marginTop: 14 }}>
@@ -127,15 +147,20 @@ export function MealsHome() {
           <SectionHeader title="Water" />
           <Card>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <Icon name="drop.fill" size={22} color={MACRO_COLORS.water} />
+              <Icon
+                name="drop.fill"
+                size={22}
+                color={waterMet ? 'var(--fuel-hit)' : MACRO_COLORS.water}
+              />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="mono-nums t-headline">
-                  {day.waterOz} <span className="dim" style={{ fontWeight: 400 }}>/ {targets.waterOz} oz</span>
+                <div className="data" style={{ fontSize: 17, lineHeight: '22px' }}>
+                  {day.waterOz}
+                  <span className="data-unit"> / {targets.waterOz} oz</span>
                 </div>
-                <div className="track" style={{ marginTop: 6 }}>
+                <div className="macro-bar" style={{ height: 6, marginTop: 6 }}>
                   <motion.div
-                    className="track-fill"
-                    style={{ background: MACRO_COLORS.water }}
+                    className="macro-fill"
+                    style={{ background: waterMet ? 'var(--fuel-hit)' : MACRO_COLORS.water }}
                     initial={false}
                     animate={{ width: `${Math.min(100, (day.waterOz / targets.waterOz) * 100)}%` }}
                     transition={{ type: 'spring', stiffness: 140, damping: 20 }}
@@ -159,7 +184,7 @@ export function MealsHome() {
             title="Today's meals"
             action={{ label: 'Guidelines', onPress: () => push('guidelines') }}
           />
-          <div className="gutter" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className="gutter" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {MEAL_PLAN.meals.map((meal) => (
               <MealCard
                 key={meal.id}
@@ -167,6 +192,7 @@ export function MealsHome() {
                 day={day}
                 skipped={day.skippedMeals.includes(meal.id)}
                 restDay={restDay}
+                isNext={meal.id === nextMealId}
                 onToggleItem={(id) => toggleFood(date, id)}
                 onCheckAll={(v) => checkAllInMeal(date, meal.items.map((i) => i.id), v)}
                 onOpen={() => push('mealDetail', { mealId: meal.id, date })}
@@ -199,7 +225,7 @@ export function MealsHome() {
               >
                 <Row
                   title={food.name}
-                  subtitle={`${food.kcal} kcal · P${food.protein} C${food.carbs} F${food.fat}`}
+                  subtitle={<MacroLine food={food} />}
                   trailing={
                     <button
                       type="button"
@@ -258,48 +284,26 @@ function DayStrip({
     <div ref={ref} className="hscroll" style={{ gap: 6, paddingBottom: 2 }}>
       {days.map((day) => {
         const selected = day === date
-        const isToday = day === today
         const logged = Object.values(nutrition[day]?.checked ?? {}).some(Boolean)
         return (
           <button
             key={day}
             type="button"
+            className="day-cell"
             aria-label={formatMediumDate(day)}
             aria-current={selected ? 'date' : undefined}
+            data-today={day === today ? 'true' : undefined}
+            data-logged={logged ? 'true' : undefined}
             onClick={() => {
               haptic('selection')
               onPick(day)
             }}
-            style={{
-              flex: '0 0 auto',
-              width: 44,
-              padding: '7px 0 6px',
-              borderRadius: 13,
-              background: selected ? 'var(--accent)' : 'var(--grouped-2)',
-              color: selected ? '#fff' : 'var(--label)',
-              border: isToday && !selected ? '1.5px solid var(--accent)' : '1.5px solid transparent',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 2,
-            }}
           >
-            <span className="t-caption2 semibold" style={{ opacity: 0.65 }}>
+            <span className="eyebrow day-cell-wd" style={{ color: 'inherit' }}>
               {weekdayMin(fromISODate(day).getDay())}
             </span>
-            <span className="mono-nums" style={{ fontSize: 17, fontWeight: 600, lineHeight: '20px' }}>
-              {fromISODate(day).getDate()}
-            </span>
-            <span
-              style={{
-                width: 5,
-                height: 5,
-                borderRadius: '50%',
-                background: logged
-                  ? selected ? 'rgba(255,255,255,0.9)' : 'var(--accent)'
-                  : 'transparent',
-              }}
-            />
+            <span className="data day-cell-num">{fromISODate(day).getDate()}</span>
+            <span className="day-cell-dot" />
           </button>
         )
       })}
@@ -307,30 +311,41 @@ function DayStrip({
   )
 }
 
+/**
+ * One macro beside the rings. The name is an eyebrow, the figure and its target
+ * are one object, and the bar carries the macro's own tone — which turns to the
+ * hit colour the moment the target lands, so "protein is done" is legible
+ * without reading a digit.
+ */
 function MacroReadout({
-  label, value, target, color, labelColor,
+  label, value, target, color,
 }: {
   label: string
   value: number
   target: number
   color: string
-  /** systemYellow reads at 1.5:1 as type — the bar keeps it, the label doesn't. */
-  labelColor: string
 }) {
   const pct = target > 0 ? Math.min((value / target) * 100, 100) : 0
+  const met = target > 0 && value >= target
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-        <span className="t-footnote semibold" style={{ color: labelColor }}>{label}</span>
-        <span className="t-footnote mono-nums semibold">
+    <div
+      className="macro-row"
+      data-met={met ? 'true' : undefined}
+      // Resolved here rather than in a rule keyed off data-met: an inline
+      // custom property outranks any stylesheet, so the met colour had to win
+      // in the same place the macro's own tone is set.
+      style={{ '--macro': met ? 'var(--fuel-hit)' : color } as CSSProperties}
+    >
+      <div className="macro-head">
+        <span className="eyebrow macro-name">{label}</span>
+        <span className="data macro-value">
           {Math.round(value)}
-          <span className="dim" style={{ fontWeight: 400 }}>/{Math.round(target)}g</span>
+          <span className="macro-target">/{Math.round(target)} g</span>
         </span>
       </div>
-      <div className="track" style={{ height: 5, marginTop: 4 }}>
+      <div className="macro-bar">
         <motion.div
-          className="track-fill"
-          style={{ background: color }}
+          className="macro-fill"
           initial={{ width: 0 }}
           animate={{ width: `${pct}%` }}
           transition={{ type: 'spring', stiffness: 120, damping: 20 }}
@@ -340,13 +355,59 @@ function MacroReadout({
   )
 }
 
+/**
+ * What the day still owes, in the two numbers the plan is judged on.
+ *
+ * The slack is not politeness: the plan's own meals sum to 2921 kcal against a
+ * 2920 kcal target, so a client who followed it exactly was being told they had
+ * gone over.
+ */
+const KCAL_SLACK = 5
+
+function Remaining({ targets, totals }: { targets: MacroTargets; totals: MacroTotals }) {
+  const kcalLeft = Math.round(targets.kcal - totals.kcal)
+  const proteinLeft = Math.round(targets.protein - totals.protein)
+  if (kcalLeft < -KCAL_SLACK) {
+    return <>
+      <span className="data">{-kcalLeft}</span> kcal over the day&rsquo;s target.
+    </>
+  }
+  if (proteinLeft > 0) {
+    return <>
+      <span className="data">{kcalLeft}</span> kcal and <span className="data">{proteinLeft} g</span>
+      {' '}of protein still to go.
+    </>
+  }
+  if (kcalLeft <= KCAL_SLACK) return <>Protein and calories both landed. The day is on plan.</>
+  return <>
+    Protein is in. <span className="data">{kcalLeft}</span> kcal left today.
+  </>
+}
+
+/** A food's calories and macros, set as data with the letters as units. */
+export function MacroLine({
+  food,
+}: {
+  food: { kcal: number; protein: number; carbs: number; fat: number }
+}) {
+  return (
+    <span className="data" style={{ fontSize: 'inherit' }}>
+      {Math.round(food.kcal)}<span className="data-unit"> kcal</span>
+      <span className="data-unit"> · P</span>{Math.round(food.protein)}
+      <span className="data-unit"> C</span>{Math.round(food.carbs)}
+      <span className="data-unit"> F</span>{Math.round(food.fat)}
+    </span>
+  )
+}
+
 function MealCard({
-  meal, day, skipped, restDay, onToggleItem, onCheckAll, onOpen,
+  meal, day, skipped, restDay, isNext, onToggleItem, onCheckAll, onOpen,
 }: {
   meal: Meal
   day: DayNutrition
   skipped: boolean
   restDay: boolean
+  isNext: boolean
   onToggleItem: (id: string) => void
   onCheckAll: (value: boolean) => void
   onOpen: () => void
@@ -355,26 +416,25 @@ function MealCard({
   const totals = plannedMealTotals(meal, day, MEAL_PLAN, restDay)
   const doneCount = meal.items.filter((i) => checked[i.id]).length
   const allDone = doneCount === meal.items.length
+  // Six meals of four foods is twenty-four rows, and a plan a client is working
+  // through should get shorter as they work through it. A meal that is finished
+  // or deliberately skipped folds down to the line that summarises it; its rows
+  // are still one tap away, and unticking the meal brings them straight back.
+  const state = skipped ? 'skipped' : allDone ? 'done' : 'open'
 
   return (
-    <div className="card" style={{ margin: 0, opacity: skipped ? 0.5 : 1 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '13px 14px 11px' }}>
+    <div className="card meal-card" data-state={state}>
+      <div className="meal-head">
         <button
           type="button"
-          className="hit-expand"
+          className="hit-expand meal-check"
           aria-label={allDone ? `Uncheck ${meal.name}` : `Check off ${meal.name}`}
           onClick={() => {
             haptic(allDone ? 'light' : 'success')
             onCheckAll(!allDone)
           }}
-          style={{
-            width: 30, height: 30, borderRadius: '50%', flex: 'none',
-            display: 'grid', placeItems: 'center',
-            background: allDone ? 'var(--green)' : 'transparent',
-            border: allDone ? 'none' : '2px solid var(--label-3)',
-          }}
         >
-          {allDone && <Icon name="check" size={16} weight={3} color="#fff" />}
+          {allDone && <Icon name="check" size={15} weight={3} color="#fff" />}
         </button>
 
         <button
@@ -383,34 +443,38 @@ function MealCard({
           className="hit-expand"
           style={{ flex: 1, minWidth: 0, textAlign: 'left' }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <span className="t-headline">{meal.name}</span>
-            <span className="t-caption1 dim">{formatClock(meal.time)}</span>
+          {/* Above the name rather than beside it: an eyebrow is a label on
+              what follows, and inline it took the width a 320pt screen needs
+              for the meal's own name. */}
+          {isNext && <div className="eyebrow meal-next">Next</div>}
+          <div className="meal-name">
+            <span className="t-headline truncate">{meal.name}</span>
+            <span className="t-caption1 dim" style={{ flex: 'none' }}>{formatClock(meal.time)}</span>
           </div>
-          <div className="t-footnote dim mono-nums">
-            {totals.kcal} kcal · P{totals.protein} C{totals.carbs} F{totals.fat}
+          <div className="t-footnote dim">
+            {skipped ? 'Skipped today' : <MacroLine food={totals} />}
           </div>
         </button>
 
-        <span className="t-caption1 dim mono-nums" style={{ flex: 'none' }}>
-          {doneCount}/{meal.items.length}
-        </span>
+        <span className="data meal-count">{doneCount}/{meal.items.length}</span>
         <button type="button" aria-label={`Open ${meal.name}`} onClick={onOpen} className="hit-expand">
           <Icon name="chevron.right" size={15} weight={2.6} color="var(--label-3)" />
         </button>
       </div>
 
-      <div style={{ padding: '0 14px 12px' }}>
-        {meal.items.map((item) => (
-          <FoodLine
-            key={item.id}
-            item={item}
-            portion={portionOf(day, item.id, MEAL_PLAN, restDay)}
-            checked={!!checked[item.id]}
-            onToggle={() => onToggleItem(item.id)}
-          />
-        ))}
-      </div>
+      {state === 'open' && (
+        <div className="meal-foods">
+          {meal.items.map((item) => (
+            <FoodLine
+              key={item.id}
+              item={item}
+              portion={portionOf(day, item.id, MEAL_PLAN, restDay)}
+              checked={!!checked[item.id]}
+              onToggle={() => onToggleItem(item.id)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -426,62 +490,39 @@ export function FoodLine({
   portion?: number
 }) {
   const scaled = scaleFood(item, portion)
-  // A real 44pt row pitch. Every control in here expands to Apple's 44×44
-  // minimum, so anything shorter would have those rectangles overlapping each
-  // other and the rows above and below — the classic mis-tap.
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 44 }}>
+    <div className="food-line" data-checked={checked ? 'true' : undefined}>
       <button
         type="button"
         aria-label={checked ? `Uncheck ${item.name}` : `Check ${item.name}`}
-        className="hit-expand"
+        className="hit-expand food-check"
         onClick={() => {
           haptic('selection')
           onToggle()
         }}
-        style={{
-          width: 21, height: 21, borderRadius: '50%', flex: 'none',
-          display: 'grid', placeItems: 'center',
-          background: checked ? 'var(--accent)' : 'transparent',
-          border: checked ? 'none' : '1.8px solid var(--label-3)',
-        }}
       >
         {checked && <Icon name="check" size={12} weight={3.2} color="#fff" />}
       </button>
-      <span
-        className="t-subhead truncate"
-        style={{
-          flex: 1,
-          minWidth: 0,
-          textDecoration: checked ? 'line-through' : 'none',
-          color: checked ? 'var(--label-3)' : 'var(--label)',
-        }}
-      >
+      <span className="t-subhead truncate food-name">
         {item.name}
-        <span className="dim"> · {num(scaled.qty, 1)} {unitFor(scaled.qty, item.unit)}</span>
+        <span className="data food-qty" style={{ fontSize: 13, fontWeight: 500 }}>
+          {' · '}{num(scaled.qty, 1)} {unitFor(scaled.qty, item.unit)}
+        </span>
       </span>
       {onPortion && (
         <button
           type="button"
           aria-label={`Portion for ${item.name}`}
           onClick={onPortion}
-          className="mono-nums hit-expand"
-          style={{
-            flex: 'none',
-            padding: '2px 7px',
-            borderRadius: 7,
-            fontSize: 12,
-            fontWeight: 600,
-            background: portion === 1 ? 'var(--fill-4)' : 'var(--accent-soft)',
-            color: portion === 1 ? 'var(--label-2)' : 'var(--accent)',
-          }}
+          className="data hit-expand food-portion"
+          data-adjusted={portion === 1 ? undefined : 'true'}
         >
           {num(portion, 2)}×
         </button>
       )}
       {onSwap &&
         (item.swaps && item.swaps.length > 0 ? (
-          // A real 44×44 box rather than `hit-expand`: an expanded rectangle
+          // A real 44x44 box rather than `hit-expand`: an expanded rectangle
           // would reach back over the portion chip's own expanded one.
           <button
             type="button"
@@ -502,14 +543,7 @@ export function FoodLine({
           // calories line up down the card.
           <span aria-hidden="true" style={{ flex: 'none', width: 44 }} />
         ))}
-      {/* Fixed width so the kcal column — and everything left of it — lines up
-          down the card instead of ragging with the digit count. */}
-      <span
-        className="t-caption1 dim mono-nums"
-        style={{ flex: 'none', minWidth: 30, textAlign: 'right' }}
-      >
-        {scaled.kcal}
-      </span>
+      <span className="data food-kcal">{scaled.kcal}</span>
     </div>
   )
 }
@@ -544,8 +578,8 @@ function QuickAddSheet({ open, onClose, date }: { open: boolean; onClose: () => 
           >
             <span className="row-body">
               <span className="row-title">{food.name}</span>
-              <span className="row-sub mono-nums">
-                {food.kcal} kcal · P{food.protein} C{food.carbs} F{food.fat}
+              <span className="row-sub">
+                <MacroLine food={food} />
               </span>
             </span>
             <Icon name="plus" size={18} weight={2.4} color="var(--accent)" />

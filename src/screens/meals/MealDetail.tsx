@@ -5,7 +5,7 @@ import { Icon } from '../../components/Icon'
 import { Pill } from '../../components/ios/Controls'
 import { Sheet } from '../../components/ios/Sheet'
 import { toast } from '../../components/ios/Toast'
-import { FoodLine } from './MealsHome'
+import { FoodLine, MacroLine } from './MealsHome'
 import { useDayMode } from './dayMode'
 import { useStore, emptyDay } from '../../store/useStore'
 import { MEAL_PLAN } from '../../data/mealPlan'
@@ -52,10 +52,10 @@ export function MealDetail({ mealId, date }: { mealId: string; date: string }) {
           <div className="t-subhead dim">{relativeDay(date)} · {formatClock(meal.time)}</div>
           {meal.note && <div className="t-subhead dim" style={{ marginTop: 2 }}>{meal.note}</div>}
           <div style={{ display: 'flex', gap: 7, marginTop: 12, flexWrap: 'wrap' }}>
-            <Pill tone="tinted">{totals.kcal} kcal</Pill>
-            <Pill>P {totals.protein}g</Pill>
-            <Pill>C {totals.carbs}g</Pill>
-            <Pill>F {totals.fat}g</Pill>
+            <Pill tone="tinted"><span className="data">{totals.kcal} kcal</span></Pill>
+            <Pill><span className="data">P {totals.protein}g</span></Pill>
+            <Pill><span className="data">C {totals.carbs}g</span></Pill>
+            <Pill><span className="data">F {totals.fat}g</span></Pill>
           </div>
         </div>
       }
@@ -95,7 +95,7 @@ export function MealDetail({ mealId, date }: { mealId: string; date: string }) {
             <Icon name={skipped ? 'reset' : 'xmark'} size={17} weight={2.2} />
             {skipped ? 'Un-skip this meal' : 'Skip this meal today'}
           </button>
-          <div className="t-footnote dim" style={{ marginTop: 8, textAlign: 'center' }}>
+          <div className="t-footnote dim" style={{ marginTop: 8 }}>
             A skipped meal drops out of your targets for the day.
           </div>
         </div>
@@ -148,10 +148,14 @@ function SwapSheet({
       detent={0.7}
     >
       <div style={{ padding: '4px 16px 16px' }}>
-        <div className="t-footnote dim" style={{ marginBottom: 4 }}>Replacing</div>
+        <div className="eyebrow" style={{ marginBottom: 4 }}>Replacing</div>
         <div className="t-headline">{item.name}</div>
-        <div className="t-footnote dim mono-nums" style={{ marginBottom: 16 }}>
-          {num(item.qty, 1)} {unitFor(item.qty, item.unit)} · {item.kcal} kcal · P{item.protein} C{item.carbs} F{item.fat}
+        <div className="t-footnote dim" style={{ marginBottom: 16 }}>
+          <span className="data" style={{ fontSize: 'inherit', fontWeight: 500 }}>
+            {num(item.qty, 1)} {unitFor(item.qty, item.unit)}
+            <span className="data-unit"> · </span>
+          </span>
+          <MacroLine food={item} />
         </div>
 
         {swaps.length === 0 ? (
@@ -171,12 +175,21 @@ function SwapSheet({
                 <span className="row-body">
                   <span className="row-title">
                     {swap.name}
-                    <span className="dim"> · {num(swap.qty, 1)} {unitFor(swap.qty, swap.unit)}</span>
+                    <span className="data dim" style={{ fontSize: 15, fontWeight: 500 }}>
+                      {' · '}{num(swap.qty, 1)} {unitFor(swap.qty, swap.unit)}
+                    </span>
                   </span>
-                  <span className="row-sub mono-nums">
-                    {swap.kcal} kcal · P{swap.protein} C{swap.carbs} F{swap.fat}
+                  <span className="row-sub">
+                    <MacroLine food={swap} />
                     {(delta.kcal !== 0 || delta.protein !== 0) && (
-                      <span style={{ color: close ? 'var(--label-2)' : 'var(--orange)' }}>
+                      <span
+                        className="data"
+                        style={{
+                          fontSize: 'inherit',
+                          fontWeight: 500,
+                          color: close ? 'var(--label-2)' : 'var(--orange-text)',
+                        }}
+                      >
                         {' '}({signed(delta.kcal, 0)} kcal, {signed(delta.protein, 0)}g P)
                       </span>
                     )}
@@ -228,11 +241,11 @@ function PortionSheet({
                   haptic('selection')
                   onPick(p)
                 }}
-                className="mono-nums"
+                className="data"
                 style={{
                   minHeight: 46,
                   borderRadius: 11,
-                  fontWeight: 600,
+                  fontSize: 17,
                   background: on ? 'var(--accent)' : 'var(--fill-4)',
                   color: on ? '#fff' : 'var(--label)',
                 }}
@@ -251,11 +264,11 @@ function PortionSheet({
             background: 'var(--fill-4)',
           }}
         >
-          <div className="t-caption1 dim semibold" style={{ marginBottom: 4 }}>AT THIS PORTION</div>
-          <div className="mono-nums t-body">
-            {num(scaleFood(item, current).qty, 2)} {unitFor(scaleFood(item, current).qty, item.unit)} ·{' '}
-            {scaleFood(item, current).kcal} kcal · P{scaleFood(item, current).protein}{' '}
-            C{scaleFood(item, current).carbs} F{scaleFood(item, current).fat}
+          <div className="eyebrow" style={{ marginBottom: 5 }}>At this portion</div>
+          <div className="data" style={{ fontSize: 17, lineHeight: '22px' }}>
+            {num(scaleFood(item, current).qty, 2)} {unitFor(scaleFood(item, current).qty, item.unit)}
+            <span className="data-unit"> · </span>
+            <MacroLine food={scaleFood(item, current)} />
           </div>
         </div>
       </div>

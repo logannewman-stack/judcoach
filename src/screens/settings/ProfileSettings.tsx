@@ -197,7 +197,7 @@ export function ProfileSettings() {
             placeholder="Your name"
             autoFocus
             style={{
-              width: '100%', padding: '12px 14px', borderRadius: 12,
+              width: '100%', padding: '12px 14px', borderRadius: 'var(--r-btn)',
               border: 'none', background: 'var(--fill-3)',
             }}
           />

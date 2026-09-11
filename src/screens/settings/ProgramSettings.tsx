@@ -43,7 +43,7 @@ export function ProgramSettings() {
       {/* Week cards keep their own surface, so this group borrows the list
           section's header, footer and 32px rhythm rather than its container. */}
       <section className="list-section">
-        <div className="list-header">Every week</div>
+        <div className="list-header eyebrow">Every week</div>
         <div className="gutter" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {program.weeks.map((week) => {
             const schedule = weekSchedule(program, week.index, logs)
@@ -54,11 +54,11 @@ export function ProgramSettings() {
               <button
                 key={week.id}
                 type="button"
-                className="card"
+                className="surface"
+                data-current={isLive ? 'true' : undefined}
                 onClick={() => push('session', { weekIndex: week.index, sessionId: week.sessions[0]!.id })}
                 style={{
-                  margin: 0, padding: 13, width: '100%', textAlign: 'left',
-                  border: isLive ? '1.5px solid var(--accent)' : '1.5px solid transparent',
+                  padding: 13, width: '100%', textAlign: 'left',
                   opacity: isPast && done === 0 ? 0.55 : 1,
                 }}
               >
@@ -73,8 +73,8 @@ export function ProgramSettings() {
                 <div className="t-footnote dim" style={{ marginTop: 3, lineHeight: '18px' }}>
                   {week.emphasis}
                 </div>
-                <div className="t-caption1 dim mono-nums" style={{ marginTop: 6 }}>
-                  {done}/{schedule.length} sessions ·{' '}
+                <div className="t-caption1 dim" style={{ marginTop: 6 }}>
+                  <span className="data">{done}/{schedule.length}</span> sessions ·{' '}
                   {formatMediumDate(addDays(program.startDate, (week.index - 1) * 7))}
                 </div>
               </button>

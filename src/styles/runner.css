@@ -27,14 +27,14 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  border-radius: 12px;
+  border-radius: var(--r-card);
   background: var(--fill-4);
 }
 
 .runner-quant-read {
   min-width: 0;
   padding: 6px 5px 7px;
-  border-radius: 12px 12px 0 0;
+  border-radius: var(--r-card) var(--r-card) 0 0;
   text-align: center;
 }
 .runner-quant-read[data-pressed] { background: var(--fill-3); }
@@ -51,8 +51,8 @@
   place-items: center;
   color: var(--label);
 }
-.runner-step:first-child { border-radius: 0 0 0 12px; }
-.runner-step:last-child { border-radius: 0 0 12px 0; }
+.runner-step:first-child { border-radius: 0 0 0 var(--r-card); }
+.runner-step:last-child { border-radius: 0 0 var(--r-card) 0; }
 .runner-step[data-pressed] { background: var(--fill-3); }
 .runner-step:disabled { opacity: 0.3; }
 
@@ -91,7 +91,7 @@ h1.runner-title {
   gap: 6px;
   height: 44px;
   padding: 0 13px;
-  border-radius: 12px;
+  border-radius: var(--r-btn);
   font-size: 15px;
   font-weight: 600;
   letter-spacing: -0.23px;
@@ -110,3 +110,272 @@ h1.runner-title {
 }
 /* A note already written is a state worth seeing from arm's length. */
 .runner-tool[data-on='true'] { background: var(--accent-soft); color: var(--accent); }
+
+/* ---------------------------- the intensity trace ------------------------- */
+
+/* The header's progress bar, carrying the session's effort as well as its
+   length. Every prescribed set gets a cell; a logged one takes its RPE's colour
+   from the ramp, so the shape of a session — the easy openers, the grind in the
+   middle — is readable in a glance from arm's length, which no count of sets
+   ever was. A wider gap marks where one exercise ends and the next begins. */
+.runner-trace {
+  display: flex;
+  align-items: stretch;
+  gap: 1px;
+  height: 5px;
+}
+.runner-trace-cell {
+  flex: 1 1 0;
+  min-width: 0;
+  background: var(--fill-3);
+}
+/* `--rpe` falls back to a neutral label colour, so a set logged without an
+   effort reads as done-but-unrated rather than as an easy one. */
+.runner-trace-cell[data-done='true'] { background: var(--rpe); }
+.runner-trace-cell[data-block-start='true'] { margin-left: 3px; }
+.runner-trace-cell:first-child { margin-left: 0; border-radius: var(--r-pill) 0 0 var(--r-pill); }
+.runner-trace-cell:last-child { border-radius: 0 var(--r-pill) var(--r-pill) 0; }
+
+/* -------------------------------- rpe tag -------------------------------- */
+
+/* What Jud asked for and what the bar actually felt like are different claims,
+   so they are drawn differently: a prescription is an outline the set has to
+   land inside, a logged effort is filled in. Both take the ramp. */
+.rpe-tag {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  flex: none;
+  padding: 5px 9px 6px;
+  border-radius: var(--r-chip);
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  color: var(--rpe);
+  background: var(--rpe-fill);
+  white-space: nowrap;
+}
+.rpe-tag[data-kind='target'] {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--rpe) 40%, transparent);
+}
+.rpe-tag-label {
+  font-size: 10px;
+  line-height: 13px;
+  font-weight: 700;
+  font-stretch: 112%;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.82;
+}
+.rpe-tag-value {
+  font-size: 17px;
+  line-height: 17px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+}
+
+/* ------------------------------- target card ----------------------------- */
+
+/* The one thing on the screen a client reads between sets, from arm's length,
+   half out of breath: the load, the reps and how hard it is meant to be. It
+   carries no border and no tint — at this size against a quiet card it does not
+   need help being found, and the accent is reserved for the action below. */
+.runner-target {
+  container-type: inline-size;
+  padding: 11px 15px 13px;
+}
+.runner-target-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+/* Percent of max, per cent of top set, bodyweight: the same slot every time,
+   because it answers the same question — where this number came from. */
+.runner-target-kind {
+  margin-left: auto;
+  text-align: right;
+}
+
+.runner-target-line {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 7px;
+  margin-top: 5px;
+}
+.runner-figure {
+  font-size: clamp(38px, 15.5cqi, 54px);
+  line-height: 1.04;
+  min-width: 0;
+}
+/* A load the programme did not set — worked up to by feel — is a reference, not
+   an instruction, so it is quieter than a number the client has to hit. */
+.runner-figure[data-reference='true'] { color: var(--label-2); }
+.runner-figure-unit { font-size: 20px; line-height: 20px; }
+.runner-figure-reps {
+  margin-left: 3px;
+  font-size: 26px;
+  line-height: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  /* A rep range is one number, so "12–15" never breaks after the dash and
+     leaves a 15 stranded on its own line under the target. */
+  white-space: nowrap;
+}
+.runner-target-line .rpe-tag { margin-left: auto; align-self: center; }
+
+.runner-target-pills {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.runner-target-rule {
+  margin-top: 11px;
+  padding-top: 11px;
+  border-top: var(--hairline) solid var(--sep);
+}
+
+/* -------------------------------- the ramp ------------------------------- */
+
+/* Warm-ups are not sets and never take the intensity ramp — nothing under RPE 6
+   has a colour. What a lifter needs here is their place in the queue, so a done
+   rung goes quiet and the one they are on is the only one drawn in full. */
+.warmup-rung {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  /* A rung is a target before it is a label: chalked hands, mid-ramp. */
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: var(--r-inset);
+  background: var(--fill-4);
+  color: var(--label-2);
+  transition: background var(--dur-state) var(--ease-ios),
+              color var(--dur-state) var(--ease-ios);
+}
+/* Done reads as emptied rather than as faint: the fill goes, the outline stays,
+   and the tick is what says it happened. A rung nobody can read is not a
+   quieter rung, it is a missing one. */
+.warmup-rung[data-state='done'] {
+  background: transparent;
+  box-shadow: inset 0 0 0 var(--hairline) var(--sep);
+}
+.warmup-rung[data-state='next'] {
+  background: var(--fill-2);
+  color: var(--label);
+  box-shadow: inset 0 0 0 1.5px var(--label-4);
+}
+.warmup-rung[data-pressed] { background: var(--fill-2); }
+.warmup-num { font-size: 14px; }
+.warmup-reps { font-weight: 500; opacity: 0.7; }
+
+/* ------------------------------- logged sets ----------------------------- */
+
+/* Every row in this list is a set that happened, so a tick on each one says
+   nothing. The slot carries the set number instead, in the colour of the effort
+   it took — which turns the list into the same heat trace the header runs. */
+.runner-set-index {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-chip);
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  background: var(--rpe-fill);
+  color: var(--rpe);
+}
+.runner-set-rpe { color: var(--rpe); font-weight: 700; }
+.runner-set-pr {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px 4px;
+  border-radius: var(--r-pill);
+  font-family: var(--font-data);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 700;
+  font-stretch: 112%;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rpe-10-text);
+  background: color-mix(in srgb, var(--rpe-10) 16%, transparent);
+}
+
+/* --------------------------------- a best -------------------------------- */
+
+/* Beating a best is the reason for the other fifty-nine minutes, and it used to
+   be a toast that was gone before the bar was racked. This stays up for the rest
+   of the exercise, and says by how much. */
+.runner-pr {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 13px 10px;
+  border-radius: var(--r-card);
+  background: color-mix(in srgb, var(--rpe-10) 11%, transparent);
+  box-shadow: inset 0 0 0 var(--hairline) color-mix(in srgb, var(--rpe-10) 40%, transparent);
+  color: var(--rpe-10-text);
+}
+.runner-pr-figure { font-size: 24px; line-height: 26px; }
+.runner-pr-unit { font-size: 14px; color: inherit; opacity: 0.82; }
+.runner-pr-delta { margin-left: auto; font-size: 13px; opacity: 0.82; }
+
+/* ------------------------------- the ending ------------------------------ */
+
+/* A session ending is one of the two or three moments in this app worth
+   authoring, and what makes it an ending is the same thing that makes it worth
+   doing: the total. Everything else on the card is scale for that figure. */
+.runner-done { padding: 20px 16px 16px; }
+.runner-done-mark {
+  width: 46px;
+  height: 46px;
+  margin: 0 auto 12px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--green) 16%, transparent);
+}
+.runner-done-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 12px;
+}
+.runner-done-figure { font-size: 46px; line-height: 48px; }
+.runner-done-unit { font-size: 19px; }
+.runner-done-stats {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: var(--hairline) solid var(--sep);
+}
+.runner-done-stat { min-width: 0; text-align: center; }
+.runner-done-stat-value { font-size: 19px; line-height: 22px; }
+.runner-done-stat-value[data-rpe] { color: var(--rpe); }
+
+/* A block finished mid-session is a waypoint, not an ending: same information,
+   none of the ceremony. */
+.runner-block-done {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.runner-block-mark {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r-chip);
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--green) 16%, transparent);
+}

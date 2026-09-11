@@ -301,10 +301,10 @@ export function LineChart({
 
         {spanLabels && (
           <>
-            <text x={PAD_L} y={height - 6} fontSize="11" fill="var(--label-2)">
+            <text className="chart-axis" x={PAD_L} y={height - 6}>
               {spanLabels.first}
             </text>
-            <text x={width - PAD_R} y={height - 6} fontSize="11" textAnchor="end" fill="var(--label-2)">
+            <text className="chart-axis" x={width - PAD_R} y={height - 6} textAnchor="end">
               {spanLabels.last}
             </text>
           </>
@@ -348,6 +348,7 @@ export function LineChart({
     <div ref={ref} style={{ width: '100%', ...style }}>
       {width > 0 && geom && (
         <svg
+          className="chart"
           width={width}
           height={height}
           viewBox={`0 0 ${width} ${height}`}
@@ -378,10 +379,10 @@ export function LineChart({
                 fill={secondaryColor ?? color} stroke="var(--grouped-2)" strokeWidth={2.5}
               />
               <text
+                className="chart-readout"
                 x={Math.min(Math.max(active.x, PAD_L + readoutHalf), width - PAD_R - readoutHalf)}
                 y={PAD_T - 7}
-                textAnchor="middle" fontSize="11" fontWeight="700"
-                fill="var(--label)"
+                textAnchor="middle"
               >
                 {activeText}
               </text>
@@ -423,10 +424,10 @@ function GoalLabel({
   return (
     <>
       <text
+        className="chart-mark"
         x={right - (arrow ? ARROW_W + 4 : 0)}
         y={y}
-        textAnchor="end" fontSize="10" fontWeight="600"
-        fill="var(--label-2)"
+        textAnchor="end"
       >
         {text}
       </text>
@@ -478,7 +479,7 @@ export function BarChart({
   return (
     <div ref={ref} style={{ width: '100%' }}>
       {width > 0 && (
-        <svg width={width} height={height} style={{ display: 'block' }}>
+        <svg className="chart" width={width} height={height} style={{ display: 'block' }}>
           {bars.map((b, i) => {
             const x = i * (barW + gap)
             const h = Math.max(2, (b.value / max) * innerH)
@@ -502,17 +503,11 @@ export function BarChart({
                   />
                 )}
                 {showValues && (
-                  <text
-                    x={x + barW / 2} y={y - 5}
-                    textAnchor="middle" fontSize="10" fontWeight="700" fill="var(--label-2)"
-                  >
+                  <text className="chart-bar-value" x={x + barW / 2} y={y - 5} textAnchor="middle">
                     {formatValue(b.value)}
                   </text>
                 )}
-                <text
-                  x={x + barW / 2} y={height - 6}
-                  textAnchor="middle" fontSize="10" fill="var(--label-3)"
-                >
+                <text className="chart-bar-label" x={x + barW / 2} y={height - 6} textAnchor="middle">
                   {b.label}
                 </text>
               </g>

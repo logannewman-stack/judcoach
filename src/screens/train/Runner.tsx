@@ -16,7 +16,7 @@ import { EXERCISES, getExercise } from '../../data/exercises'
 import type { ActiveSession, LoggedSet, SetPrescription } from '../../domain/types'
 import {
   MAX_RPE, MIN_RPE, buildWarmup, describeReps, e1RM, formatRir, formatRpe, isEstimable, isMaxEffort,
-  resolveSet, rpeToRir, sessionTonnage, suggestNextLoad, topSet,
+  resolveSet, rpeToRir, sessionTonnage, snapRpe, suggestNextLoad, topSet,
 } from '../../domain/strength'
 import { formatDuration } from '../../lib/date'
 import { num } from '../../lib/format'
@@ -83,6 +83,9 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
   const [showSwap, setShowSwap] = useState(false)
   const [showNote, setShowNote] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  // The best just beaten, kept against its block so it stays up for the rest of
+  // the exercise rather than for the three seconds a toast lasts.
+  const [pr, setPr] = useState<{ blockId: string; est: number; previous: number } | null>(null)
   const [extraSets, setExtraSets] = useState<Record<string, number>>({})
   const scrollRef = useRef<HTMLDivElement>(null)
   const pagerRef = useRef<HTMLDivElement>(null)
@@ -121,6 +124,22 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
   const totalSets = session.blocks.reduce((n, b) => n + b.sets.length, 0)
   const doneSets = Object.values(active.entries).reduce((n, sets) => n + sets.length, 0)
   const sessionVolume = Object.values(active.entries).reduce((n, sets) => n + sessionTonnage(sets), 0)
+  const sessionSets = Object.values(active.entries).flat()
+  const avgRpe = averageRpe(sessionSets)
+
+  // The session's plan, one cell per prescribed set, with the effort painted on
+  // as the sets land. An extra set past the prescription adds a cell rather than
+  // going unrecorded, and the exercise boundaries are kept so the strip reads as
+  // the session's shape rather than as one long bar.
+  const trace = session.blocks.flatMap((b, i) => {
+    const sets = active.entries[b.id] ?? []
+    return Array.from({ length: Math.max(b.sets.length, sets.length) }, (_, j) => ({
+      key: `${b.id}-${j}`,
+      rpe: sets[j]?.rpe,
+      done: j < sets.length,
+      blockStart: j === 0 && i > 0,
+    }))
+  })
 
   // A set is a record only if it beats everything before it — history *and*
   // whatever has already been put on the bar this session.
@@ -156,6 +175,16 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
   // Nothing to load means the rep target is the target, so the card leads with
   // reps and the entry field asks for added weight rather than weight.
   const bodyweight = prescription.load.kind === 'bodyweight'
+  // Where the number on the card came from. One slot, always in the same place,
+  // because it always answers the same question — and a set worked up to by feel
+  // has to say so, or the history it borrows reads as an instruction.
+  const loadKind =
+    prescription.load.kind === 'percent' ? `${num(prescription.load.value, 1)}% of TM`
+    : prescription.load.kind === 'backoff' ? `${prescription.load.pctOfTop}% of top set`
+    : prescription.load.kind === 'bodyweight' ? 'Bodyweight'
+    : prescription.load.kind === 'rpe' && resolved.targetWeight == null
+      ? anchorWeight != null ? 'Work up · last time' : 'Work up by feel'
+      : undefined
 
   const sessionComplete = session.blocks.every(
     (b) => (active.entries[b.id] ?? []).length >= b.sets.length,
@@ -196,7 +225,7 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
           </div>
           <div style={{ textAlign: 'center', minWidth: 0 }}>
             <div className="t-caption1 dim truncate">{session.name} · {week.label.split(' — ')[0]}</div>
-            <div className="t-headline mono-nums" style={{ lineHeight: '18px' }}>
+            <div className="data" style={{ fontSize: 17, lineHeight: '19px', fontWeight: 700 }}>
               {formatDuration(elapsed)}
             </div>
           </div>
@@ -207,14 +236,21 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
           </div>
         </div>
 
-        <div style={{ padding: '0 var(--gutter) 5px' }}>
-          <div className="track" style={{ height: 4 }}>
-            <motion.div
-              className="track-fill"
-              initial={false}
-              animate={{ width: `${(doneSets / totalSets) * 100}%` }}
-              transition={{ type: 'spring', stiffness: 200, damping: 26 }}
-            />
+        <div style={{ padding: '0 var(--gutter) 6px' }}>
+          <div
+            className="runner-trace"
+            role="img"
+            aria-label={`${doneSets} of ${totalSets} sets logged`}
+          >
+            {trace.map((cell) => (
+              <span
+                key={cell.key}
+                className="runner-trace-cell"
+                data-rpe={cell.rpe ?? ''}
+                data-done={cell.done || undefined}
+                data-block-start={cell.blockStart || undefined}
+              />
+            ))}
           </div>
         </div>
 
@@ -236,7 +272,7 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
                 style={{
                   flex: '0 0 auto',
                   padding: '11px 13px',
-                  borderRadius: 99,
+                  borderRadius: 'var(--r-pill)',
                   fontSize: 13,
                   fontWeight: 600,
                   letterSpacing: -0.1,
@@ -244,13 +280,18 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
                   display: 'flex',
                   alignItems: 'center',
                   gap: 5,
-                  background: current ? 'var(--accent)' : complete ? 'rgba(52,199,89,0.16)' : 'var(--fill-3)',
-                  color: current ? '#fff' : complete ? 'var(--green)' : 'var(--label-2)',
+                  background: current
+                    ? 'var(--accent)'
+                    : complete ? 'color-mix(in srgb, var(--green) 16%, transparent)' : 'var(--fill-3)',
+                  // systemGreen is a fill and a symbol colour, never a text one:
+                  // it is 2.2:1 on white. The darker twin is what iOS sets type
+                  // in, and on a dark ground the two converge anyway.
+                  color: current ? '#fff' : complete ? 'var(--green-text)' : 'var(--label-2)',
                 }}
               >
                 {complete && <Icon name="check" size={11} weight={3} />}
                 {ex?.shortName ?? ex?.name ?? '—'}
-                <span style={{ opacity: 0.65, fontVariantNumeric: 'tabular-nums' }}>
+                <span className="data" style={{ opacity: 0.65, fontSize: 12 }}>
                   {count}/{b.sets.length}
                 </span>
               </button>
@@ -305,21 +346,21 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
                   type="button"
                   onClick={() => partnerIndex >= 0 && goToBlock(partnerIndex)}
                   disabled={partnerIndex < 0}
+                  // A destination, not the action of the screen: a row with a
+                  // chevron. The accent belongs to Log set.
                   style={{
                     display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-                    marginTop: 10, padding: '13px 11px', borderRadius: 10,
-                    background: 'var(--accent-soft)', textAlign: 'left',
+                    marginTop: 10, padding: '10px 11px', borderRadius: 'var(--r-inset)',
+                    background: 'var(--fill-4)', textAlign: 'left',
                   }}
                 >
-                  <Icon name="swap" size={14} weight={2.4} color="var(--accent)" />
-                  <span className="t-footnote" style={{ flex: 1, minWidth: 0 }}>
-                    <span className="semibold" style={{ color: 'var(--accent)' }}>
-                      Superset {block.supersetGroup}
-                    </span>
-                    {partnerEx ? ` — alternate with ${partnerEx.shortName ?? partnerEx.name}` : ''}
+                  <Icon name="swap" size={14} weight={2.4} color="var(--label-2)" />
+                  <span className="t-footnote truncate" style={{ flex: 1, minWidth: 0 }}>
+                    <span className="eyebrow">Superset {block.supersetGroup}</span>
+                    {partnerEx ? ` · alternate with ${partnerEx.shortName ?? partnerEx.name}` : ''}
                   </span>
                   {partnerIndex >= 0 && (
-                    <Icon name="chevron.right" size={13} weight={2.6} color="var(--accent)" />
+                    <Icon name="chevron.right" size={13} weight={2.6} color="var(--label-3)" />
                   )}
                 </button>
               )
@@ -330,7 +371,7 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
                 onClick={() => setShowNote(true)}
                 style={{
                   display: 'flex', gap: 8, alignItems: 'flex-start', width: '100%',
-                  marginTop: 10, padding: '9px 11px', borderRadius: 10,
+                  marginTop: 10, padding: '9px 11px', borderRadius: 'var(--r-inset)',
                   background: 'var(--fill-4)', textAlign: 'left',
                 }}
               >
@@ -348,32 +389,26 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
                 initial={{ opacity: 0, y: 10, scale: 0.985 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ type: 'spring', stiffness: 460, damping: 34 }}
-                className="card"
-                style={{
-                  margin: 0,
-                  padding: '13px 15px 12px',
-                  background: 'var(--grouped-2)',
-                  border: '1.5px solid var(--accent)',
-                }}
+                className="card runner-target"
+                style={{ margin: 0, background: 'var(--grouped-2)' }}
               >
-                <div className="t-caption1 semibold" style={{ color: 'var(--accent)', letterSpacing: 0.4 }}>
-                  SET {setIndex + 1} OF {block.sets.length} · TARGET
+                <div className="runner-target-head">
+                  <span className="eyebrow">
+                    Set {setIndex + 1} of {block.sets.length} · Target
+                  </span>
+                  {loadKind && <span className="eyebrow runner-target-kind">{loadKind}</span>}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 2 }}>
+                <div className="runner-target-line">
                   <span
-                    className="mono-nums"
-                    style={{
-                      fontSize: 46,
-                      lineHeight: '52px',
-                      fontWeight: 700,
-                      letterSpacing: -1.4,
-                      // An autoregulated lift has no prescribed load, so the
-                      // anchor comes from history and is shown as a reference
-                      // rather than an instruction.
-                      color: !bodyweight && resolved.targetWeight == null && anchorWeight != null
-                        ? 'var(--label-2)'
-                        : undefined,
-                    }}
+                    className="figure runner-figure"
+                    // An autoregulated lift has no prescribed load, so the anchor
+                    // comes from history and is shown as a reference rather than
+                    // as an instruction.
+                    data-reference={
+                      !bodyweight && resolved.targetWeight == null && anchorWeight != null
+                        ? 'true'
+                        : undefined
+                    }
                   >
                     {bodyweight
                       ? describeReps(prescription)
@@ -383,55 +418,31 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
                           ? num(anchorWeight, 1)
                           : '—'}
                   </span>
-                  <span className="t-title3 dim">{bodyweight ? 'reps' : profile.units}</span>
-                  {!bodyweight && resolved.targetWeight == null && anchorWeight != null && (
-                    <span className="t-caption1 dim">last time</span>
-                  )}
-                  <span className="spacer" />
+                  <span className="figure-unit runner-figure-unit">
+                    {bodyweight ? 'reps' : profile.units}
+                  </span>
                   {!bodyweight && (
-                    <span className="mono-nums" style={{ fontSize: 26, fontWeight: 700, letterSpacing: -0.6 }}>
-                      ×{describeReps(prescription)}
-                    </span>
+                    <span className="data runner-figure-reps">×{describeReps(prescription)}</span>
                   )}
+                  {prescription.rpe != null && <RpeTag rpe={prescription.rpe} kind="target" />}
                 </div>
 
-                <div style={{ display: 'flex', gap: 6, marginTop: 9, flexWrap: 'wrap' }}>
-                  {bodyweight && <Pill tone="tinted">Bodyweight</Pill>}
-                  {prescription.load.kind === 'percent' && (
-                    <Pill tone="tinted">{num(prescription.load.value, 1)}% of TM</Pill>
-                  )}
-                  {prescription.load.kind === 'backoff' && (
-                    <Pill tone="tinted">{prescription.load.pctOfTop}% of top set</Pill>
-                  )}
-                  {prescription.load.kind === 'rpe' && resolved.targetWeight == null && (
-                    <Pill tone="tinted">Work up by feel</Pill>
-                  )}
-                  {prescription.rpe != null && (
-                    <Pill tone={prescription.rpe >= 9 ? 'warn' : 'default'}>
-                      {formatRpe(prescription.rpe)}
-                      {settings.showRir && ` · ${formatRir(rpeToRir(prescription.rpe))}`}
-                    </Pill>
-                  )}
-                  {prescription.amrap && <Pill tone="warn" icon="flame.fill">AMRAP</Pill>}
-                  {prescription.tempo && <Pill>Tempo {prescription.tempo}</Pill>}
-                  {tm && <Pill>Max {num(tm, 0)}</Pill>}
-                  {swapped && (
-                    <Pill tone="warn">
-                      Carried from {getExercise(block.exerciseId)?.shortName
-                        ?? getExercise(block.exerciseId)?.name}
-                    </Pill>
-                  )}
-                </div>
+                {(prescription.amrap || prescription.tempo || swapped) && (
+                  <div className="runner-target-pills">
+                    {prescription.amrap && <Pill tone="warn" icon="flame.fill">AMRAP</Pill>}
+                    {prescription.tempo && <Pill>Tempo {prescription.tempo}</Pill>}
+                    {swapped && (
+                      <Pill tone="warn">
+                        Carried from {getExercise(block.exerciseId)?.shortName
+                          ?? getExercise(block.exerciseId)?.name}
+                      </Pill>
+                    )}
+                  </div>
+                )}
 
                 {settings.showPlateMath && exercise?.barLoaded && resolved.targetWeight != null && (
-                  <div
-                    style={{
-                      marginTop: 11,
-                      paddingTop: 11,
-                      borderTop: 'var(--hairline) solid var(--sep)',
-                    }}
-                  >
-                    <Barbell target={resolved.targetWeight} profile={profile} height={50} />
+                  <div className="runner-target-rule">
+                    <Barbell target={resolved.targetWeight} profile={profile} height={56} />
                   </div>
                 )}
 
@@ -454,11 +465,19 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
             </div>
           )}
 
+          {/* -------------------------------- a best -------------------------- */}
+          {pr?.blockId === block.id && (
+            <div className="gutter">
+              <PrBanner est={pr.est} previous={pr.previous} units={profile.units} />
+            </div>
+          )}
+
           {/* ------------------------------ logger ---------------------------- */}
           {isBlockDone ? (
             <BlockCompleteCard
               logged={logged}
               units={profile.units}
+              exerciseName={exercise?.shortName ?? exercise?.name ?? exerciseId}
               sessionName={session.name}
               nextExercise={
                 blockIndex < session.blocks.length - 1
@@ -469,6 +488,7 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
               elapsed={elapsed}
               sessionSets={doneSets}
               sessionVolume={sessionVolume}
+              avgRpe={avgRpe}
               onNext={() => goToBlock(blockIndex + 1)}
               onFinish={() => setShowFinish(true)}
               onAddSet={() => setExtraSets((e) => ({ ...e, [block.id]: (e[block.id] ?? 0) + 1 }))}
@@ -492,9 +512,7 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
           {/* --------------------------- logged sets -------------------------- */}
           {logged.length > 0 && (
             <div className="gutter">
-              <div className="t-caption1 dim semibold" style={{ marginBottom: 7 }}>
-                LOGGED THIS SESSION
-              </div>
+              <div className="eyebrow" style={{ marginBottom: 7 }}>Logged this exercise</div>
               <div className="card" style={{ margin: 0 }}>
                 {logged.map((s, i) => {
                   const target = block.sets[i]
@@ -508,30 +526,39 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
                       initial={{ opacity: 0, x: -14 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ type: 'spring', stiffness: 480, damping: 34 }}
+                      data-rpe={s.rpe ?? ''}
                       style={{ ['--row-sep-inset' as string]: '16px' }}
                     >
-                      <span
-                        style={{
-                          width: 26, height: 26, borderRadius: 8, flex: 'none',
-                          background: 'rgba(52,199,89,0.16)', display: 'grid', placeItems: 'center',
-                        }}
-                      >
-                        <Icon name="check" size={14} weight={3} color="var(--green)" />
-                      </span>
+                      <span className="runner-set-index data">{i + 1}</span>
                       <span className="row-body">
-                        <span className="row-title mono-nums">
-                          {s.weight > 0
-                            ? `${num(s.weight, 1)} ${profile.units} × ${s.reps}`
-                            : `${s.reps} reps`}
-                          {s.rpe != null && <span className="dim"> @ RPE {num(s.rpe, 1)}</span>}
+                        <span className="row-title data">
+                          {s.weight > 0 ? (
+                            <>
+                              {num(s.weight, 1)}
+                              <span className="dim"> {profile.units} × </span>
+                              {s.reps}
+                            </>
+                          ) : (
+                            <>
+                              {s.reps}
+                              <span className="dim"> reps</span>
+                            </>
+                          )}
+                          {s.rpe != null && <span className="runner-set-rpe"> @{num(s.rpe, 1)}</span>}
                         </span>
-                        <span className="row-sub">
-                          Set {i + 1}
-                          {target && ` · target ${describeReps(target)}${target.rpe ? ` @ ${formatRpe(target.rpe)}` : ''}`}
+                        <span className="row-sub truncate">
+                          {target
+                            ? `Target ${describeReps(target)}${target.rpe ? ` @ ${formatRpe(target.rpe)}` : ''}`
+                            : 'Extra set'}
                           {isEstimable(s) && ` · e1RM ${num(e1RM(s.weight, s.reps, s.rpe), 0)}`}
                         </span>
                       </span>
-                      {pr && <Pill tone="warn" icon="seal.fill">PR</Pill>}
+                      {pr && (
+                        <span className="runner-set-pr">
+                          <Icon name="seal.fill" size={10} />
+                          Best
+                        </span>
+                      )}
                       <Icon name="pencil" size={15} color="var(--label-3)" weight={2} />
                     </motion.button>
                   )
@@ -548,7 +575,7 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
           )}
           {exercise && exercise.cues.length > 0 && (
             <div className="gutter">
-              <div className="t-caption1 dim semibold" style={{ marginBottom: 6 }}>CUES</div>
+              <div className="eyebrow" style={{ marginBottom: 6 }}>Cues</div>
               <div className="card" style={{ margin: 0, padding: '11px 14px' }}>
                 {exercise.cues.map((cue, i) => (
                   <div
@@ -564,28 +591,33 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
             </div>
           )}
 
-          {/* ----------------------------- nav feet --------------------------- */}
-          <div className="gutter" style={{ display: 'flex', gap: 10, paddingBottom: 8 }}>
-            <Button
-              variant="gray"
-              onPress={() => goToBlock(blockIndex - 1)}
-              disabled={blockIndex === 0}
-              style={{ flex: 1 }}
-            >
-              <Icon name="chevron.left" size={16} weight={2.4} />
-              Previous
-            </Button>
-            <Button
-              variant={isBlockDone ? 'filled' : 'gray'}
-              onPress={() =>
-                blockIndex === session.blocks.length - 1 ? setShowFinish(true) : goToBlock(blockIndex + 1)
-              }
-              style={{ flex: 1 }}
-            >
-              {blockIndex === session.blocks.length - 1 ? 'Finish' : 'Next'}
-              <Icon name="chevron.right" size={16} weight={2.4} />
-            </Button>
-          </div>
+          {/* ----------------------------- nav feet ---------------------------
+              A finished block already carries the way on, and the way on cannot
+              be two accent buttons on one screen. An ending is not an ending
+              with a pair of grey buttons under it either. */}
+          {!isBlockDone && (
+            <div className="gutter" style={{ display: 'flex', gap: 10, paddingBottom: 8 }}>
+              <Button
+                variant="gray"
+                onPress={() => goToBlock(blockIndex - 1)}
+                disabled={blockIndex === 0}
+                style={{ flex: 1 }}
+              >
+                <Icon name="chevron.left" size={16} weight={2.4} />
+                Previous
+              </Button>
+              <Button
+                variant={isBlockDone ? 'filled' : 'gray'}
+                onPress={() =>
+                  blockIndex === session.blocks.length - 1 ? setShowFinish(true) : goToBlock(blockIndex + 1)
+                }
+                style={{ flex: 1 }}
+              >
+                {blockIndex === session.blocks.length - 1 ? 'Finish' : 'Next'}
+                <Icon name="chevron.right" size={16} weight={2.4} />
+              </Button>
+            </div>
+          )}
 
           <div style={{ height: 'calc(var(--sa-bottom) + 82px)' }} />
         </div>
@@ -712,9 +744,14 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
 
   function logRawSet(set: SetPrescription, weight: number, reps: number, rpe?: number) {
     logSet(block.id, { prescriptionId: set.id, weight, reps, rpe })
-    const est = e1RM(weight, reps, rpe)
+    // The same bar every logged set is held to on the way in — a twelve-rep set
+    // at RPE 8 used to clear `historicalBest`, which is built from near-maximal
+    // work only, and announce a best the list below then refused to badge.
+    const candidate: LoggedSet = { id: '', prescriptionId: set.id, weight, reps, rpe, completedAt: '' }
+    const est = isMaxEffort(candidate) ? e1RM(weight, reps, rpe) : 0
     if (est > runningBest + 0.01 && historicalBest > 0) {
       haptic('heavy')
+      setPr({ blockId: block.id, est, previous: runningBest })
       toast(`New best — ${num(est, 0)} ${profile.units} estimated max`, {
         icon: 'seal.fill',
         tone: 'good',
@@ -751,6 +788,75 @@ function scrollBehaviour(): ScrollBehavior {
 /** A load of zero is a bodyweight lift's placeholder, never a target. */
 function loaded(weight?: number) {
   return weight != null && weight > 0 ? weight : undefined
+}
+
+/** Mean effort across a group of sets, ignoring any that were never rated. */
+function averageRpe(sets: LoggedSet[]): number | undefined {
+  const rated = sets.filter((s) => !s.warmup && s.rpe != null)
+  if (rated.length === 0) return undefined
+  return rated.reduce((n, s) => n + s.rpe!, 0) / rated.length
+}
+
+/**
+ * Thousands separated. Only the two figures large enough to need it use this —
+ * a session's tonnage and a block's — where an ungrouped five digits at 46px is
+ * a number nobody can read at arm's length.
+ */
+function grouped(value: number): string {
+  return Math.round(value).toLocaleString('en-US')
+}
+
+/**
+ * Intensity as a tag. What Jud asked for is an outline the set has to land
+ * inside; what the bar actually felt like is filled in. Both take the ramp, so
+ * a target and the effort that met it can be compared by colour alone.
+ */
+function RpeTag({
+  rpe, label, kind,
+}: {
+  rpe: number
+  /** Shown instead of the RPE itself, for an average that falls between steps. */
+  label?: string
+  kind?: 'target'
+}) {
+  // No RIR here even when the client reads in RIR. It is the same number said
+  // backwards, it doubles the tag's width, and the control they are about to
+  // touch prints both — on a rep-range set the pair pushed the target on to a
+  // second line.
+  return (
+    <span className="rpe-tag" data-rpe={rpe} data-kind={kind}>
+      <span className="rpe-tag-label">RPE</span>
+      <span className="rpe-tag-value">{label ?? num(rpe, 1)}</span>
+    </span>
+  )
+}
+
+/**
+ * A best, beaten. This used to be a toast that was gone before the bar was
+ * racked; it now stays up for the rest of the exercise and says by how much,
+ * which is the part a lifter actually wants.
+ */
+function PrBanner({ est, previous, units }: { est: number; previous: number; units: string }) {
+  return (
+    <motion.div
+      className="runner-pr"
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: 'spring', stiffness: 460, damping: 34 }}
+    >
+      <Icon name="seal.fill" size={22} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="eyebrow" style={{ color: 'inherit' }}>New best</div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 1 }}>
+          <span className="figure runner-pr-figure">{num(est, 0)}</span>
+          <span className="figure-unit runner-pr-unit">{units} e1RM</span>
+          <span className="data runner-pr-delta">
+            +{num(est - previous, 0)} on {num(previous, 0)}
+          </span>
+        </div>
+      </div>
+    </motion.div>
+  )
 }
 
 /* ---------------------------------- logger ------------------------------- */
@@ -802,11 +908,11 @@ function SetLogger({
 
   // "Off target" is what earns the amber reading, so a rep range has to count
   // its whole range as on target and an AMRAP can only ever be short, never
-  // over. RPE is a judgement call, so only a whole point out is a deviation.
+  // over. Effort needs no equivalent: the RPE reading is drawn in the ramp, so a
+  // set that came in a point hot is a different colour from the card above it.
   const repsOff =
     reps < prescription.reps
     || (!prescription.amrap && reps > (prescription.repsMax ?? prescription.reps))
-  const rpeOff = rpe != null && prescription.rpe != null && Math.abs(rpe - prescription.rpe) >= 1
 
   return (
     <div className="gutter">
@@ -821,8 +927,10 @@ function SetLogger({
               alignItems: 'center',
               gap: 9,
               padding: '10px 12px',
-              borderRadius: 12,
-              background: feedback.direction === 'up' ? 'rgba(52,199,89,0.13)' : 'rgba(255,149,0,0.13)',
+              borderRadius: 'var(--r-card)',
+              background: feedback.direction === 'up'
+                ? 'color-mix(in srgb, var(--green) 13%, transparent)'
+                : 'color-mix(in srgb, var(--orange) 13%, transparent)',
               marginBottom: 10,
             }}
           >
@@ -834,10 +942,14 @@ function SetLogger({
             />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div className="t-footnote semibold">{feedback.reason}</div>
-              <div className="t-caption1 dim mono-nums">
-                {feedback.autoregulated
-                  ? `Suggested: ${num(feedback.suggestedWeight, 1)} ${units}`
-                  : 'Logged for Jud — the next set keeps its prescribed percentage.'}
+              <div className="t-caption1 dim">
+                {feedback.autoregulated ? (
+                  <>
+                    Suggested <span className="data">{num(feedback.suggestedWeight, 1)} {units}</span>
+                  </>
+                ) : (
+                  'Logged for Jud — the next set keeps its prescribed percentage.'
+                )}
               </div>
             </div>
             {feedback.autoregulated && (
@@ -884,7 +996,11 @@ function SetLogger({
             stepLabel="0.5"
             atMin={rpe != null && rpe <= MIN_RPE}
             atMax={rpe != null && rpe >= MAX_RPE}
-            off={rpeOff}
+            // Effort has a colour of its own everywhere else in the app, so it
+            // keeps it here: dialling past the target turns the reading orange
+            // against the target card's ring, which says the same thing the
+            // amber "off" state would have and says it in the ramp's language.
+            rpe={rpe}
           />
         </div>
 
@@ -900,8 +1016,12 @@ function SetLogger({
         </div>
 
         {rpe != null && weight > 0 && reps > 0 && (
-          <div className="t-caption1 dim mono-nums" style={{ textAlign: 'center', marginTop: 8 }}>
-            Estimated 1RM from this set: {num(e1RM(weight, reps, rpe), 0)} {units}
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 9 }}>
+            <span className="eyebrow">e1RM</span>
+            <span className="data" style={{ fontSize: 14 }}>
+              {num(e1RM(weight, reps, rpe), 0)}
+              <span className="dim" style={{ fontWeight: 500 }}> {units}</span>
+            </span>
           </div>
         )}
       </div>
@@ -957,7 +1077,7 @@ function SetLogger({
  * gesture rather than four taps.
  */
 function Quantity({
-  label, value, onPress, onStep, step, stepLabel, atMin, atMax, off,
+  label, value, onPress, onStep, step, stepLabel, atMin, atMax, off, rpe,
 }: {
   label: string
   value: string
@@ -970,6 +1090,8 @@ function Quantity({
   atMax?: boolean
   /** The value no longer matches what Jud asked for — worth seeing at a glance. */
   off?: boolean
+  /** This control *is* an effort, so its reading takes the intensity ramp. */
+  rpe?: number
 }) {
   const repeat = useRef<number | null>(null)
   const stop = () => {
@@ -993,7 +1115,7 @@ function Quantity({
   const button = (delta: number, disabled?: boolean) => (
     <button
       type="button"
-      className="runner-step hit-expand mono-nums"
+      className="runner-step hit-expand data"
       aria-label={`${delta < 0 ? 'Decrease' : 'Increase'} ${label} by ${amount}`}
       disabled={disabled}
       onClick={() => {
@@ -1011,22 +1133,16 @@ function Quantity({
   )
 
   return (
-    <div className="runner-quant">
+    <div className="runner-quant" data-rpe={rpe ?? undefined}>
       <button type="button" className="runner-quant-read" onClick={onPress}>
+        <div className="eyebrow truncate">{label}</div>
         <div
-          className="t-caption2 dim semibold truncate"
-          style={{ textTransform: 'uppercase', letterSpacing: 0.3 }}
-        >
-          {label}
-        </div>
-        <div
-          className="mono-nums truncate"
+          className="data truncate"
           style={{
-            fontSize: 22,
-            lineHeight: '26px',
+            fontSize: 23,
+            lineHeight: '27px',
             fontWeight: 700,
-            letterSpacing: -0.5,
-            color: off ? 'var(--orange-text)' : undefined,
+            color: rpe != null ? 'var(--rpe)' : off ? 'var(--orange-text)' : undefined,
           }}
         >
           {value}
@@ -1046,11 +1162,12 @@ const clampRpe = (v: number) => Math.min(MAX_RPE, Math.max(MIN_RPE, Math.round(v
 /* ------------------------------ block complete --------------------------- */
 
 function BlockCompleteCard({
-  logged, units, sessionName, nextExercise, sessionComplete, elapsed, sessionSets, sessionVolume,
-  onNext, onFinish, onAddSet,
+  logged, units, exerciseName, sessionName, nextExercise, sessionComplete, elapsed, sessionSets,
+  sessionVolume, avgRpe, onNext, onFinish, onAddSet,
 }: {
   logged: LoggedSet[]
   units: string
+  exerciseName: string
   sessionName: string
   /** Undefined on the last block of the session. */
   nextExercise?: string
@@ -1059,91 +1176,132 @@ function BlockCompleteCard({
   elapsed: number
   sessionSets: number
   sessionVolume: number
+  /** Mean RPE across every logged set, undefined when nothing was rated. */
+  avgRpe?: number
   onNext: () => void
   onFinish: () => void
   onAddSet: () => void
 }) {
   const best = logged.reduce((b, s) => (s.weight > b.weight ? s : b), logged[0]!)
   const tonnage = sessionTonnage(logged)
-  // Built as a list so a bodyweight block, which moves no tonnage at all, drops
-  // the clause instead of trailing an orphaned separator.
-  const stats = sessionComplete
-    ? [
-        `${sessionSets} sets`,
-        formatDuration(elapsed),
-        sessionVolume > 0 ? `${num(sessionVolume, 0)} ${units} moved` : null,
-      ]
-    : [
-        `${logged.length} sets`,
-        best.weight > 0 ? `top ${num(best.weight, 1)} ${units} × ${best.reps}` : `top ${best.reps} reps`,
-        tonnage > 0 ? `${num(tonnage, 0)} ${units} moved` : null,
-      ]
-  return (
-    <div className="gutter">
-      <div
-        className="card"
-        style={{
-          margin: 0,
-          padding: 16,
-          textAlign: 'center',
-          // The end of the session gets the same green border the target card
-          // gets in accent: it is the one card on screen that means "stop".
-          border: sessionComplete ? '1.5px solid var(--green)' : undefined,
-        }}
-      >
+  const blockRpe = averageRpe(logged)
+
+  if (sessionComplete) {
+    // The number that says what the hour was worth. A session of bodyweight work
+    // moves no tonnage at all, so the count of sets takes the hero's place
+    // rather than leaving a nought at 46px.
+    const hero = sessionVolume > 0
+      ? { value: grouped(sessionVolume), unit: units, caption: 'Total moved' }
+      : { value: String(sessionSets), unit: '', caption: sessionSets === 1 ? 'Set done' : 'Sets done' }
+
+    return (
+      <div className="gutter">
         <motion.div
-          initial={{ scale: 0.6, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 380, damping: 20 }}
-          style={{
-            width: sessionComplete ? 62 : 52, height: sessionComplete ? 62 : 52,
-            borderRadius: '50%', margin: '0 auto 10px',
-            background: 'rgba(52,199,89,0.16)', display: 'grid', placeItems: 'center',
-          }}
+          className="card runner-done"
+          style={{ margin: 0 }}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: 'spring', stiffness: 420, damping: 34 }}
         >
-          <Icon name="check" size={sessionComplete ? 34 : 28} weight={3} color="var(--green)" />
-        </motion.div>
-        <div className={sessionComplete ? 't-title2' : 't-headline'}>
-          {sessionComplete ? `${sessionName} done` : 'All sets logged'}
-        </div>
-        <div className="t-footnote dim mono-nums" style={{ marginTop: 3 }}>
-          {stats.filter(Boolean).join(' · ')}
-        </div>
-        {sessionComplete ? (
-          <>
-            <div style={{ marginTop: 14 }}>
-              <Button icon="check.circle.fill" onPress={onFinish} style={{ minHeight: 52, fontSize: 18 }}>
-                Finish workout
-              </Button>
-            </div>
-            <button
-              type="button"
-              className="t-footnote"
-              onClick={onAddSet}
-              style={{ color: 'var(--accent)', marginTop: 4, padding: '13px 16px' }}
-            >
-              Not done — add another set
-            </button>
-          </>
-        ) : (
-          <div style={{ display: 'flex', gap: 9, marginTop: 14 }}>
-            <Button variant="gray" onPress={onAddSet} style={{ flex: 1, minHeight: 44 }} small>
-              <Icon name="plus" size={15} weight={2.4} />
-              Extra set
-            </Button>
-            {nextExercise ? (
-              <Button onPress={onNext} style={{ flex: 1.4, minWidth: 0, minHeight: 44 }} small>
-                <span className="truncate">{nextExercise}</span>
-                <Icon name="chevron.right" size={15} weight={2.4} />
-              </Button>
-            ) : (
-              <Button onPress={onFinish} style={{ flex: 1.4, minHeight: 44 }} small>
-                Finish workout
-              </Button>
+          <motion.div
+            className="runner-done-mark"
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 20, delay: 0.08 }}
+          >
+            <Icon name="check" size={26} weight={3} color="var(--green)" />
+          </motion.div>
+          <div className="eyebrow" style={{ textAlign: 'center', color: 'var(--green-text)' }}>
+            Session complete
+          </div>
+          <div className="t-title2" style={{ textAlign: 'center', marginTop: 2 }}>{sessionName}</div>
+
+          <div className="runner-done-total">
+            <span className="figure runner-done-figure">{hero.value}</span>
+            {hero.unit && <span className="figure-unit runner-done-unit">{hero.unit}</span>}
+          </div>
+          <div className="eyebrow" style={{ textAlign: 'center', marginTop: 4 }}>{hero.caption}</div>
+
+          <div className="runner-done-stats">
+            <DoneStat label="Time" value={formatDuration(elapsed)} />
+            {sessionVolume > 0 && <DoneStat label="Sets" value={String(sessionSets)} />}
+            {avgRpe != null && (
+              <DoneStat label="Avg effort" value={num(avgRpe, 1)} rpe={snapRpe(avgRpe)} />
             )}
           </div>
-        )}
+
+          <div style={{ marginTop: 16 }}>
+            <Button icon="check.circle.fill" onPress={onFinish} style={{ minHeight: 52, fontSize: 18 }}>
+              Finish workout
+            </Button>
+          </div>
+          <button
+            type="button"
+            className="t-footnote"
+            onClick={onAddSet}
+            style={{
+              display: 'block', width: '100%', color: 'var(--accent)',
+              marginTop: 2, padding: '13px 16px',
+            }}
+          >
+            Not done — add another set
+          </button>
+        </motion.div>
       </div>
+    )
+  }
+
+  return (
+    <div className="gutter">
+      <div className="card" style={{ margin: 0, padding: '12px 15px 13px' }}>
+        <div className="runner-block-done">
+          <span className="runner-block-mark">
+            <Icon name="check" size={14} weight={3} color="var(--green)" />
+          </span>
+          <span style={{ flex: 1, minWidth: 0 }}>
+            <span className="eyebrow" style={{ display: 'block' }}>{exerciseName} done</span>
+            <span className="data truncate" style={{ display: 'block', fontSize: 16, marginTop: 2 }}>
+              {logged.length} sets
+              <span className="dim"> · top </span>
+              {best.weight > 0 ? `${num(best.weight, 1)} × ${best.reps}` : `${best.reps} reps`}
+              {tonnage > 0 && (
+                <>
+                  <span className="dim"> · </span>
+                  {grouped(tonnage)}
+                  <span className="dim"> {units}</span>
+                </>
+              )}
+            </span>
+          </span>
+          {blockRpe != null && <RpeTag rpe={snapRpe(blockRpe)} label={num(blockRpe, 1)} />}
+        </div>
+
+        <div style={{ display: 'flex', gap: 9, marginTop: 12 }}>
+          <Button variant="gray" onPress={onAddSet} style={{ flex: 1, minHeight: 44 }} small>
+            <Icon name="plus" size={15} weight={2.4} />
+            Extra set
+          </Button>
+          {nextExercise ? (
+            <Button onPress={onNext} style={{ flex: 1.4, minWidth: 0, minHeight: 44 }} small>
+              <span className="truncate">{nextExercise}</span>
+              <Icon name="chevron.right" size={15} weight={2.4} />
+            </Button>
+          ) : (
+            <Button onPress={onFinish} style={{ flex: 1.4, minHeight: 44 }} small>
+              Finish workout
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function DoneStat({ label, value, rpe }: { label: string; value: string; rpe?: number }) {
+  return (
+    <div className="runner-done-stat">
+      <div className="data runner-done-stat-value" data-rpe={rpe ?? undefined}>{value}</div>
+      <div className="eyebrow truncate" style={{ marginTop: 2 }}>{label}</div>
     </div>
   )
 }
@@ -1191,7 +1349,7 @@ function SwapSheet({
               key={ex.id}
               type="button"
               className="row"
-              style={{ borderRadius: 10, marginBottom: 2 }}
+              style={{ borderRadius: 'var(--r-inset)', marginBottom: 2 }}
               onClick={() => {
                 onSelect(ex.id)
                 onClose()
@@ -1274,7 +1432,7 @@ function EditSetSheet({
             />
           </div>
           <div style={{ marginTop: 16 }}>
-            <div className="t-caption1 dim semibold" style={{ marginBottom: 8 }}>RPE</div>
+            <div className="eyebrow" style={{ marginBottom: 8 }}>How hard was it?</div>
             <RpePicker
               value={set.rpe}
               onChange={(v) => updateLoggedSet(prescriptionId, set.id, { rpe: v })}
@@ -1355,9 +1513,9 @@ function FinishSheet({
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 9, margin: '16px 0 20px' }}>
-          <SummaryTile label="Duration" value={formatDuration(elapsed)} />
+          <SummaryTile label="Time" value={formatDuration(elapsed)} />
           <SummaryTile label="Sets" value={String(doneSets)} />
-          <SummaryTile label={`Volume (${units})`} value={num(tonnage, 0)} />
+          <SummaryTile label={`Volume · ${units}`} value={grouped(tonnage)} />
         </div>
 
         {doneSets < totalSets && (
@@ -1365,21 +1523,18 @@ function FinishSheet({
             className="t-footnote"
             style={{
               padding: '10px 12px', borderRadius: 10, marginBottom: 18,
-              background: 'rgba(255,149,0,0.13)', color: 'var(--orange)',
+              background: 'color-mix(in srgb, var(--orange) 13%, transparent)',
+              color: 'var(--orange-text)',
             }}
           >
             {totalSets - doneSets} prescribed sets are still unlogged. Jud will see this session as partial.
           </div>
         )}
 
-        <div className="t-caption1 dim semibold" style={{ marginBottom: 8 }}>
-          HOW HARD WAS THE WHOLE SESSION?
-        </div>
+        <div className="eyebrow" style={{ marginBottom: 8 }}>How hard was the whole session?</div>
         <RpePicker value={sessionRpe} onChange={setSessionRpe} showRir={false} />
 
-        <div className="t-caption1 dim semibold" style={{ margin: '18px 0 8px' }}>
-          NOTES FOR JUD
-        </div>
+        <div className="eyebrow" style={{ margin: '18px 0 8px' }}>Notes for Jud</div>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
@@ -1388,7 +1543,7 @@ function FinishSheet({
           style={{
             width: '100%',
             padding: '11px 13px',
-            borderRadius: 12,
+            borderRadius: 'var(--r-card)',
             border: 'none',
             background: 'var(--fill-3)',
             resize: 'none',
@@ -1408,9 +1563,12 @@ function FinishSheet({
 
 function SummaryTile({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ background: 'var(--fill-4)', borderRadius: 12, padding: '10px 10px 11px', textAlign: 'center' }}>
-      <div className="t-caption2 dim semibold truncate" style={{ textTransform: 'uppercase' }}>{label}</div>
-      <div className="mono-nums" style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.4, marginTop: 2 }}>
+    <div style={{
+      background: 'var(--fill-4)', borderRadius: 'var(--r-card)',
+      padding: '10px 10px 11px', textAlign: 'center',
+    }}>
+      <div className="eyebrow truncate">{label}</div>
+      <div className="data" style={{ fontSize: 21, lineHeight: '24px', fontWeight: 700, marginTop: 2 }}>
         {value}
       </div>
     </div>
@@ -1461,7 +1619,7 @@ function NoteSheet({
           autoFocus
           placeholder="Left knee felt off on the first set…"
           style={{
-            width: '100%', padding: '11px 13px', borderRadius: 12, border: 'none',
+            width: '100%', padding: '11px 13px', borderRadius: 'var(--r-card)', border: 'none',
             background: 'var(--fill-3)', resize: 'none', lineHeight: '22px',
           }}
         />

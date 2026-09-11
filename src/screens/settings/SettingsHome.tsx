@@ -1,6 +1,6 @@
 import { Screen } from '../../components/ios/Screen'
-import { ListSection, Row } from '../../components/ios/List'
-import { CoachAvatar } from '../../components/Bits'
+import { ListSection, Row, rowSepInset } from '../../components/ios/List'
+import { CoachAvatar, Monogram } from '../../components/Bits'
 import { Icon } from '../../components/Icon'
 import { GritTile, Wordmark } from '../../components/Logo'
 import { useStore } from '../../store/useStore'
@@ -8,7 +8,6 @@ import { useCoach } from '../../store/coach'
 import { byTime, unreadFrom } from '../../domain/coach'
 import { COACH } from '../../data/seed'
 import { useProgram, currentWeekIndex } from '../../store/selectors'
-import { initials } from '../../lib/format'
 import { todayISO } from '../../lib/date'
 import { useNav } from '../../nav/nav'
 import { APP_VERSION } from '../../version'
@@ -28,25 +27,19 @@ export function SettingsHome() {
     <Screen title="Settings">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
         {/* ------------------------------ profile ---------------------------- */}
+        {/* The Apple ID cell of this app: the client's name at heading size over
+            one line saying what they are working on. Anything longer belongs on
+            the screen it opens. */}
         <ListSection>
           <Row
-            title={profile.name}
-            subtitle={`${profile.goalLabel} · ${program.name}`}
-            leading={
-              <span
-                style={{
-                  width: 52, height: 52, borderRadius: '50%', flex: 'none',
-                  display: 'grid', placeItems: 'center',
-                  background: 'linear-gradient(160deg, var(--gray2), var(--gray))',
-                  color: '#fff', fontWeight: 600, fontSize: 21,
-                }}
-              >
-                {initials(profile.name)}
-              </span>
-            }
+            title={<span className="t-title3">{profile.name}</span>}
+            subtitle={profile.goalLabel}
+            leading={<Monogram name={profile.name} size={54} />}
+            sepInset={rowSepInset(54)}
             chevron
             onPress={() => push('profileSettings')}
-            style={{ padding: '12px var(--gutter)' }}
+            ariaLabel={`Profile, ${profile.name}`}
+            style={{ padding: '13px var(--gutter)' }}
           />
         </ListSection>
 
@@ -110,7 +103,7 @@ export function SettingsHome() {
             title="Workout preferences"
             subtitle={settings.restTimerAuto ? 'Rest timer starts automatically' : 'Rest timer is manual'}
             icon="timer"
-            iconColor="var(--orange)"
+            iconColor="var(--blue)"
             chevron
             onPress={() => push('workoutSettings')}
           />
@@ -131,7 +124,7 @@ export function SettingsHome() {
           <Row
             title="Notifications"
             icon="bell"
-            iconColor="var(--red)"
+            iconColor="var(--gray)"
             chevron
             onPress={() => push('notifications')}
           />
@@ -139,7 +132,7 @@ export function SettingsHome() {
             title="Data & privacy"
             subtitle="Export, import, reset"
             icon="lock"
-            iconColor="var(--green)"
+            iconColor="var(--gray)"
             chevron
             onPress={() => push('dataSettings')}
           />
@@ -149,14 +142,14 @@ export function SettingsHome() {
           <Row
             title="Exercise library"
             icon="book"
-            iconColor="var(--teal)"
+            iconColor="var(--indigo)"
             chevron
             onPress={() => push('exerciseLibrary')}
           />
           <Row
             title="RPE & RIR chart"
             icon="target"
-            iconColor="var(--yellow)"
+            iconColor="var(--purple)"
             chevron
             onPress={() => push('rpeGuide')}
           />
@@ -174,11 +167,11 @@ export function SettingsHome() {
         <div
           style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center',
-            gap: 10, padding: '10px 16px 4px',
+            gap: 12, padding: '14px 16px 4px',
           }}
         >
-          <GritTile size={54} />
-          <Wordmark size={22} align="center" />
+          <GritTile size={52} />
+          <Wordmark size={20} align="center" />
           <div className="t-caption1 dim" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <Icon name="lock" size={11} weight={2.2} color="var(--label-3)" />
             Version {APP_VERSION} · everything stored on this device

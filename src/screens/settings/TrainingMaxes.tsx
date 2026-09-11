@@ -69,17 +69,16 @@ export function TrainingMaxes() {
         header="Main lifts"
         footer="Taken from your best near-maximal set — six reps or fewer at RPE 8 or above. Ordinary percentage work sits below a true max, so treat these as a floor; only a number above your working max means it is time to move."
       >
-        {rows.map(({ lift, tm, series, best, suggested, gap }) => (
+        {rows.map(({ lift, tm, series, best, gap }) => (
           <Row
             key={lift.id}
-            title={lift.name}
-            subtitle={
-              best > 0
-                ? `Best e1RM ${num(best, 0)} ${profile.units}${
-                    suggested > 0 ? ` · logs support ${num(suggested, 0)}+` : ''
-                  }`
-                : 'No logged sets yet'
-            }
+            // The short name, and the best e1RM alone: a row carrying a value, a
+            // trend and a pill has about 120pt left for its text, which is not
+            // enough for "Standing Overhead Press" over "logs support 405+".
+            // Both wrapped, and four two-line rows is not a list any more.
+            title={lift.shortName ?? lift.name}
+            subtitle={best > 0 ? `Best e1RM ${num(best, 0)} ${profile.units}` : 'No logged sets yet'}
+            ariaLabel={`${lift.name}, working max ${fixed(tm, 0)} ${profile.units}`}
             value={`${fixed(tm, 0)} ${profile.units}`}
             trailing={
               <>

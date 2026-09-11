@@ -1,0 +1,379 @@
+/* ============================================================================
+   Today, Train and the session plan.
+
+   Three screens, one job: put the client's own numbers in front of them and
+   name the single thing to do about them. So everything here is either a figure
+   in the data face or the structure holding one up — see DESIGN.md.
+
+   No colour is declared here. Every value is a token, which is what keeps the
+   three theme states honest: light, system-dark and the explicit toggle are all
+   decided in tokens.css and nothing below can disagree with them.
+
+   Press states key off `data-pressed`, not `:active` — see lib/press.ts.
+   ========================================================================== */
+
+/* ------------------------------- intensity ------------------------------- */
+
+/* An effort named in passing — a session's average, a set a plan asks for — as
+   ink rather than as a fill. A filled chip means a set that was actually
+   performed (see `.set-chip`); this is everything else that carries an RPE, so
+   the two never read as the same thing.
+
+   The colour comes from `data-rpe` on this element or any ancestor. The
+   fallback is what a table header takes, where there is no effort to colour. */
+.rpe-ink {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--rpe, var(--label-2));
+  white-space: nowrap;
+}
+
+/* ============================== today's hero ============================== */
+
+/* The one card a client sees before they have decided anything. It earns the
+   top of the screen by being the only thing there with a filled action, not by
+   being coloured in: a gradient hero shouts at a reader who has not been told
+   anything yet, and DESIGN.md §7 rules it out. */
+.today-hero {
+  background: var(--grouped-2);
+  border-radius: var(--r-card);
+  margin: 0 var(--gutter);
+  overflow: hidden;
+}
+
+/* The plan half is one target: tapping anywhere in it opens the full session.
+   It presses like a card rather than fading, which is what `.pressable` in
+   base.css is for. */
+.today-hero-plan {
+  display: block;
+  width: 100%;
+  padding: 13px 15px 12px;
+  text-align: left;
+  color: var(--label);
+}
+
+.today-hero-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+.today-hero-head .spacer { flex: 1; }
+
+/* Apple's title1 carries positive tracking, which opens up a two-word session
+   name until it reads as a headline rather than a label. */
+.today-hero-name {
+  font-size: 27px;
+  line-height: 32px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+/* ------------------------------- top set --------------------------------- */
+
+/* The heaviest set of the session, which is what a lifter actually wants to
+   know on the way to the gym. It takes the intensity ramp, so the morning
+   glance carries how hard the day is as well as how heavy. */
+.today-top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  padding: 7px 11px 8px;
+  border-radius: var(--r-inset);
+  background: var(--rpe-fill);
+}
+.today-top-label {
+  flex: 0 0 100%;
+  /* Full label colour, not the usual eyebrow grey: an eyebrow sitting on the
+     ramp's own wash loses about a point of contrast, and the hottest fills take
+     --label-2 down to the floor iOS itself ships at. */
+  color: var(--label);
+}
+.today-top-figure {
+  font-size: 25px;
+}
+.today-top-figure .figure-unit { font-size: 16px; }
+.today-top-x {
+  color: var(--label-2);
+  font-weight: 500;
+  padding: 0 3px;
+}
+.today-top-rpe {
+  margin-left: auto;
+  font-size: 15px;
+}
+
+/* The same object on a screen whose title already named the session: one line,
+   because there it is context rather than the headline. */
+.today-top[data-size='sm'] { padding: 7px 11px; }
+.today-top[data-size='sm'] .today-top-label { flex: 0 0 auto; }
+.today-top[data-size='sm'] .today-top-figure { font-size: 19px; }
+.today-top[data-size='sm'] .today-top-figure .figure-unit { font-size: 14px; }
+
+/* The facts under the plan, and the chevron that says there is more of it. */
+.today-hero-facts {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 9px;
+  color: var(--label-2);
+  font-size: 13px;
+  line-height: 17px;
+}
+.today-hero-facts .chev { margin-left: auto; }
+
+/* A hairline, not a shadow: the action is part of the card, not floating over
+   it. See DESIGN.md §3. */
+.today-hero-act {
+  padding: 11px 15px 13px;
+  box-shadow: inset 0 var(--hairline) 0 var(--sep);
+}
+
+/* ============================== the week ================================= */
+
+.today-week-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding-bottom: 8px;
+}
+.today-week-head .spacer { flex: 1; }
+
+/* Seven days across, so every cell clears 44pt on the narrowest phone the app
+   supports without a scroller hiding half the week. */
+.today-week-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.today-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 0 6px;
+  border-radius: var(--r-inset);
+  color: var(--label);
+  min-height: 44px;
+}
+
+.today-day-wd { color: var(--label-2); }
+.today-day-num {
+  font-size: 15px;
+  line-height: 19px;
+}
+/* A rest day is information, not decoration: it keeps a legible weekday and
+   says what it is with the mark, rather than being dimmed out of readability. */
+.today-day[data-state='rest'] .today-day-num { color: var(--label-2); }
+.today-day[data-state='today'] .today-day-wd,
+.today-day[data-state='today'] .today-day-num { color: var(--accent); }
+.today-day[data-state='today'] { box-shadow: inset 0 0 0 1.5px var(--accent); }
+
+.today-day-mark {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-top: 2px;
+  background: var(--label-4);
+}
+.today-day[data-state='due'] .today-day-mark,
+.today-day[data-state='today'] .today-day-mark { background: var(--accent); }
+.today-day[data-state='missed'] .today-day-mark { background: var(--orange); }
+.today-day[data-state='done'] .today-day-mark {
+  background: var(--green);
+  width: 9px;
+  height: 9px;
+  margin-top: 1px;
+}
+
+/* Three counts on one hairline under the strip, rather than three cards of
+   their own saying what the strip already showed. */
+.today-week-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 9px;
+  padding-top: 9px;
+  box-shadow: inset 0 var(--hairline) 0 var(--sep);
+}
+.today-stat { min-width: 0; }
+.today-stat-value {
+  display: block;
+  font-size: 18px;
+  line-height: 22px;
+  font-weight: 700;
+}
+.today-stat-label { display: block; margin-top: 1px; }
+
+/* ============================== the block ================================ */
+
+/* Eight weeks of a block have a shape — three building, a deload, four
+   sharpening — and a row of identical boxes hides it. Each week is a bar as
+   tall as its heaviest prescribed set and coloured by the effort that set asks
+   for, filled from the bottom by the share of it already done. A longer block
+   than fits keeps its 44pt cells and scrolls. */
+.block-strip {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(44px, 1fr);
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 var(--gutter);
+}
+.block-strip::-webkit-scrollbar { width: 0; height: 0; }
+
+.block-week {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  /* No side padding: the cells butt up, so the baseline under the bars runs the
+     whole width of the strip instead of breaking into eight dashes. */
+  padding: 4px 0 6px;
+  border-radius: var(--r-inset);
+  color: var(--label);
+}
+.block-week[aria-pressed='true'] { background: var(--fill-4); }
+
+/* The cells butt up against each other, so the baseline they sit on runs the
+   whole width of the strip and the bars read as one chart. */
+.block-track {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 54px;
+  box-shadow: inset 0 calc(var(--hairline) * -1) 0 var(--sep);
+}
+
+/* A bar is a fill, so it takes the ramp's fill values rather than the deeper
+   twins tokens.css keeps for type: #8a6100 is the colour of the *words* "RPE 8",
+   not of an amber bar. A week that claims no RPE — a deload sits below the
+   chart's floor — stays grey rather than borrowing a temperature. */
+.block-bar { --bar: var(--gray); }
+.block-bar[data-rpe='6'],  .block-bar[data-rpe='6.5'] { --bar: var(--rpe-6); }
+.block-bar[data-rpe='7'],  .block-bar[data-rpe='7.5'] { --bar: var(--rpe-7); }
+.block-bar[data-rpe='8'],  .block-bar[data-rpe='8.5'] { --bar: var(--rpe-8); }
+.block-bar[data-rpe='9'],  .block-bar[data-rpe='9.5'] { --bar: var(--rpe-9); }
+.block-bar[data-rpe='10'] { --bar: var(--rpe-10); }
+
+/* A week's bar is a small object holding one value, which is what --r-chip is
+   for. The cap is clamped by the bar's own width, so a deload stub keeps it. */
+.block-bar {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  max-width: 26px;
+  min-height: 3px;
+  overflow: hidden;
+  border-radius: var(--r-chip) var(--r-chip) 0 0;
+  background: color-mix(in srgb, var(--bar) 30%, transparent);
+}
+/* Square across the top and clipped by the bar above it, so a part-finished
+   week reads as a level rather than as a second bar inside the first. */
+.block-bar-done {
+  width: 100%;
+  min-height: 3px;
+  background: var(--bar);
+}
+
+.block-num {
+  text-align: center;
+  font-size: 13px;
+  line-height: 17px;
+  color: var(--label-2);
+}
+.block-week[aria-pressed='true'] .block-num { color: var(--label); }
+.block-week[data-live='true'] .block-num { color: var(--accent); }
+
+/* =============================== the plan ================================ */
+
+/* A prescription is a table, because that is what a lifter reads down: which
+   set, how many reps, how much, how hard. Set as a stack of sentences it took
+   four lines and two pills to say what one row says here. */
+.plan-wrap {
+  margin-top: 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.plan-wrap::-webkit-scrollbar { width: 0; height: 0; }
+
+.plan {
+  width: 100%;
+  border-collapse: collapse;
+  white-space: nowrap;
+}
+.plan th {
+  padding: 0 0 5px;
+  text-align: right;
+  box-shadow: inset 0 calc(var(--hairline) * -1) 0 var(--sep);
+}
+.plan th:first-child,
+.plan th.plan-load { text-align: left; }
+.plan td {
+  padding: 5px 0 0;
+  text-align: right;
+  vertical-align: baseline;
+  font-size: 15px;
+  line-height: 20px;
+}
+.plan tbody tr:first-child td { padding-top: 7px; }
+.plan td:first-child,
+.plan td.plan-load { text-align: left; }
+
+/* Which set, kept quiet: the row is the instruction, the index only says where
+   in the order it comes. */
+.plan-set {
+  width: 1%;
+  padding-right: 10px !important;
+  color: var(--label-2);
+  font-size: 13px !important;
+}
+.plan-reps { width: 1%; padding-right: 12px !important; }
+.plan-load { width: auto; }
+.plan-pct { width: 1%; padding-left: 9px !important; color: var(--label-2); }
+.plan .plan-effort { width: 1%; padding-left: 9px !important; }
+
+/* A load's unit belongs to the load: same face, quieter, never SF. */
+.plan-unit { color: var(--label-2); font-weight: 500; }
+/* Autoregulated sets carry a phrase rather than a number — that is language. */
+.plan-words {
+  font-family: var(--font);
+  font-weight: 400;
+  font-size: 14px;
+  letter-spacing: -0.2px;
+  color: var(--label-2);
+}
+
+.plan-note {
+  padding: 3px 0 1px;
+  white-space: normal;
+  font-family: var(--font);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--label-2);
+  text-align: left;
+}
+/* An AMRAP is the one thing in a prescription that changes what the set *is*,
+   so it is said in the ramp's own ink rather than given a chip of its own. */
+.plan-tag {
+  margin-left: 7px;
+  color: var(--rpe);
+}
+
+/* The line under a block that applies to all of it — a tempo, the coach's own
+   note on the movement. */
+.plan-foot {
+  margin-top: 9px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}

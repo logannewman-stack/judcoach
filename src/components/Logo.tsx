@@ -4,6 +4,11 @@
    The mark is the same geometry the app icon is rendered from: a heavy
    geometric ring cut open on the upper right, closed by a flat spur, and
    sheared forward so the letter leans into the run.
+
+   conform-allow-file: this file draws artwork, not interface. Every literal in
+   it is a value from public/icon.svg — the icon a client sees on their Home
+   Screen is one picture in both themes, and the tile in Settings has to be that
+   same picture or it is a different logo.
    ========================================================================== */
 
 /* Geometry, in the 100×100 mark space. */
@@ -53,7 +58,16 @@ export function GritMark({
   )
 }
 
-/** The mark on its dark tile — matches the home-screen icon exactly. */
+/**
+ * The mark on its dark tile — the same artwork as the home-screen icon, and the
+ * only place in the app where a gradient is allowed, because it is a picture of
+ * an object rather than a surface of the app.
+ *
+ * The values are public/icon.svg's, to the stop: iron ground, a GRIT-blue sheen
+ * from the upper left and a violet one from the lower right. It carries no drop
+ * shadow for the same reason a home-screen icon does not — the icon is flat on
+ * the wallpaper; the rim is the icon's own edge.
+ */
 export function GritTile({ size = 56, radius }: { size?: number; radius?: number }) {
   const r = radius ?? size * 0.2237
   return (
@@ -66,10 +80,10 @@ export function GritTile({ size = 56, radius }: { size?: number; radius?: number
         display: 'grid',
         placeItems: 'center',
         background:
-          'radial-gradient(120% 120% at 28% 16%, rgba(10,132,255,0.42) 0%, rgba(10,132,255,0) 62%),'
-          + ' radial-gradient(90% 90% at 82% 102%, rgba(94,92,230,0.30) 0%, rgba(94,92,230,0) 60%),'
-          + ' linear-gradient(180deg, #18181b 0%, #0b0b0d 100%)',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.28), inset 0 0 0 0.5px rgba(255,255,255,0.09)',
+          'radial-gradient(95% 95% at 28% 16%, rgba(11,87,240,0.34) 0%, rgba(11,87,240,0) 100%),'
+          + ' radial-gradient(80% 80% at 82% 102%, rgba(76,72,224,0.16) 0%, rgba(76,72,224,0) 100%),'
+          + ' linear-gradient(180deg, #16161a 0%, #0b0b0c 100%)',
+        boxShadow: 'inset 0 0 0 0.5px rgba(255,255,255,0.09)',
       }}
     >
       <GritMark size={size * 0.62} color="#fff" />
@@ -77,6 +91,16 @@ export function GritTile({ size = 56, radius }: { size?: number; radius?: number
   )
 }
 
+/**
+ * The wordmark, set in the data face — DESIGN.md §1 lists it there with the
+ * numerals, and it was the one thing on the list still coming out of SF, which
+ * made it read as a heading that happened to say GRIT.
+ *
+ * Archivo at its widest and heaviest, with the letters drawn almost together:
+ * four capitals of a name want to be one shape, not four. The tagline is an
+ * eyebrow — same face, opened right out, so it sits under the word as a rule
+ * rather than as a second line of type.
+ */
 export function Wordmark({
   size = 28,
   tagline = true,
@@ -87,27 +111,32 @@ export function Wordmark({
   align?: 'left' | 'center'
 }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: align === 'center' ? 'center' : 'flex-start', gap: size * 0.1 }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: align === 'center' ? 'center' : 'flex-start',
+        gap: size * 0.16,
+      }}
+    >
       <span
+        className="figure"
         style={{
           fontSize: size,
-          lineHeight: 1,
           fontWeight: 800,
-          letterSpacing: size * 0.02,
-          fontFamily: 'var(--font)',
+          fontStretch: '112%',
+          letterSpacing: '-0.015em',
         }}
       >
         GRIT
       </span>
       {tagline && (
         <span
+          className="eyebrow"
           style={{
-            fontSize: Math.max(8, size * 0.265),
+            fontSize: Math.max(8, size * 0.235),
             lineHeight: 1.2,
-            fontWeight: 600,
-            letterSpacing: Math.max(0.8, size * 0.085),
-            textTransform: 'uppercase',
-            color: 'var(--label-2)',
+            letterSpacing: `${Math.min(0.22, size * 0.006)}em`,
             whiteSpace: 'nowrap',
           }}
         >

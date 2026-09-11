@@ -150,7 +150,7 @@ function StepShell({
         {/* margin-block auto centres short steps without clipping tall ones */}
         <div className="onboarding-content">
           <div className="onboarding-head">
-            <div className="onboarding-eyebrow">{eyebrow}</div>
+            <div className="eyebrow onboarding-eyebrow">{eyebrow}</div>
             <h1 className="onboarding-title">{title}</h1>
             {blurb && <p className="onboarding-blurb">{blurb}</p>}
           </div>
@@ -280,7 +280,7 @@ function UnitsStep({ onNext, onBack }: { onNext: () => void; onBack: () => void 
         onChange={(v) => setUnits(v as Units)}
       />
       <div className="onboarding-preview">
-        <div className="onboarding-preview-label">
+        <div className="onboarding-note">
           A {profile.units === 'kg' ? '20 kg' : '45 lb'} bar at{' '}
           {num(profile.units === 'kg' ? 140 : 315, 0)} {profile.units} loads like this:
         </div>
@@ -332,7 +332,7 @@ function WeightStep({ onNext, onBack }: { onNext: () => void; onBack: () => void
       <div className="onboarding-fields">
         <BigField
           label="Today"
-          value={profile.startWeight > 0 ? fixed(profile.startWeight, 1) : '—'}
+          value={profile.startWeight > 0 ? fixed(profile.startWeight, 1) : null}
           unit={profile.units}
           onPress={() => setEditing('start')}
         />
@@ -341,14 +341,14 @@ function WeightStep({ onNext, onBack }: { onNext: () => void; onBack: () => void
         </span>
         <BigField
           label="Goal"
-          value={profile.goalWeight > 0 ? fixed(profile.goalWeight, 1) : '—'}
+          value={profile.goalWeight > 0 ? fixed(profile.goalWeight, 1) : null}
           unit={profile.units}
           onPress={() => setEditing('goal')}
         />
       </div>
 
       <div className="onboarding-rate">
-        <div className="onboarding-preview-label">
+        <div className="eyebrow">
           Weekly rate — {direction >= 0 ? 'gaining' : 'losing'}
         </div>
         <div className="onboarding-rate-row">
@@ -363,6 +363,7 @@ function WeightStep({ onNext, onBack }: { onNext: () => void; onBack: () => void
                   updateProfile({ weeklyRateTarget: direction >= 0 ? r : -r })
                 }}
                 data-on={on}
+                className="data"
               >
                 {num(r, 2)}
               </button>
@@ -370,7 +371,7 @@ function WeightStep({ onNext, onBack }: { onNext: () => void; onBack: () => void
           })}
         </div>
         {weeks > 0 && (
-          <div className="onboarding-preview-label" style={{ marginTop: 10 }}>
+          <div className="onboarding-note" style={{ marginTop: 10 }}>
             About {Math.ceil(weeks)} weeks at that pace.
           </div>
         )}
@@ -432,16 +433,17 @@ function MaxesStep({ onNext, onBack }: { onNext: () => void; onBack: () => void 
             </div>
             <button
               type="button"
-              className="onboarding-value mono-nums"
+              className="onboarding-value data"
               onClick={() => setEditing(lift.id)}
+              aria-label={`${lift.name} working max`}
             >
               {profile.trainingMaxes[lift.id] ? (
                 <>
                   {num(profile.trainingMaxes[lift.id]!, 0)}
-                  <span className="dim" style={{ fontWeight: 400 }}> {profile.units}</span>
+                  <span className="figure-unit" style={{ fontSize: 15 }}> {profile.units}</span>
                 </>
               ) : (
-                <span style={{ color: 'var(--accent)' }}>Add</span>
+                <span className="t-subhead semibold" style={{ color: 'var(--accent)' }}>Add</span>
               )}
             </button>
           </div>
@@ -509,7 +511,7 @@ function ReadyStep({
           </div>
         ))}
       </div>
-      <div className="onboarding-preview-label" style={{ textAlign: 'center' }}>
+      <div className="onboarding-note" style={{ textAlign: 'center' }}>
         Block one started {new Date(`${program}T00:00:00`).toLocaleDateString(undefined, {
           month: 'long',
           day: 'numeric',
@@ -525,17 +527,24 @@ function BigField({
   label, value, unit, onPress,
 }: {
   label: string
-  value: string
+  value: string | null
   unit: string
   onPress: () => void
 }) {
   return (
-    <button type="button" className="onboarding-bigfield" onClick={onPress}>
-      <span className="onboarding-preview-label">{label}</span>
-      <span className="mono-nums onboarding-bigvalue">
-        {value}
-        <span className="dim" style={{ fontSize: 15, fontWeight: 400 }}> {unit}</span>
-      </span>
+    <button type="button" className="onboarding-bigfield" onClick={onPress} aria-label={label}>
+      <span className="eyebrow">{label}</span>
+      {/* An empty field asks rather than holds a place. The app's dash is right
+          for a number that cannot exist yet; here it is a number the client is
+          about to type, and at 30px in the data face a dash is a black bar. */}
+      {value == null ? (
+        <span className="onboarding-bigvalue" style={{ color: 'var(--accent)', fontWeight: 600 }}>Add</span>
+      ) : (
+        <span className="figure onboarding-bigvalue">
+          {value}
+          <span className="figure-unit" style={{ fontSize: 15 }}> {unit}</span>
+        </span>
+      )}
     </button>
   )
 }
@@ -582,35 +591,28 @@ function MaxCalculator({
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
           <button type="button" className="onboarding-minifield" onClick={() => setPad('weight')}>
-            <span className="onboarding-preview-label">Weight</span>
-            <span className="mono-nums">{num(weight, 1)} {units}</span>
+            <span className="eyebrow">Weight</span>
+            <span className="data">
+              {num(weight, 1)}
+              <span className="figure-unit" style={{ fontSize: 15 }}> {units}</span>
+            </span>
           </button>
           <button type="button" className="onboarding-minifield" onClick={() => setPad('reps')}>
-            <span className="onboarding-preview-label">Reps</span>
-            <span className="mono-nums">{reps}</span>
+            <span className="eyebrow">Reps</span>
+            <span className="data">{reps}</span>
           </button>
         </div>
 
-        <div className="onboarding-preview-label" style={{ margin: '18px 0 8px' }}>
+        <div className="onboarding-note" style={{ margin: '18px 0 8px' }}>
           How hard was it?
         </div>
         <RpePicker value={rpe} onChange={setRpe} />
 
-        <div
-          style={{
-            marginTop: 20,
-            padding: 15,
-            borderRadius: 14,
-            background: 'var(--accent-soft)',
-            textAlign: 'center',
-          }}
-        >
-          <div className="t-footnote" style={{ color: 'var(--accent)', fontWeight: 600 }}>
-            WORKING MAX
-          </div>
-          <div className="mono-nums" style={{ fontSize: 34, fontWeight: 700, letterSpacing: -0.8 }}>
+        <div className="onboarding-result">
+          <div className="eyebrow">Working max</div>
+          <div className="figure">
             {weight > 0 ? num(workingMax, 0) : '—'}
-            <span className="dim" style={{ fontSize: 17, fontWeight: 400 }}> {units}</span>
+            <span className="figure-unit" style={{ fontSize: 17 }}> {units}</span>
           </div>
           {weight > 0 && (
             <div className="t-caption1 dim">

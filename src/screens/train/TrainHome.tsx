@@ -1,17 +1,18 @@
-import { Fragment, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Screen } from '../../components/ios/Screen'
 import { ListSection, Row, rowSepInset } from '../../components/ios/List'
 import { Card, CoachNote } from '../../components/Bits'
 import { Icon } from '../../components/Icon'
-import { Pill } from '../../components/ios/Controls'
+import { Button, Pill } from '../../components/ios/Controls'
 import { flushSection } from './parts'
+import { resolvePrescription, topPrescribedSet } from './prescription'
 import { useStore } from '../../store/useStore'
 import {
-  currentWeekIndex, getWeek, useProgram, weekSchedule, sessionsThisWeek,
+  currentWeekIndex, getWeek, logSetCount, useProgram, weekSchedule, sessionsThisWeek,
 } from '../../store/selectors'
+import type { Profile, Program, SessionTemplate, WorkoutLog } from '../../domain/types'
 import { EXERCISES, getExercise } from '../../data/exercises'
-import { resolveSet } from '../../domain/strength'
-import { formatShortDate, relativeDay, todayISO, weekdayShortFromDow } from '../../lib/date'
+import { formatMinutes, formatShortDate, todayISO, weekdayShortFromDow } from '../../lib/date'
 import { num, pluralize } from '../../lib/format'
 import { navPresent, useNav } from '../../nav/nav'
 
@@ -24,168 +25,127 @@ export function TrainHome() {
   const program = useProgram()
   const logs = useStore((s) => s.logs)
   const profile = useStore((s) => s.profile)
+  const active = useStore((s) => s.active)
   const push = useNav((s) => s.push)
 
   const liveWeek = currentWeekIndex(program, today)
   const [weekIndex, setWeekIndex] = useState(liveWeek)
+  // The block rolling into a new week — or a client starting a fresh one — has
+  // to move the selection with it, or the screen goes on showing last week
+  // while the header above it says "current".
+  const [shownLive, setShownLive] = useState(liveWeek)
+  if (shownLive !== liveWeek) {
+    setShownLive(liveWeek)
+    setWeekIndex(liveWeek)
+  }
+
   const week = getWeek(program, weekIndex)
   const schedule = useMemo(() => weekSchedule(program, weekIndex, logs), [program, weekIndex, logs])
   const progress = sessionsThisWeek(program, logs, today)
+  const shape = useMemo(() => blockShape(program, logs, profile), [program, logs, profile])
+
+  // The one action this screen exists for, and only while it means anything:
+  // browsing week two in February is not an invitation to train.
+  const dueToday = weekIndex === liveWeek && !active
+    ? schedule.find((s) => s.date === today && !s.log)
+    : undefined
 
   return (
     <Screen
       title="Train"
       titleAccessory={
         <div className="gutter" style={{ marginTop: -6, marginBottom: 16 }}>
-          <div className="t-subhead dim truncate">{program.name} · {program.weeks.length} weeks</div>
+          <div className="t-subhead dim truncate">{program.name}</div>
         </div>
       }
       right={{ icon: 'calendar', onPress: () => push('history'), ariaLabel: 'Workout history' }}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-        {/* ---------------------------- week picker --------------------------- */}
-        <div>
-          <div className="hscroll" style={{ gap: 8, paddingBottom: 2 }}>
-            {program.weeks.map((w) => {
-              const selected = w.index === weekIndex
-              const done = weekSchedule(program, w.index, logs).filter((s) => s.log).length
-              return (
-                <button
-                  key={w.id}
-                  type="button"
-                  onClick={() => setWeekIndex(w.index)}
-                  style={{
-                    flex: '0 0 auto',
-                    minWidth: 64,
-                    padding: '8px 10px 7px',
-                    borderRadius: 12,
-                    background: selected ? 'var(--accent)' : 'var(--grouped-2)',
-                    color: selected ? '#fff' : 'var(--label)',
-                    border: w.index === liveWeek && !selected ? '1.5px solid var(--accent)' : '1.5px solid transparent',
-                    textAlign: 'center',
-                  }}
-                >
-                  <div className="t-caption2 semibold" style={{ opacity: 0.7 }}>
-                    {w.deload ? 'DELOAD' : `WEEK`}
-                  </div>
-                  <div className="t-headline mono-nums">{w.index}</div>
-                  <div className="t-caption2" style={{ opacity: 0.7 }}>{done}/{w.sessions.length}</div>
-                </button>
-              )
-            })}
-          </div>
-        </div>
+        {/* ---------------------------- the block ----------------------------- */}
+        <BlockStrip shape={shape} selected={weekIndex} live={liveWeek} onSelect={setWeekIndex} />
 
         {/* ----------------------------- week header -------------------------- */}
         {week && (
           <div className="gutter" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <div className="eyebrow">Week {week.index} of {program.weeks.length}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 3 }}>
                 <h2 className="t-title2">{week.label.split(' — ')[1]}</h2>
                 {week.deload && <Pill tone="tinted">Deload</Pill>}
-                {weekIndex === liveWeek && <Pill tone="good">Current</Pill>}
+                {/* Which week you are on is a fact, not a verdict, so it does
+                    not borrow the green that means "on target" — DESIGN.md §2. */}
+                {weekIndex === liveWeek && <Pill>This week</Pill>}
               </div>
-              <div className="t-footnote dim" style={{ marginTop: 2 }}>
-                Week {week.index} of {program.weeks.length}
-                {weekIndex === liveWeek && ` · ${progress.done} of ${progress.total} done`}
-              </div>
+              {weekIndex === liveWeek && (
+                <div className="t-footnote dim" style={{ marginTop: 3 }}>
+                  <span className="data">{progress.done}/{progress.total}</span> sessions done
+                </div>
+              )}
             </div>
             <CoachNote>{week.emphasis}</CoachNote>
+          </div>
+        )}
+
+        {/* --------------------------- primary action ------------------------- */}
+        {dueToday && (
+          <div className="gutter">
+            <Button
+              icon="play.fill"
+              onPress={() => navPresent('runner', { weekIndex, sessionId: dueToday.session.id })}
+            >
+              Start workout
+            </Button>
           </div>
         )}
 
         {/* ------------------------------ sessions ---------------------------- */}
         <ListSection header="Sessions" style={flushSection}>
           {schedule.map(({ session, date, log }) => {
-            const main = session.blocks[0]
-            const exercise = main ? getExercise(main.exerciseId) : undefined
-            const firstSet = main?.sets[0]
-            const resolved = firstSet
-              ? resolveSet(firstSet, {
-                  trainingMax: profile.trainingMaxes[main!.exerciseId],
-                  profile,
-                })
-              : undefined
             const isToday = date === today
             const isPast = date < today
 
-            const opener = exercise && resolved
-              ? `${exercise.shortName ?? exercise.name} · ${
-                  resolved.targetWeight
-                    ? `${num(resolved.targetWeight, 1)} ${profile.units} opener`
-                    : resolved.loadLabel
-                }`
-              : undefined
-            const detail = log
-              ? [
-                  `Completed ${relativeDay(log.date, today)}`,
-                  log.durationSec ? `${Math.round(log.durationSec / 60)} min` : null,
-                  log.sessionRpe ? `RPE ${log.sessionRpe}` : null,
-                ].filter(Boolean).join(' · ')
-              : opener ?? pluralize(session.blocks.length, 'exercise')
-
             return (
-              <Fragment key={session.id}>
-                <Row
-                  sepInset={rowSepInset(DATE_BADGE_W)}
-                  leading={
-                    <span
-                      aria-hidden="true"
-                      style={{
-                        width: DATE_BADGE_W,
-                        flex: 'none',
-                        textAlign: 'center',
-                        color: log ? 'var(--green-text)' : isToday ? 'var(--accent)' : 'var(--label-2)',
-                      }}
-                    >
-                      <span
-                        className="t-caption2 semibold"
-                        style={{ display: 'block', textTransform: 'uppercase' }}
-                      >
-                        {weekdayShortFromDow(session.weekday)}
-                      </span>
-                      <span
-                        className="mono-nums"
-                        style={{ display: 'block', fontSize: 17, fontWeight: 700, lineHeight: '20px' }}
-                      >
-                        {formatShortDate(date).split(' ')[1]}
-                      </span>
+              <Row
+                key={session.id}
+                sepInset={rowSepInset(DATE_BADGE_W)}
+                leading={
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      width: DATE_BADGE_W,
+                      flex: 'none',
+                      textAlign: 'center',
+                      color: log ? 'var(--green-text)' : isToday ? 'var(--accent)' : 'var(--label-2)',
+                    }}
+                  >
+                    <span className="eyebrow" style={{ display: 'block', color: 'inherit' }}>
+                      {weekdayShortFromDow(session.weekday)}
                     </span>
-                  }
-                  title={session.name}
-                  subtitle={
-                    <>
-                      <span className="truncate" style={{ display: 'block' }}>{session.focus}</span>
-                      <span className="truncate dim mono-nums" style={{ display: 'block' }}>
-                        {detail}
-                      </span>
-                    </>
-                  }
-                  trailing={
-                    log ? (
-                      <Icon name="check.circle.fill" size={17} color="var(--green)" />
-                    ) : isToday ? (
-                      <Pill tone="tinted">Today</Pill>
-                    ) : isPast ? (
-                      <Icon name="clock" size={15} color="var(--orange)" weight={2.2} />
-                    ) : undefined
-                  }
-                  chevron
-                  onPress={() => push('session', { weekIndex, sessionId: session.id })}
-                />
-                {/* The primary action is the session's sibling, not a button
-                    inside one — a tinted action row, the way iOS stacks it. */}
-                {isToday && !log && (
-                  <Row
-                    title="Start workout"
-                    ariaLabel={`Start workout — ${session.name}`}
-                    icon="play.fill"
-                    iconColor="var(--accent)"
-                    tinted
-                    onPress={() => navPresent('runner', { weekIndex, sessionId: session.id })}
-                  />
-                )}
-              </Fragment>
+                    <span className="data" style={{ display: 'block', fontSize: 17, lineHeight: '21px' }}>
+                      {formatShortDate(date).split(' ')[1]}
+                    </span>
+                  </span>
+                }
+                title={session.name}
+                // One line. A row that says the focus, then the opener, then how
+                // long it took is three lines of subtitle pretending to be two.
+                subtitle={
+                  <span className="truncate" style={{ display: 'block' }}>
+                    {log ? <LoggedLine log={log} /> : <PlannedLine session={session} profile={profile} />}
+                  </span>
+                }
+                trailing={
+                  log ? (
+                    <Icon name="check.circle.fill" size={17} color="var(--green)" />
+                  ) : isToday ? (
+                    <Pill tone="tinted">Today</Pill>
+                  ) : isPast ? (
+                    <Icon name="clock" size={15} color="var(--orange)" weight={2.2} />
+                  ) : undefined
+                }
+                chevron
+                onPress={() => push('session', { weekIndex, sessionId: session.id })}
+              />
             )
           })}
         </ListSection>
@@ -194,7 +154,7 @@ export function TrainHome() {
         <ListSection header="Reference" style={flushSection}>
           <Row
             title="Exercise library"
-            subtitle={pluralize(EXERCISES.length, 'movement')}
+            subtitle={<span className="data">{pluralize(EXERCISES.length, 'movement')}</span>}
             icon="book"
             iconColor="var(--indigo)"
             chevron
@@ -217,7 +177,7 @@ export function TrainHome() {
           />
           <Row
             title="Workout history"
-            value={String(logs.length)}
+            value={<span className="data">{logs.length}</span>}
             icon="calendar"
             iconColor="var(--green)"
             chevron
@@ -243,5 +203,144 @@ export function TrainHome() {
         </div>
       </div>
     </Screen>
+  )
+}
+
+/* -------------------------------- the block ------------------------------ */
+
+interface WeekShape {
+  index: number
+  label: string
+  deload?: boolean
+  /** Heaviest share of the training max the week's main lift asks for. */
+  percent: number
+  /** The effort that set is prescribed at; absent on a deload, which makes no
+      claim about how hard it should feel. */
+  rpe?: number
+  done: number
+  total: number
+}
+
+/**
+ * What the block does, week by week.
+ *
+ * Eight weeks of programming have a shape — three building, a deload, four
+ * sharpening to a peak — and it is the single most useful thing about them.
+ * Read off the main lift, because that is where a block's intent lives; the
+ * accessories follow it.
+ */
+function blockShape(program: Program, logs: WorkoutLog[], profile: Profile): WeekShape[] {
+  return program.weeks.map((week) => {
+    let percent = 0
+    let rpe: number | undefined
+    for (const session of week.sessions) {
+      const main = session.blocks[0]
+      if (!main) continue
+      for (const set of resolvePrescription(main, profile)) {
+        if ((set.percent ?? 0) > percent) {
+          percent = set.percent!
+          rpe = set.rpe
+        }
+      }
+    }
+    return {
+      index: week.index,
+      label: week.label.split(' — ')[1] ?? week.label,
+      deload: week.deload,
+      percent,
+      rpe,
+      done: week.sessions.filter((s) => logs.some((l) => l.sessionId === s.id)).length,
+      total: week.sessions.length,
+    }
+  })
+}
+
+function BlockStrip({
+  shape, selected, live, onSelect,
+}: {
+  shape: WeekShape[]
+  selected: number
+  live: number
+  onSelect: (index: number) => void
+}) {
+  const loads = shape.map((w) => w.percent)
+  const top = Math.max(...loads)
+  const floor = Math.min(...loads)
+  // Scaled against the block's own range rather than zero: every week of a
+  // strength block sits between 60% and 95% of a max, and a bar chart anchored
+  // at zero would draw eight bars of the same height and call it a shape.
+  const height = (percent: number) =>
+    top - floor < 1 ? 78 : 18 + 82 * ((percent - floor) / (top - floor))
+
+  return (
+    <div className="block-strip" role="group" aria-label="Weeks in this block">
+      {shape.map((week) => (
+        <button
+          key={week.index}
+          type="button"
+          className="block-week pressable"
+          aria-pressed={week.index === selected}
+          data-live={week.index === live}
+          aria-label={`Week ${week.index}, ${week.label} — ${week.done} of ${week.total} sessions done`}
+          onClick={() => onSelect(week.index)}
+        >
+          <span className="block-track" aria-hidden="true">
+            <span className="block-bar" data-rpe={week.rpe ?? ''} style={{ height: `${height(week.percent)}%` }}>
+              {week.done > 0 && (
+                <span className="block-bar-done" style={{ height: `${(week.done / week.total) * 100}%` }} />
+              )}
+            </span>
+          </span>
+          <span className="block-num data" aria-hidden="true">{week.index}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/* ------------------------------- row detail ------------------------------ */
+
+/**
+ * What a finished session cost, with the effort it was reported at in ink.
+ *
+ * No "3 days ago": the badge at the head of the row already carries the date,
+ * and on a 320pt screen that phrase is what pushed the RPE off the end.
+ */
+function LoggedLine({ log }: { log: WorkoutLog }) {
+  return (
+    <>
+      <span className="data">
+        {log.durationSec ? `${formatMinutes(log.durationSec)} · ` : ''}
+        {logSetCount(log)} sets
+      </span>
+      {log.sessionRpe != null && (
+        <span className="rpe-ink" data-rpe={log.sessionRpe} style={{ marginLeft: 6 }}>
+          RPE {num(log.sessionRpe, 1)}
+        </span>
+      )}
+    </>
+  )
+}
+
+/** What an upcoming session asks for: its heaviest set, which is the number a
+    client is actually deciding about on the way to the gym. */
+function PlannedLine({ session, profile }: { session: SessionTemplate; profile: Profile }) {
+  const main = session.blocks[0]
+  const top = topPrescribedSet(main, profile)
+  const exercise = main ? getExercise(main.exerciseId) : undefined
+  if (!top) return <>{pluralize(session.blocks.length, 'exercise')}</>
+  const name = exercise?.shortName ?? exercise?.name
+  return (
+    <>
+      {name && <>{name} · </>}
+      <span className="data">
+        {top.targetWeight != null
+          ? <>{num(top.targetWeight, 1)}<span className="plan-unit"> {profile.units} ×</span> {top.repsLabel}</>
+          : <>{top.repsLabel}<span className="plan-unit"> × {top.loadLabel}</span></>}
+      </span>
+      {top.rpe != null && (
+        <span className="rpe-ink" data-rpe={top.rpe} style={{ marginLeft: 6 }}>@{num(top.rpe, 1)}</span>
+      )}
+    </>
   )
 }

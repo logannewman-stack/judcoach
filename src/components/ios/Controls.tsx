@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { Icon } from '../Icon'
 import type { IconName } from '../Icon'
 import { haptic } from '../../lib/haptics'
+import { readsAsFigure } from '../../lib/format'
 
 /* ---------------------------- segmented control ------------------------- */
 
@@ -156,7 +157,7 @@ export function Stepper({
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
       {format && (
-        <span className="t-body mono-nums semibold" style={{ minWidth: 62, textAlign: 'right' }}>
+        <span className="t-body data" style={{ minWidth: 62, textAlign: 'right' }}>
           {format(value)}
         </span>
       )}
@@ -168,7 +169,7 @@ export function Stepper({
           display: 'grid',
           gridAutoFlow: 'column',
           background: 'var(--fill-3)',
-          borderRadius: 8,
+          borderRadius: 'var(--r-chip)',
         }}
       >
         <button
@@ -180,7 +181,7 @@ export function Stepper({
           onPointerDown={() => startRepeat(-step)}
           onPointerUp={stopRepeat}
           onPointerLeave={stopRepeat}
-          style={{ ...stepperBtn, borderRadius: '8px 0 0 8px' }}
+          style={{ ...stepperBtn, borderRadius: 'var(--r-chip) 0 0 var(--r-chip)' }}
         >
           <Icon name="minus" size={17} weight={2.4} />
         </button>
@@ -194,7 +195,7 @@ export function Stepper({
           onPointerDown={() => startRepeat(step)}
           onPointerUp={stopRepeat}
           onPointerLeave={stopRepeat}
-          style={{ ...stepperBtn, borderRadius: '0 8px 8px 0' }}
+          style={{ ...stepperBtn, borderRadius: '0 var(--r-chip) var(--r-chip) 0' }}
         >
           <Icon name="plus" size={17} weight={2.4} />
         </button>
@@ -257,6 +258,9 @@ export function Button({
 
 /* --------------------------------- pill --------------------------------- */
 
+/** The first leaf of a node, which is where a pill's number would be. */
+const leading = (node: ReactNode): unknown => (Array.isArray(node) ? leading(node[0]) : node)
+
 export function Pill({
   children,
   tone = 'default',
@@ -268,7 +272,13 @@ export function Pill({
   icon?: IconName
   style?: CSSProperties
 }) {
-  const cls = tone === 'default' ? 'pill' : `pill ${tone}`
+  // "+0.4 lb/wk" and "8 weeks" are figures and take the data face; "Deload" and
+  // "Main lift" are words and stay in SF. Nothing at the call site has to say so.
+  const cls = [
+    'pill',
+    tone === 'default' ? '' : tone,
+    readsAsFigure(leading(children)) ? 'data' : '',
+  ].filter(Boolean).join(' ')
   return (
     <span className={cls} style={style}>
       {icon && <Icon name={icon} size={11} weight={2.6} />}

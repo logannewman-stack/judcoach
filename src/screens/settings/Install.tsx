@@ -28,12 +28,12 @@ export function Install() {
       <div
         className="gutter"
         style={{
-          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
-          textAlign: 'center', paddingTop: 12, paddingBottom: 24,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
+          paddingTop: 10, paddingBottom: 26,
         }}
       >
-        <GritTile size={82} />
-        <Wordmark size={26} align="center" />
+        <GritTile size={78} />
+        <Wordmark size={24} align="center" />
         {!standalone && (
           <div className="t-subhead dim" style={{ lineHeight: '21px' }}>
             Installed, GRIT runs full screen with no browser bar, keeps you logged in between
@@ -58,7 +58,7 @@ export function Install() {
               <div key={i} style={{ display: 'flex', gap: 12, padding: '10px 0', alignItems: 'center' }}>
                 <span
                   style={{
-                    width: 34, height: 34, borderRadius: 10, flex: 'none',
+                    width: 34, height: 34, borderRadius: 'var(--r-chip)', flex: 'none',
                     background: 'var(--accent-soft)', display: 'grid', placeItems: 'center',
                   }}
                 >
@@ -66,7 +66,9 @@ export function Install() {
                 </span>
                 <div style={{ minWidth: 0 }}>
                   <div className="t-subhead semibold">
-                    {i + 1}. {step.title}
+                    <span className="data" style={{ color: 'var(--label-2)' }}>{i + 1}</span>
+                    {'  '}
+                    {step.title}
                   </div>
                   <div className="t-footnote dim">{step.body}</div>
                 </div>

@@ -35,17 +35,14 @@ export function TargetSummary({
   const big = size === 'md'
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-      <span
-        className="mono-nums"
-        style={{ fontSize: big ? 17 : 15, fontWeight: 600, letterSpacing: -0.3 }}
-      >
+      <span className="data" style={{ fontSize: big ? 17 : 15 }}>
         {describeReps(prescription)}
-        <span className="dim" style={{ fontWeight: 400 }}> reps</span>
+        <span className="dim" style={{ fontWeight: 500 }}> reps</span>
         {targetWeight != null && (
           <>
-            <span className="dim" style={{ fontWeight: 400 }}> · </span>
+            <span className="dim" style={{ fontWeight: 500 }}> · </span>
             {num(targetWeight, 1)}
-            <span className="dim" style={{ fontWeight: 400 }}> {units}</span>
+            <span className="dim" style={{ fontWeight: 500 }}> {units}</span>
           </>
         )}
       </span>
@@ -82,8 +79,10 @@ export function LastTimeLine({
   // One continuous text run — as flex items the date used to wrap onto its own
   // line with a gap in front of it. It truncates rather than wraps because the
   // one thing worse than a long line here is a line whose second row is "ago".
+  // A label and a reading, not a sentence: what happened last time is data, and
+  // the effort it took carries the same colour it does everywhere else.
   return (
-    <span className="t-footnote dim mono-nums truncate" style={{ display: 'block' }}>
+    <span className="t-footnote dim truncate" style={{ display: 'block' }} data-rpe={best.rpe ?? ''}>
       <Icon
         name="clock"
         size={12}
@@ -91,10 +90,15 @@ export function LastTimeLine({
         color="var(--label-3)"
         style={{ display: 'inline-block', verticalAlign: -1, marginRight: 5 }}
       />
+      <span className="eyebrow">Last</span>{' '}
       {/* A bodyweight lift logs a load of zero, and "Last 0 lb × 12" reads like
           a bug rather than like twelve hanging leg raises. */}
-      Last {best.weight > 0 ? `${num(best.weight, 1)} ${units} × ${best.reps}` : `${best.reps} reps`}
-      {best.rpe != null ? ` @ ${formatRpe(best.rpe)}` : ''}
+      <span className="data" style={{ fontSize: 13, color: 'var(--label)' }}>
+        {best.weight > 0 ? `${num(best.weight, 1)} ${units} × ${best.reps}` : `${best.reps} reps`}
+        {best.rpe != null && (
+          <span style={{ color: 'var(--rpe)', fontWeight: 700 }}> @{num(best.rpe, 1)}</span>
+        )}
+      </span>
       <span className="dim"> · {relativeDay(performance.date)}</span>
     </span>
   )
@@ -143,16 +147,10 @@ export function LoggedSetChip({
 export function SupersetTag({ group }: { group: string }) {
   return (
     <span
-      className="t-caption2 semibold"
-      style={{
-        padding: '2px 6px',
-        borderRadius: 5,
-        background: 'var(--fill-3)',
-        color: 'var(--label-2)',
-        letterSpacing: 0.3,
-      }}
+      className="eyebrow"
+      style={{ padding: '3px 6px', borderRadius: 'var(--r-chip)', background: 'var(--fill-3)' }}
     >
-      SUPERSET {group}
+      Superset {group}
     </span>
   )
 }
@@ -171,9 +169,9 @@ export function BlockHeading({
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
       <span
-        className="mono-nums t-caption1 semibold"
+        className="data"
         style={{
-          width: 22, height: 22, borderRadius: 6, flex: 'none',
+          width: 22, height: 22, borderRadius: 'var(--r-chip)', flex: 'none', fontSize: 12,
           background: 'var(--fill-3)', color: 'var(--label-2)',
           display: 'grid', placeItems: 'center',
         }}
@@ -201,13 +199,13 @@ export function WarmupList({
       {sets.map((s, i) => (
         <span
           key={i}
-          className="mono-nums"
+          className="data"
           style={{
-            padding: '4px 9px', borderRadius: 8, fontSize: 13,
+            padding: '4px 9px', borderRadius: 'var(--r-chip)', fontSize: 13,
             background: 'var(--fill-4)', color: 'var(--label-2)',
           }}
         >
-          {num(s.weight, 1)}<span style={{ opacity: 0.6 }}> {units} × {s.reps}</span>
+          {num(s.weight, 1)}<span style={{ opacity: 0.6, fontWeight: 500 }}> {units} × {s.reps}</span>
         </span>
       ))}
     </div>

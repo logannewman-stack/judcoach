@@ -5,7 +5,6 @@ import { Icon } from '../../components/Icon'
 import { Button, Segmented, Switch } from '../../components/ios/Controls'
 import { Alert, Sheet } from '../../components/ios/Sheet'
 import { toast } from '../../components/ios/Toast'
-import { GritTile } from '../../components/Logo'
 import { describeDropped } from '../../store/importState'
 import { useStore, exportSnapshot } from '../../store/useStore'
 import type { AccentKey, ThemeMode } from '../../domain/types'
@@ -14,13 +13,22 @@ import { useNav } from '../../nav/nav'
 
 /* ------------------------------- appearance ------------------------------ */
 
+/**
+ * Three, not six.
+ *
+ * The accent means one thing in this app — *this is the action* — and it has to
+ * keep meaning it next to two other colour systems that were here first: effort
+ * runs cool-to-hot from RPE 6 to 10, and green, orange and red say whether you
+ * are on target. An app whose accent is green has a green "on target" pill that
+ * no longer reads as a verdict, and one whose accent is orange competes with
+ * every RPE 9 on the screen. What is left is the cool end, where nothing else
+ * lives, so that is what is offered. Older preferences still resolve — the token
+ * for every key survives in tokens.css — they are just no longer on the menu.
+ */
 const ACCENTS: { key: AccentKey; label: string; color: string }[] = [
-  { key: 'blue', label: 'Blue', color: 'var(--accent-blue)' },
+  { key: 'blue', label: 'GRIT Blue', color: 'var(--accent-blue)' },
   { key: 'indigo', label: 'Indigo', color: 'var(--accent-indigo)' },
-  { key: 'green', label: 'Green', color: 'var(--accent-green)' },
-  { key: 'orange', label: 'Orange', color: 'var(--accent-orange)' },
-  { key: 'pink', label: 'Pink', color: 'var(--accent-pink)' },
-  { key: 'purple', label: 'Purple', color: 'var(--accent-purple)' },
+  { key: 'purple', label: 'Violet', color: 'var(--accent-purple)' },
 ]
 
 export function Appearance() {
@@ -44,33 +52,42 @@ export function Appearance() {
         </div>
       </ListSection>
 
-      <ListSection header="Accent colour">
+      <ListSection
+        header="Accent"
+        footer="The accent marks the thing to tap. Effort and targets have colour systems of their own, so the choice stops where theirs begin."
+      >
         <div
           style={{
-            display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10,
-            padding: '13px var(--gutter)',
+            display: 'grid', gridTemplateColumns: `repeat(${ACCENTS.length}, 1fr)`,
+            gap: 8, padding: '12px var(--gutter) 14px',
           }}
         >
-          {ACCENTS.map((a) => (
-            <button
-              key={a.key}
-              type="button"
-              aria-label={a.label}
-              aria-pressed={settings.accent === a.key}
-              onClick={() => {
-                haptic('selection')
-                updateSettings({ accent: a.key })
-              }}
-              style={{
-                aspectRatio: '1', borderRadius: '50%', background: a.color,
-                display: 'grid', placeItems: 'center',
-                boxShadow: settings.accent === a.key ? '0 0 0 2.5px var(--grouped-2), 0 0 0 4.5px currentColor' : 'none',
-                color: a.color,
-              }}
-            >
-              {settings.accent === a.key && <Icon name="check" size={16} weight={3} color="#fff" />}
-            </button>
-          ))}
+          {ACCENTS.map((a) => {
+            const on = settings.accent === a.key
+            return (
+              <button
+                key={a.key}
+                type="button"
+                aria-label={a.label}
+                aria-pressed={on}
+                onClick={() => {
+                  haptic('selection')
+                  updateSettings({ accent: a.key })
+                }}
+                style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7,
+                  color: a.color,
+                }}
+              >
+                <span className="swatch" data-on={on} style={{ background: a.color }}>
+                  {on && <Icon name="check" size={16} weight={3} color="#fff" />}
+                </span>
+                <span className="t-caption1" style={{ color: on ? 'var(--label)' : 'var(--label-2)' }}>
+                  {a.label}
+                </span>
+              </button>
+            )
+          })}
         </div>
       </ListSection>
 
@@ -349,10 +366,6 @@ export function DataSettings() {
         />
       </ListSection>
 
-      <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: 8 }}>
-        <GritTile size={44} />
-      </div>
-
       <Sheet
         open={exporting}
         onClose={() => setExporting(false)}
@@ -375,8 +388,8 @@ export function DataSettings() {
             </Button>
           </div>
 
-          <div className="t-caption1 dim semibold" style={{ margin: '18px 0 7px' }}>
-            OR SELECT AND COPY IT YOURSELF
+          <div className="eyebrow" style={{ margin: '18px 0 7px' }}>
+            Or select and copy it yourself
           </div>
           <textarea
             readOnly
@@ -385,7 +398,7 @@ export function DataSettings() {
             onFocus={(e) => e.currentTarget.select()}
             aria-label="Export data"
             style={{
-              width: '100%', padding: '11px 13px', borderRadius: 12, border: 'none',
+              width: '100%', padding: '11px 13px', borderRadius: 'var(--r-btn)', border: 'none',
               background: 'var(--fill-3)', resize: 'none', lineHeight: '18px',
               fontSize: 11, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
             }}

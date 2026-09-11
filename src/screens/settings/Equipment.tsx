@@ -63,20 +63,23 @@ export function Equipment() {
                 type="button"
                 aria-pressed={on}
                 onClick={() => togglePlate(plate)}
-                className="mono-nums"
+                className="data"
                 style={{
                   padding: '9px 15px',
-                  borderRadius: 10,
+                  borderRadius: 'var(--r-chip)',
                   fontWeight: 700,
                   fontSize: 15,
-                  background: on ? 'var(--accent)' : 'var(--fill-4)',
-                  color: on ? '#fff' : 'var(--label-2)',
+                  // Tinted rather than filled: a rack is six or seven chips and
+                  // nearly all of them are on, which made most of this screen a
+                  // field of accent. The accent marks what to tap, not what is.
+                  background: on ? 'var(--accent-soft)' : 'var(--fill-4)',
+                  color: on ? 'var(--accent)' : 'var(--label-2)',
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 6,
                 }}
               >
-                {on && <Icon name="check" size={12} weight={3} color="#fff" />}
+                {on && <Icon name="check" size={12} weight={3} color="var(--accent)" />}
                 {num(plate, 2)}
               </button>
             )
@@ -107,8 +110,9 @@ export function Equipment() {
               * profile.roundingIncrement
             return (
               <div key={pct} style={{ padding: '7px 0' }}>
-                <div className="t-subhead mono-nums semibold" style={{ marginBottom: 4 }}>
-                  {num(target, 1)} {profile.units}
+                <div className="data" style={{ fontSize: 15, marginBottom: 4 }}>
+                  {num(target, 1)}
+                  <span className="figure-unit"> {profile.units}</span>
                   <span className="dim" style={{ fontWeight: 400 }}> · {Math.round(pct * 100)}% of max</span>
                 </div>
                 <Barbell target={target} profile={profile} height={50} />

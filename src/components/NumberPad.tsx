@@ -108,13 +108,10 @@ export function NumberPad({
             minHeight: 72,
           }}
         >
-          <span
-            className="mono-nums"
-            style={{ fontSize: 56, lineHeight: '68px', fontWeight: 700, letterSpacing: -1.4 }}
-          >
+          <span className="figure" style={{ fontSize: 58, lineHeight: '68px' }}>
             {display === '' ? '0' : display}
           </span>
-          {unit && <span className="t-title3 dim">{unit}</span>}
+          {unit && <span className="figure-unit" style={{ fontSize: 20 }}>{unit}</span>}
         </div>
         {hint && (
           <div className="t-footnote dim" style={{ textAlign: 'center', marginTop: -4, marginBottom: 4 }}>
@@ -137,13 +134,12 @@ export function NumberPad({
                 key={s}
                 type="button"
                 onClick={() => bump(s)}
-                className="pill"
+                className="pill data"
                 style={{
                   fontSize: 15,
                   padding: '8px 14px',
                   background: 'var(--fill-3)',
                   color: 'var(--label)',
-                  fontVariantNumeric: 'tabular-nums',
                 }}
               >
                 {s > 0 ? '+' : '−'}
@@ -167,15 +163,15 @@ export function NumberPad({
               type="button"
               onClick={() => press(k)}
               aria-label={k === 'del' ? 'Delete' : k}
+              className="data"
               style={{
                 height: 56,
-                borderRadius: 12,
+                borderRadius: 'var(--r-btn)',
                 background: k === 'del' ? 'transparent' : 'var(--fill-4)',
                 display: 'grid',
                 placeItems: 'center',
-                fontSize: 26,
-                fontWeight: 400,
-                fontVariantNumeric: 'tabular-nums',
+                fontSize: 25,
+                fontWeight: 500,
                 color: 'var(--label)',
                 opacity: k === '.' && !allowDecimal ? 0.3 : 1,
               }}
@@ -219,6 +215,10 @@ export function RpePicker({
       <div
         style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' }}
       >
+        {/* RPE is a scale from cool to hot, so the picker is that scale: every
+            step wears its own place on the ramp rather than nine identical grey
+            chips that only differ once one is chosen. The selection is the ring;
+            the dashed one is what Jud asked for. */}
         {RPE_STEPS.map((v) => {
           const selected = value === v
           const isTarget = target === v
@@ -226,6 +226,7 @@ export function RpePicker({
             <button
               key={v}
               type="button"
+              data-rpe={v}
               onClick={() => {
                 haptic('selection')
                 onChange(v)
@@ -234,21 +235,27 @@ export function RpePicker({
                 flex: '1 0 auto',
                 minWidth: 52,
                 padding: '9px 4px 7px',
-                borderRadius: 11,
-                background: selected ? 'var(--accent)' : 'var(--fill-4)',
-                color: selected ? '#fff' : 'var(--label)',
-                border: isTarget && !selected ? '1.5px dashed var(--accent)' : '1.5px solid transparent',
-                transition: 'background 140ms ease, color 140ms ease',
+                borderRadius: 'var(--r-chip)',
+                background: selected
+                  ? 'color-mix(in srgb, var(--rpe) 20%, transparent)'
+                  : 'var(--rpe-fill)',
+                color: 'var(--rpe)',
+                border: selected
+                  ? '2px solid var(--rpe)'
+                  : isTarget
+                    ? '2px dashed color-mix(in srgb, var(--rpe) 55%, transparent)'
+                    : '2px solid transparent',
+                transition: 'background 140ms ease, border-color 140ms ease',
               }}
             >
-              <div className="mono-nums" style={{ fontSize: 17, fontWeight: 600, lineHeight: '20px' }}>
+              <div
+                className="data"
+                style={{ fontSize: 17, fontWeight: selected ? 700 : 600, lineHeight: '20px' }}
+              >
                 {v}
               </div>
               {showRir && (
-                <div
-                  className="mono-nums"
-                  style={{ fontSize: 10, lineHeight: '13px', opacity: selected ? 0.75 : 0.5 }}
-                >
+                <div className="data" style={{ fontSize: 10, lineHeight: '13px', opacity: 0.72 }}>
                   {formatRir(10 - v)}
                 </div>
               )}

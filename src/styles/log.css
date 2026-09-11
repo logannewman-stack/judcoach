@@ -1,0 +1,455 @@
+/* ============================================================================
+   The record: history, a session's log page, the records board, the RPE guide
+   and the movement library.
+
+   These five screens are the app's written record, and the artefact they are
+   modelled on is the log book: ruled columns, one line per set, numbers in a
+   face chosen for numbers, and the eye reading *down* a column rather than
+   across a paragraph. Everything here exists to make a column scannable.
+
+   Kept out of base.css because none of it is a shared primitive — a set table
+   and a records board belong to the log, not to the app.
+
+   Press states key off `data-pressed`, not `:active` — see lib/press.ts. Every
+   colour comes from tokens.css, so the three theme states are inherited rather
+   than restated.
+   ========================================================================== */
+
+/* ================================ ledger ================================= */
+
+/* A rule of figures under a screen title: totals, a session's summary, a
+   movement's best. Three or four tiles would say the same thing in three or
+   four boxes; one ruled strip says it in one, and the hairlines do the work a
+   card outline was doing.
+
+   `minmax(0, 1fr)` rather than `1fr`: an auto minimum let the widest figure
+   claim a wider column, which left the last cell's label wrapping while the
+   first sat in space it wasn't using. */
+.ledger {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  margin: 0 var(--gutter);
+  border-radius: var(--r-inset);
+  background: var(--grouped-2);
+  overflow: hidden;
+}
+
+.ledger-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 9px 9px 10px;
+  text-align: left;
+}
+/* The divider belongs to the cell on its right, the way a list's separator
+   belongs to the row below the join. Drawn rather than gapped: a fractional
+   grid gap gets snapped away on some tracks and kept on others, so half the
+   rules in a four-cell strip simply did not appear. */
+.ledger-cell + .ledger-cell::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 0;
+  width: var(--hairline);
+  background: var(--sep);
+}
+
+.ledger-figure {
+  /* Four figures across a 320pt phone leave 54pt of cell, and "405.9k" does
+     not fit that at 21. */
+  font-size: clamp(17px, 5.1vw, 21px);
+  line-height: 24px;
+  /* The cells stretch to the tallest label, so the figures stay on one
+     baseline however many lines the eyebrow above them takes. */
+  margin-top: auto;
+  white-space: nowrap;
+}
+
+.ledger-unit {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--label-2);
+}
+
+/* ============================== intensity ================================ */
+
+/* A session's verdict, stamped. The number alone carries the effort because
+   the ramp behind it already says how hard: a page of these read as a column
+   of temperature, which is the whole point of the scale having a colour. */
+.rpe-stamp {
+  display: inline-grid;
+  place-items: center;
+  min-width: 34px;
+  height: 30px;
+  padding: 0 7px;
+  border-radius: var(--r-chip);
+  background: var(--rpe-fill);
+  color: var(--rpe);
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* ============================= history list ============================== */
+
+/* A session's metrics, not a sentence about the session — so they are set in
+   the data face and they never wrap. DESIGN.md's density rule: truncate, or
+   say less. Before this, every row in a month of training wrapped to two
+   lines and a screenful held eight sessions instead of twelve. */
+.log-meta {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  letter-spacing: 0.01em;
+  color: var(--label-2);
+}
+.log-meta-sep { font-weight: 400; }
+
+/* The effort inside a line of figures. It carries the ramp wherever it
+   appears — a record's source set, a session's line in the log — so intensity
+   is never the one number on the page rendered as grey. */
+.at { color: var(--rpe); font-weight: 700; }
+
+/* ============================== set table ================================
+   One session's work, ruled. Columns are fixed so every movement on the page
+   aligns on the same four verticals: the load column is a single run of
+   right-aligned tabular digits from the top of the session to the bottom,
+   which is the one thing a stack of wrapped chips could never give.
+   ---------------------------------------------------------------------- */
+.set-table {
+  /* The multiplication sign gets a column of its own so it stays on one
+     vertical: right-aligning "× 4" against "× 10" holds the digits still and
+     swings the sign a character's width between rows. */
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 15px 30px 46px;
+  align-items: center;
+  row-gap: 3px;
+}
+
+.set-cell {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 19px;
+  text-align: right;
+  white-space: nowrap;
+}
+.set-cell .unit { font-size: 12px; font-weight: 500; color: var(--label-2); }
+.set-times { color: var(--label-2); font-weight: 500; text-align: left; }
+
+/* The set's ordinal, and on the reference line the date it came from. */
+.set-index {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 19px;
+  color: var(--label-2);
+  white-space: nowrap;
+}
+
+/* The effort column. Each cell takes the ramp, so the right-hand edge of a
+   session reads as a strip of temperature — where it was easy, where it was a
+   grind — before a single number has been read. */
+.set-rpe {
+  justify-self: end;
+  min-width: 34px;
+  padding: 1px 6px 2px;
+  border-radius: var(--r-chip);
+  background: var(--rpe-fill);
+  color: var(--rpe);
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 17px;
+  text-align: center;
+}
+/* The same movement last time, in the same columns. A lifter comparing two
+   sessions is comparing two loads, and here they are one above the other. */
+.set-prev { color: var(--label-2); }
+.set-prev-rule {
+  grid-column: 1 / -1;
+  height: var(--hairline);
+  margin: 4px 0 3px;
+  background: var(--sep);
+}
+
+/* The column header, once at the top of the page rather than once per block. */
+.set-head {
+  padding-bottom: 8px;
+  margin-bottom: 3px;
+  border-bottom: var(--hairline) solid var(--sep);
+}
+.set-head > * { text-align: right; }
+.set-head > :first-child { text-align: left; }
+/* "Reps" heads the sign and the count together. */
+.set-head > :nth-child(3) { grid-column: 3 / 5; }
+
+/* ---------------------------- exercise block ---------------------------- */
+
+.log-block { padding-bottom: 11px; }
+.log-block + .log-block {
+  padding-top: 5px;
+  border-top: var(--hairline) solid var(--sep);
+}
+
+/* The heading is the target, not the whole block: the sets under it are a
+   table to read, and a table that depresses under a finger reads as a
+   mis-tap. Press feedback comes from the base floor's `data-pressed`. */
+.log-block-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 44px;
+  padding: 4px 0;
+  text-align: left;
+}
+
+.log-block-n {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--r-chip);
+  display: grid;
+  place-items: center;
+  background: var(--fill-3);
+  color: var(--label-2);
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.log-block-est {
+  flex: none;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--label-2);
+  white-space: nowrap;
+}
+/* Movement, not judgement: a gain is worth pointing at, a dip in an accessory
+   on a deload is not a failure, so only the gain takes a colour. */
+.log-block-est .up { color: var(--green-text); }
+.log-block-est .down { color: var(--label-2); }
+
+.log-note {
+  padding: 8px 0 2px;
+  font-size: 13px;
+  line-height: 18px;
+  letter-spacing: -0.08px;
+  color: var(--label-2);
+}
+
+/* ============================ records board ==============================
+   The four lifts the block is written around, at the size they deserve. The
+   grid gap paints the hairlines, so the board is one surface divided rather
+   than four cards adrift.
+   ---------------------------------------------------------------------- */
+.board {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 0 var(--gutter);
+  border-radius: var(--r-card);
+  background: var(--grouped-2);
+  overflow: hidden;
+}
+
+.board-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 11px 13px 12px;
+  text-align: left;
+}
+/* Ruled rather than gapped, for the reason the ledger is. */
+.board-cell:nth-child(even)::before,
+.board-cell:nth-child(n + 3)::after,
+.board-total::before {
+  content: '';
+  position: absolute;
+  background: var(--sep);
+}
+.board-cell:nth-child(even)::before { top: 10px; bottom: 10px; left: 0; width: var(--hairline); }
+.board-cell:nth-child(n + 3)::after { left: 13px; right: 0; top: 0; height: var(--hairline); }
+.board-total::before { left: 13px; right: 0; top: 0; height: var(--hairline); }
+
+.board-figure {
+  font-size: 27px;
+  line-height: 30px;
+  margin-top: 2px;
+  white-space: nowrap;
+}
+/* A slot nobody has filled in yet. A 27px em-dash at 700 is a bar across the
+   cell rather than a blank in it. */
+.board-figure.empty { font-weight: 400; color: var(--label-2); }
+
+.board-source {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 15px;
+  color: var(--label-2);
+}
+
+/* Powerlifting's one comparable number, and the only place on this screen
+   where adding two lifts together means anything. */
+.board-total {
+  position: relative;
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 13px 11px;
+}
+.board-total-figure { font-size: 19px; line-height: 22px; }
+
+/* =============================== rpe guide ===============================
+   The one screen that explains the scale, so it has to *be* the scale: the
+   chips here are the chips on every logged set, in the same colours, which is
+   what turns reading this page into being able to read the app.
+   ---------------------------------------------------------------------- */
+.scale-row {
+  display: grid;
+  grid-template-columns: 44px 52px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+.scale-step {
+  height: 30px;
+  border-radius: var(--r-chip);
+  display: grid;
+  place-items: center;
+  background: var(--rpe-fill);
+  color: var(--rpe);
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.scale-rir {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--label-2);
+  white-space: nowrap;
+}
+
+/* ------------------------------ the chart ------------------------------- */
+
+.rpe-table {
+  border-collapse: collapse;
+  width: 100%;
+  /* Ten columns of four digits. Below this the cells start colliding, so the
+     card scrolls them rather than crushing them. */
+  min-width: 344px;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+.rpe-table th,
+.rpe-table td { padding: 6px 4px; text-align: center; }
+.rpe-table thead th {
+  font-size: 11px;
+  font-weight: 700;
+  font-stretch: 112%;
+  letter-spacing: 0.06em;
+  color: var(--label-2);
+  border-bottom: var(--hairline) solid var(--sep);
+}
+.rpe-table tbody td {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--label);
+  border-bottom: var(--hairline) solid var(--sep);
+}
+.rpe-table tbody tr:last-child td,
+.rpe-table tbody tr:last-child th.rpe-table-row-head { border-bottom: 0; }
+
+/* The row you are looking for, found by its colour rather than by counting. */
+.rpe-table-row-head {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  padding-left: 14px !important;
+  text-align: left !important;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--rpe);
+  background: var(--grouped-2);
+  border-bottom: var(--hairline) solid var(--sep);
+}
+.rpe-table-row-head::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 0;
+  width: 3px;
+  background: var(--rpe);
+}
+.rpe-table-corner {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  padding-left: 14px !important;
+  text-align: left !important;
+  background: var(--grouped-2);
+}
+
+/* =============================== library =================================
+   Fifty-five movements. What earns the trailing slot on a browse row is the
+   one thing that is true of *this* lifter and this movement — their best —
+   not a normalised squiggle in which two pounds and fifty look the same. The
+   unit is named once in the column head, the way a table names it, rather
+   than fifty-five times down the page.
+   ---------------------------------------------------------------------- */
+.lib-best {
+  flex: none;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--label-2);
+  white-space: nowrap;
+}

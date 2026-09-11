@@ -52,7 +52,8 @@ export function Grocery() {
       titleAccessory={
         <div className="gutter" style={{ marginTop: -6, marginBottom: 16 }}>
           <div className="t-subhead dim">
-            Everything the plan needs · {remaining} of {lines.length} left
+            Everything the plan needs ·{' '}
+            <span className="data">{remaining} of {lines.length}</span> left
           </div>
         </div>
       }
@@ -97,10 +98,15 @@ export function Grocery() {
                     {line.name}
                   </span>
                 }
-                subtitle={line.uses > 1 ? `Used in ${line.uses} meals` : undefined}
+                subtitle={
+                  line.uses > 1
+                    ? <>Used in <span className="data">{line.uses}</span> meals</>
+                    : undefined
+                }
                 value={
-                  <span style={{ color: done ? 'var(--label-3)' : undefined }}>
-                    {num(line.qty, 0)} {unitFor(line.qty, line.unit)}
+                  <span className="data" style={{ color: done ? 'var(--label-3)' : undefined }}>
+                    {num(line.qty, 0)}
+                    <span className="data-unit"> {unitFor(line.qty, line.unit)}</span>
                   </span>
                 }
                 inset

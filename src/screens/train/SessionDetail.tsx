@@ -1,15 +1,19 @@
-import { useMemo } from 'react'
+import { Fragment, useMemo } from 'react'
 import { Screen } from '../../components/ios/Screen'
 import { Card, CoachNote, SectionHeader } from '../../components/Bits'
 import { Icon } from '../../components/Icon'
 import { Button, Pill } from '../../components/ios/Controls'
-import { BlockHeading, LastTimeLine, LoggedSetChip, TargetSummary, WarmupList, setLabel } from './parts'
+import { BlockHeading, LastTimeLine, LoggedSetChip, WarmupList } from './parts'
+import { resolvePrescription, topPrescribedSet } from './prescription'
 import { Barbell } from '../../components/Barbell'
 import { useStore } from '../../store/useStore'
 import { findSession, lastPerformance, sessionDate, useProgram } from '../../store/selectors'
 import { getExercise } from '../../data/exercises'
-import { buildWarmup, resolveSet, topSet } from '../../domain/strength'
+import type { ResolvedSet } from '../../domain/strength'
+import type { Units } from '../../domain/types'
+import { buildWarmup, formatRpe, rpeToRir, topSet } from '../../domain/strength'
 import { formatMediumDate, formatMinutes, todayISO } from '../../lib/date'
+import { fixed, num } from '../../lib/format'
 import { navPresent, useNav } from '../../nav/nav'
 
 export function SessionDetail({ weekIndex, sessionId }: { weekIndex: number; sessionId: string }) {
@@ -39,6 +43,7 @@ export function SessionDetail({ weekIndex, sessionId }: { weekIndex: number; ses
   }
 
   const { week, session } = found
+  const top = topPrescribedSet(session.blocks[0], profile)
 
   return (
     <Screen
@@ -52,27 +57,55 @@ export function SessionDetail({ weekIndex, sessionId }: { weekIndex: number; ses
             {week.deload && <Pill>Deload</Pill>}
             {log && <Pill tone="good" icon="check">Completed</Pill>}
           </div>
-          <div style={{ display: 'flex', gap: 14, marginTop: 10, flexWrap: 'wrap' }}>
-            <Meta icon="calendar" text={formatMediumDate(date)} />
-            <Meta icon="clock" text={formatMinutes(session.estMinutes * 60)} />
-            <Meta icon="list" text={`${session.blocks.length} exercises · ${totalSets} sets`} />
+          {/* The heaviest set the session asks for, which is the one thing a
+              lifter wants off this screen before anything else on it. */}
+          {top && (
+            <div className="today-top" data-size="sm" data-rpe={top.rpe ?? ''} style={{ marginTop: 12 }}>
+              <span className="eyebrow today-top-label">Top set</span>
+              <span className="today-top-figure figure">
+                {top.targetWeight != null ? (
+                  <>
+                    {num(top.targetWeight, 1)}
+                    <span className="figure-unit"> {profile.units}</span>
+                    <span className="today-top-x">×</span>
+                    {top.repsLabel}
+                  </>
+                ) : (
+                  <>
+                    {top.repsLabel}
+                    <span className="figure-unit"> reps</span>
+                  </>
+                )}
+              </span>
+              {top.rpe != null ? (
+                <span className="rpe-ink today-top-rpe">{formatRpe(top.rpe)}</span>
+              ) : (
+                <span className="today-top-rpe t-footnote dim">{top.loadLabel}</span>
+              )}
+            </div>
+          )}
+          <div className="data dim" style={{ fontSize: 13, marginTop: 10 }}>
+            {formatMediumDate(date)} · {formatMinutes(session.estMinutes * 60)} ·{' '}
+            {session.blocks.length} exercises · {totalSets} sets
           </div>
         </div>
       }
       right={log ? { label: 'Log', onPress: () => push('logDetail', { logId: log.id }) } : undefined}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-        {session.coachNote && (
-          <div className="gutter">
-            <CoachNote>{session.coachNote}</CoachNote>
-          </div>
-        )}
-
+        {/* The action comes before the reading: this screen exists to be walked
+            into a gym, and Jud's note is the thing you read on the way. */}
         {!log && (
           <div className="gutter">
             <Button icon="play.fill" onPress={() => navPresent('runner', { weekIndex, sessionId })}>
               Start workout
             </Button>
+          </div>
+        )}
+
+        {session.coachNote && (
+          <div className="gutter">
+            <CoachNote>{session.coachNote}</CoachNote>
           </div>
         )}
 
@@ -82,26 +115,19 @@ export function SessionDetail({ weekIndex, sessionId }: { weekIndex: number; ses
           <div className="gutter" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {session.blocks.map((block, blockIndex) => {
               const exercise = getExercise(block.exerciseId)
-              const tm = profile.trainingMaxes[block.exerciseId]
               const last = lastPerformance(logs, block.exerciseId, date)
               const logged = log?.exercises.find((e) => e.exerciseId === block.exerciseId)
 
-              // Back-off percentages need the top set; before the session runs,
-              // estimate it from the heaviest prescribed set.
-              const resolvedSets = block.sets.map((set, i) => {
-                const priorTop = block.sets
-                  .slice(0, i)
-                  .map((s) => resolveSet(s, { trainingMax: tm, profile }).targetWeight ?? 0)
-                  .reduce((a, b) => Math.max(a, b), 0)
-                return resolveSet(set, { trainingMax: tm, profile, topSetWeight: priorTop || undefined })
-              })
-              const heaviest = resolvedSets.reduce(
+              const resolved = resolvePrescription(block, profile)
+              const heaviest = resolved.reduce(
                 (best, r) => ((r.targetWeight ?? 0) > (best.targetWeight ?? 0) ? r : best),
-                resolvedSets[0]!,
+                resolved[0]!,
               )
               const warmup = exercise?.barLoaded && heaviest.targetWeight
                 ? buildWarmup(heaviest.targetWeight, profile.barWeight, profile.roundingIncrement)
                 : []
+              const tempo = resolved[0]?.prescription.tempo
+              const sharedTempo = tempo && resolved.every((r) => r.prescription.tempo === tempo)
 
               return (
                 <div key={block.id} className="card" style={{ margin: 0, padding: 14 }}>
@@ -130,50 +156,39 @@ export function SessionDetail({ weekIndex, sessionId }: { weekIndex: number; ses
                     }
                   />
 
-                  <div style={{ marginTop: 8, marginLeft: 31 }}>
+                  <div style={{ marginTop: 8 }}>
                     <LastTimeLine performance={last} units={profile.units} />
                   </div>
 
                   {blockIndex === 0 && warmup.length > 0 && (
-                    <div style={{ marginTop: 11, marginLeft: 31 }}>
-                      <div className="t-caption1 dim semibold" style={{ marginBottom: 5 }}>WARM-UP</div>
+                    <div style={{ marginTop: 11 }}>
+                      <div className="eyebrow" style={{ marginBottom: 5 }}>Warm-up</div>
                       <WarmupList sets={warmup} units={profile.units} />
                     </div>
                   )}
 
-                  <div style={{ marginTop: 12, marginLeft: 31, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {block.sets.map((set, i) => (
-                      <div key={set.id}>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 3 }}>
-                          <span className="t-caption1 dim semibold" style={{ minWidth: 52 }}>
-                            {setLabel(set, i)}
-                          </span>
-                        </div>
-                        <TargetSummary resolved={resolvedSets[i]!} units={profile.units} showRir={showRir} />
-                        {set.note && (
-                          <div className="t-caption1 dim" style={{ marginTop: 3 }}>{set.note}</div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                  <PlanTable rows={groupSets(resolved)} units={profile.units} showRir={showRir} />
+
+                  {(sharedTempo || block.note) && (
+                    <div className="plan-foot">
+                      {sharedTempo && (
+                        <span className="t-footnote dim">
+                          Tempo <span className="data">{tempo}</span>
+                        </span>
+                      )}
+                      {block.note && <span className="t-footnote dim">{block.note}</span>}
+                    </div>
+                  )}
 
                   {showPlates && exercise?.barLoaded && heaviest.targetWeight && (
-                    <div style={{ marginTop: 13, marginLeft: 31 }}>
+                    <div style={{ marginTop: 13 }}>
                       <Barbell target={heaviest.targetWeight} profile={profile} height={52} />
                     </div>
                   )}
 
-                  {block.note && (
-                    <div className="t-footnote dim" style={{ marginTop: 11, marginLeft: 31 }}>
-                      {block.note}
-                    </div>
-                  )}
-
                   {logged && logged.sets.length > 0 && (
-                    <div style={{ marginTop: 12, marginLeft: 31 }}>
-                      <div className="t-caption1 semibold" style={{ color: 'var(--green)', marginBottom: 6 }}>
-                        WHAT YOU DID
-                      </div>
+                    <div style={{ marginTop: 13 }}>
+                      <div className="eyebrow" style={{ marginBottom: 6 }}>What you did</div>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         {logged.sets.map((s) => (
                           <LoggedSetChip key={s.id} set={s} units={profile.units} />
@@ -194,8 +209,8 @@ export function SessionDetail({ weekIndex, sessionId }: { weekIndex: number; ses
                 Logged {formatMediumDate(log.date)}
                 {log.durationSec ? ` · ${formatMinutes(log.durationSec)}` : ''}
                 {(() => {
-                  const top = log.exercises[0] ? topSet(log.exercises[0].sets) : undefined
-                  return top ? ` · top set ${top.weight} ${profile.units} × ${top.reps}` : ''
+                  const best = log.exercises[0] ? topSet(log.exercises[0].sets) : undefined
+                  return best ? ` · top set ${best.weight} ${profile.units} × ${best.reps}` : ''
                 })()}
               </div>
             </Card>
@@ -206,11 +221,119 @@ export function SessionDetail({ weekIndex, sessionId }: { weekIndex: number; ses
   )
 }
 
-function Meta({ icon, text }: { icon: 'calendar' | 'clock' | 'list'; text: string }) {
+/* ------------------------------ the plan --------------------------------- */
+
+interface PlanRow {
+  /** "1", or "1–3" where a run of sets asks for exactly the same thing. */
+  label: string
+  set: ResolvedSet
+}
+
+/**
+ * Consecutive sets that ask for the same thing are one row.
+ *
+ * A coach writes "3 × 8 @ RPE 8", not three identical sentences, and reading
+ * the same line three times is how a lifter loses their place in a ladder where
+ * the sets genuinely do differ.
+ */
+function groupSets(sets: ResolvedSet[]): PlanRow[] {
+  const rows: PlanRow[] = []
+  let start = 0
+  const same = (a: ResolvedSet, b: ResolvedSet) =>
+    a.repsLabel === b.repsLabel
+    && a.targetWeight === b.targetWeight
+    && a.loadLabel === b.loadLabel
+    && a.percent === b.percent
+    && a.rpe === b.rpe
+    && a.prescription.amrap === b.prescription.amrap
+    && a.prescription.note === b.prescription.note
+
+  for (let i = 0; i < sets.length; i++) {
+    const next = sets[i + 1]
+    if (next && same(sets[i]!, next)) continue
+    rows.push({
+      label: start === i ? String(i + 1) : `${start + 1}–${i + 1}`,
+      set: sets[i]!,
+    })
+    start = i + 1
+  }
+  return rows
+}
+
+function PlanTable({
+  rows, units, showRir,
+}: {
+  rows: PlanRow[]
+  units: Units
+  showRir: boolean
+}) {
+  // The column only exists for a programme that loads off a training max; an
+  // accessory movement has no percentage to report and should not carry a
+  // column of dashes to prove it.
+  const hasPercent = rows.some((r) => r.set.percent != null && r.set.prescription.load.kind === 'percent')
+
   return (
-    <span className="t-footnote dim" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-      <Icon name={icon} size={13} weight={2.1} color="var(--label-3)" />
-      {text}
-    </span>
+    <div className="plan-wrap">
+      <table className="plan">
+        <thead>
+          <tr>
+            <th className="eyebrow plan-set">Set</th>
+            <th className="eyebrow plan-reps">Reps</th>
+            <th className="eyebrow plan-load">Load</th>
+            {hasPercent && <th className="eyebrow plan-pct">%TM</th>}
+            <th className="eyebrow plan-effort">{showRir ? 'RPE · RIR' : 'RPE'}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => {
+            const { set } = row
+            const { prescription: rx } = set
+            return (
+              <Fragment key={rx.id}>
+                <tr data-rpe={set.rpe ?? ''}>
+                  <td className="data plan-set">{row.label}</td>
+                  <td className="data plan-reps">
+                    {set.repsLabel}
+                    {rx.amrap && <span className="eyebrow plan-tag">AMRAP</span>}
+                  </td>
+                  <td className="data plan-load">
+                    {set.targetWeight != null ? (
+                      <>
+                        {num(set.targetWeight, 1)}
+                        <span className="plan-unit"> {units}</span>
+                      </>
+                    ) : (
+                      <span className="plan-words">{set.loadLabel}</span>
+                    )}
+                  </td>
+                  {/* Always one decimal: in a column that drops it, 85% sits a
+                      digit to the left of 83.7%. */}
+                  {hasPercent && (
+                    <td className="data plan-pct">{set.percent != null ? `${fixed(set.percent, 1)}%` : '—'}</td>
+                  )}
+                  <td className="rpe-ink plan-effort">
+                    {set.rpe != null ? (
+                      <>
+                        {num(set.rpe, 1)}
+                        {showRir && <span className="plan-unit"> · {num(rpeToRir(set.rpe), 1)}</span>}
+                      </>
+                    ) : (
+                      <span className="plan-unit">—</span>
+                    )}
+                  </td>
+                </tr>
+                {/* A set's own note goes under its row rather than into a column
+                    of its own: it is a sentence, and the rest of this is not. */}
+                {rx.note && (
+                  <tr>
+                    <td className="plan-note" colSpan={hasPercent ? 5 : 4}>{rx.note}</td>
+                  </tr>
+                )}
+              </Fragment>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
   )
 }

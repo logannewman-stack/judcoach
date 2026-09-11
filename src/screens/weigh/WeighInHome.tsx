@@ -19,6 +19,7 @@ import { formatLength } from '../../domain/units'
 import { addDays, daysBetween, formatMediumDate, formatShortDate, relativeDay, todayISO } from '../../lib/date'
 import { fixed, num, pluralize, signed } from '../../lib/format'
 import { useNav } from '../../nav/nav'
+import '../../styles/fuel.css'
 
 type Range = '30' | '90' | 'all'
 
@@ -61,6 +62,19 @@ export function WeighInHome() {
     // when the range changes as much as when the data does.
     [visible.length, visible[0]?.date, profile.weeklyRateTarget],
   )
+
+  // How far the average has drifted from where the plan would have put them by
+  // now — the whole point of drawing the dashed line, and the one comparison the
+  // chart cannot make on the client's behalf. "Ahead" follows the plan's own
+  // direction: on a gaining block, above the pace is ahead of it.
+  const paceGap = (() => {
+    const last = visible[visible.length - 1]
+    const onPace = pace[pace.length - 1]
+    if (!last || !onPace || profile.weeklyRateTarget === 0) return null
+    const by = last.avg - onPace.weight
+    if (Math.abs(by) < 0.05) return null
+    return { by, ahead: Math.sign(by) === Math.sign(profile.weeklyRateTarget) }
+  })()
 
   const verdict = trend?.reliable
     // The interval is the point of fitting one: a client whose target sits
@@ -153,29 +167,10 @@ export function WeighInHome() {
             ----------------------------------------------------------------- */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <Card>
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-              <div style={{ minWidth: 0 }}>
-                <div className="t-footnote dim">{averaged ? '7-day average' : 'Latest weigh-in'}</div>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 1 }}>
-                  <span
-                    className="mono-nums"
-                    style={{ fontSize: 40, lineHeight: '44px', fontWeight: 700, letterSpacing: -1.1 }}
-                  >
-                    {trend ? fixed(trend.current, decimals) : '—'}
-                  </span>
-                  <span className="t-title3 dim">{profile.units}</span>
-                </div>
-                {latest && averaged && (
-                  <div className="t-footnote dim mono-nums" style={{ marginTop: 2 }}>
-                    Last scale reading {fixed(latest.weight, decimals)} · {relativeDay(latest.date, today)}
-                  </div>
-                )}
-                {latest && !averaged && (
-                  <div className="t-footnote dim" style={{ marginTop: 2 }}>
-                    {pluralize(readings, 'morning')} so far · the average starts at {AVG_MIN_READINGS}
-                  </div>
-                )}
-              </div>
+            {/* The verdict is read before the number that produced it, and a
+                pill floated into the right margin is read after everything on
+                the left. So it gets the first line to itself. */}
+            <div style={{ marginBottom: 10 }}>
               {verdict ? (
                 <Pill
                   tone={
@@ -191,31 +186,84 @@ export function WeighInHome() {
               )}
             </div>
 
+            <div className="eyebrow">{averaged ? '7-day average' : 'Latest weigh-in'}</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 3 }}>
+              {/* Under three mornings there is no average to show, and the
+                  rolling one is a two-day mean that agreed with neither the
+                  label above it nor the top row of the list below. */}
+              <span className="figure" style={{ fontSize: 42 }}>
+                {averaged
+                  ? trend ? fixed(trend.current, decimals) : '—'
+                  : latest ? fixed(latest.weight, decimals) : '—'}
+              </span>
+              <span className="figure-unit" style={{ fontSize: 20 }}>{profile.units}</span>
+            </div>
+            {latest && averaged && (
+              <div className="t-footnote dim" style={{ marginTop: 4 }}>
+                Last scale reading{' '}
+                <span className="data">{fixed(latest.weight, decimals)}</span>
+                {' · '}{relativeDay(latest.date, today)}
+              </div>
+            )}
+            {latest && !averaged && (
+              <div className="t-footnote dim" style={{ marginTop: 4 }}>
+                {pluralize(readings, 'morning')} so far · the average starts at{' '}
+                <span className="data">{AVG_MIN_READINGS}</span>
+              </div>
+            )}
+
             <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
               {trend?.reliable && (
-                <Pill tone="tinted">{signed(trend.perWeek, 2)} {profile.units}/wk</Pill>
+                <Pill tone="tinted">
+                  <span className="data">
+                    {signed(trend.perWeek, 2)}
+                    <span className="data-unit" style={{ color: 'inherit', opacity: 0.75 }}>
+                      {' '}{profile.units}/wk
+                    </span>
+                  </span>
+                </Pill>
               )}
               {/* `signed` drops the sign at zero, and "Target 0/wk" is not a
                   target anyone was ever set. */}
               <Pill>
                 {Math.abs(profile.weeklyRateTarget) < 0.05
                   ? 'Target: hold steady'
-                  : `Target ${signed(profile.weeklyRateTarget, 1)}/wk`}
+                  : (
+                    <>
+                      Target{' '}
+                      <span className="data">
+                        {signed(profile.weeklyRateTarget, 1)}
+                        <span className="data-unit" style={{ color: 'inherit', opacity: 0.75 }}>/wk</span>
+                      </span>
+                    </>
+                  )}
               </Pill>
             </div>
 
             {/* Why the number above can be trusted, or what is still missing
                 before it can be. Never a blank where a rate would go. */}
             <div className="t-footnote dim" style={{ marginTop: 9 }}>
-              {trend?.reliable
-                ? `${pluralize(trend.entries, 'weigh-in')} over ${trend.sampleDays} days · give or take ${num(trend.marginPerWeek, 2)}/wk`
-                // `stale` only means the recent window came up short. After a
-                // fortnight away that is a gap; on a first morning it is a
-                // beginning, and telling someone off for it on day one is the
-                // fastest way to lose them.
-                : trend?.stale && trend.sampleDays > TREND_MIN_DAYS
-                  ? 'Too long a gap to call a rate. Weigh in daily and it comes back inside a fortnight.'
-                  : `A rate needs ${TREND_MIN_ENTRIES} weigh-ins across ${TREND_MIN_DAYS} days. You're at ${trend?.entries ?? 0} across ${pluralize(trend?.sampleDays ?? 0, 'day')}.`}
+              {trend?.reliable ? (
+                <>
+                  <span className="data">{trend.entries}</span>
+                  {' '}weigh-ins over <span className="data">{trend.sampleDays}</span> days · give or
+                  take <span className="data">{num(trend.marginPerWeek, 2)}/wk</span>
+                </>
+              // `stale` only means the recent window came up short. After a
+              // fortnight away that is a gap; on a first morning it is a
+              // beginning, and telling someone off for it on day one is the
+              // fastest way to lose them.
+              ) : trend?.stale && trend.sampleDays > TREND_MIN_DAYS ? (
+                'Too long a gap to call a rate. Weigh in daily and it comes back inside a fortnight.'
+              ) : (
+                <>
+                  A rate needs <span className="data">{TREND_MIN_ENTRIES}</span> weigh-ins across{' '}
+                  <span className="data">{TREND_MIN_DAYS}</span> days. You&rsquo;re at{' '}
+                  <span className="data">{trend?.entries ?? 0}</span> across{' '}
+                  <span className="data">{trend?.sampleDays ?? 0}</span>
+                  {(trend?.sampleDays ?? 0) === 1 ? ' day.' : ' days.'}
+                </>
+              )}
             </div>
           </Card>
 
@@ -273,8 +321,19 @@ export function WeighInHome() {
                   + `${verdict ? `, ${verdict.label.toLowerCase()}` : ''}.`
                 }
               />
-              <div className="t-caption1 dim" style={{ marginTop: 6, textAlign: 'center' }}>
-                Drag across the chart to read any morning.
+              {/* What the dashed line is for, said in words. A client reading
+                  "3 months" off a chart should not have to hold two lines in
+                  their head and subtract. */}
+              <div className="t-caption1 dim" style={{ marginTop: 7 }}>
+                {paceGap != null ? (
+                  <>
+                    <span className="data">{fixed(Math.abs(paceGap.by), decimals)} {profile.units}</span>
+                    {paceGap.ahead ? ' ahead of' : ' behind'} the target pace. Drag the chart to read
+                    any morning.
+                  </>
+                ) : (
+                  'Drag across the chart to read any morning.'
+                )}
               </div>
             </Card>
           </div>
@@ -292,9 +351,9 @@ export function WeighInHome() {
           <div>
             <SectionHeader title="Toward the goal" />
             <Card>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 5 }}>
-                <span className="t-caption1 dim mono-nums">Start {num(profile.startWeight, 0)}</span>
-                <span className="t-caption1 dim mono-nums">Goal {num(profile.goalWeight, 0)}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+                <span className="eyebrow">Start <span className="data">{num(profile.startWeight, 0)}</span></span>
+                <span className="eyebrow">Goal <span className="data">{num(profile.goalWeight, 0)}</span></span>
               </div>
               <div className="track" style={{ height: 8 }}>
                 <motion.div
@@ -305,27 +364,34 @@ export function WeighInHome() {
                 />
               </div>
               <div className="t-footnote" style={{ marginTop: 8 }}>
-                <span className="mono-nums semibold">
-                  {signed((trend?.current ?? profile.startWeight) - profile.startWeight, 1)} {profile.units}
+                <span className="data">
+                  {signed((trend?.current ?? profile.startWeight) - profile.startWeight, 1)}
+                  <span className="data-unit"> {profile.units}</span>
                 </span>
                 <span className="dim">
-                  {' '}so far · {num(Math.abs(profile.goalWeight - (trend?.current ?? 0)), 1)} to go
+                  {' '}so far ·{' '}
+                  <span className="data">{num(Math.abs(profile.goalWeight - (trend?.current ?? 0)), 1)}</span>
+                  {' '}to go
                 </span>
               </div>
               {/* An arrival date is a verdict dressed as a number, so it only
                   appears once the rate behind it has earned the right to be
                   quoted — and it says what the plan would have cost instead. */}
               <div className="t-footnote dim" style={{ marginTop: 3 }}>
-                {!trend?.reliable
-                  ? 'A finish date needs a fortnight of weigh-ins behind it.'
-                  : weeksLeft === 0
-                    ? 'Goal reached.'
-                    : weeksLeft != null
-                      ? `About ${Math.ceil(weeksLeft)} weeks at this rate`
-                        + (weeksAtTarget != null && Math.ceil(weeksAtTarget) !== Math.ceil(weeksLeft)
-                          ? ` — ${Math.ceil(weeksAtTarget)} at the target rate.`
-                          : '.')
-                      : 'The trend isn’t heading there yet.'}
+                {!trend?.reliable ? (
+                  'A finish date needs a fortnight of weigh-ins behind it.'
+                ) : weeksLeft === 0 ? (
+                  'Goal reached.'
+                ) : weeksLeft != null ? (
+                  <>
+                    About <span className="data">{Math.ceil(weeksLeft)}</span> weeks at this rate
+                    {weeksAtTarget != null && Math.ceil(weeksAtTarget) !== Math.ceil(weeksLeft) ? (
+                      <> — <span className="data">{Math.ceil(weeksAtTarget)}</span> at the target rate.</>
+                    ) : '.'}
+                  </>
+                ) : (
+                  'The trend isn’t heading there yet.'
+                )}
               </div>
             </Card>
           </div>
@@ -425,10 +491,13 @@ export function WeighInHome() {
                             and red for up would have had half the list cheering
                             for the wrong direction. */}
                         {prev && (
-                          <span className="t-footnote mono-nums dim">{signed(delta, 1)}</span>
+                          <span className="data" style={{ fontSize: 13, color: 'var(--label-2)' }}>
+                            {signed(delta, 1)}
+                          </span>
                         )}
-                        <span className="mono-nums" style={{ color: 'var(--label)' }}>
-                          {fixed(entry.weight, decimals)} {profile.units}
+                        <span className="data" style={{ fontSize: 17, color: 'var(--label)' }}>
+                          {fixed(entry.weight, decimals)}
+                          <span className="data-unit"> {profile.units}</span>
                         </span>
                       </span>
                     }

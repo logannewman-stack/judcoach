@@ -14,6 +14,7 @@ import { rollingSeries } from '../../domain/weight'
 import { formatMediumDate, formatShortDate, relativeDay, todayISO } from '../../lib/date'
 import { num, signed } from '../../lib/format'
 import { useNav } from '../../nav/nav'
+import '../../styles/fuel.css'
 
 type SiteKey = 'waist' | 'chest' | 'arm' | 'thigh' | 'hips' | 'neck'
 
@@ -97,23 +98,24 @@ export function Measurements() {
             <Card>
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
                 <div>
-                  <div className="t-footnote dim">{meta.label}</div>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
-                    <span className="mono-nums" style={{ fontSize: 32, fontWeight: 700, letterSpacing: -0.8 }}>
+                  <div className="eyebrow">{meta.label}</div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 3 }}>
+                    <span className="figure" style={{ fontSize: 34 }}>
                       {latest ? num(latest.y, 1) : '—'}
                     </span>
-                    <span className="t-callout dim">{lengthUnit(units)}</span>
+                    <span className="figure-unit" style={{ fontSize: 16 }}>{lengthUnit(units)}</span>
                   </div>
                 </div>
                 {first && latest && first !== latest && (
                   <div style={{ textAlign: 'right' }}>
-                    <div className="t-footnote dim">Since {formatShortDate(first.x)}</div>
+                    <div className="eyebrow">Since {formatShortDate(first.x)}</div>
                     {/* Left uncoloured on purpose. A bigger arm and a bigger
                         waist are the same arithmetic and opposite news, and the
                         app cannot tell which one this client wanted — a green
                         number here would be a verdict it has not earned. */}
-                    <div className="t-title3 mono-nums">
-                      {signed(latest.y - first.y, 1)}{units === 'kg' ? ' cm' : '″'}
+                    <div className="data" style={{ fontSize: 20, lineHeight: '25px', marginTop: 3 }}>
+                      {signed(latest.y - first.y, 1)}
+                      <span className="data-unit">{units === 'kg' ? ' cm' : '″'}</span>
                     </div>
                   </div>
                 )}
@@ -140,7 +142,9 @@ export function Measurements() {
               {weightSpan != null && (
                 <div className="t-footnote dim" style={{ marginTop: 8 }}>
                   Bodyweight over the same stretch:{' '}
-                  <span className="mono-nums">{signed(weightSpan, 1)} {units}</span>
+                  <span className="data">
+                    {signed(weightSpan, 1)}<span className="data-unit"> {units}</span>
+                  </span>
                 </div>
               )}
               <div className="t-caption1 dim" style={{ marginTop: 8 }}>{meta.hint}</div>
@@ -160,11 +164,16 @@ export function Measurements() {
                         : formatMediumDate(entry.date)
                     }
                     value={
-                      <span className="mono-nums">
+                      <span className="data">
                         {SITES.filter((s) => entry[s.key] != null)
                           .slice(0, 3)
-                          .map((s) => `${s.label[0]} ${num(entry[s.key] as number, 1)}`)
-                          .join(' · ')}
+                          .map((s, i) => (
+                            <span key={s.key}>
+                              {i > 0 && <span className="data-unit"> · </span>}
+                              <span className="data-unit">{s.label[0]} </span>
+                              {num(entry[s.key] as number, 1)}
+                            </span>
+                          ))}
                       </span>
                     }
                   />
@@ -230,10 +239,14 @@ function AddMeasurementSheet({
                 title={s.label}
                 subtitle={
                   latest?.[s.key] != null
-                    ? `Last: ${formatLength(latest[s.key] as number, units)}`
+                    ? <>Last: <span className="data">{formatLength(latest[s.key] as number, units)}</span></>
                     : undefined
                 }
-                value={draft[s.key] != null ? formatLength(draft[s.key] as number, units) : 'Add'}
+                value={
+                  draft[s.key] != null
+                    ? <span className="data">{formatLength(draft[s.key] as number, units)}</span>
+                    : 'Add'
+                }
                 chevron
                 onPress={() => setEditing(s.key)}
               />

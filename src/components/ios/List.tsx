@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../Icon'
 import type { IconName } from '../Icon'
+import { readsAsFigure } from '../../lib/format'
 
 /* ---------------------------- inset grouped list ------------------------ */
 
@@ -22,8 +23,11 @@ export function ListSection({
   return (
     <section className="list-section" style={style}>
       {header && (
+        // A group's header is a label above data, which is what the eyebrow role
+        // is for. `plainHeader` is the exception: a sentence-case heading is
+        // language, so it stays in SF.
         <div
-          className={`list-header${plainHeader ? ' plain' : ''}`}
+          className={plainHeader ? 'list-header plain' : 'list-header eyebrow'}
           style={headerAccessory ? { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 } : undefined}
         >
           <span>{header}</span>
@@ -103,7 +107,12 @@ export function Row({
         <span className="row-title" style={color ? { color } : undefined}>{title}</span>
         {subtitle && <span className="row-sub">{subtitle}</span>}
       </span>
-      {value != null && <span className="row-value">{value}</span>}
+      {/* 63 weigh-ins, 315 lb, 8 weeks: a row's value is usually a number, and a
+          number is set in the data face. A value that reads as language — a
+          name, "Match iPhone" — stays in SF. */}
+      {value != null && (
+        <span className={readsAsFigure(value) ? 'row-value data' : 'row-value'}>{value}</span>
+      )}
       {trailing}
       {chevron && <Icon name="chevron.right" size={15} weight={2.6} className="chev" />}
     </Tag>

@@ -1,8 +1,15 @@
 import { motion } from 'framer-motion'
 import type { ReactNode } from 'react'
+// The macro tones live here, and Today draws these rings without ever loading
+// the Meals screen's stylesheet.
+import '../styles/fuel.css'
 
 /* ============================================================================
-   Activity-style progress rings.
+   Progress rings.
+
+   The arcs are one material in three strengths rather than three hues — see
+   fuel.css for why — so the only colour in the stack is the one that reports a
+   target actually met.
    ========================================================================== */
 
 export interface RingSpec {
@@ -20,7 +27,7 @@ export function ProgressRing({
   color = 'var(--accent)',
   size = 120,
   thickness = 12,
-  track = 'var(--fill-3)',
+  track = 'var(--fuel-track)',
   children,
   delay = 0,
 }: {
@@ -46,7 +53,11 @@ export function ProgressRing({
         />
         <motion.circle
           cx={size / 2} cy={size / 2} r={r}
-          fill="none" stroke={color} strokeWidth={thickness} strokeLinecap="round"
+          fill="none"
+          // A closed ring is the one event on this card worth a colour, and it
+          // is the same green a pill uses to say "you are on target".
+          stroke={pct >= 1 ? 'var(--fuel-hit)' : color}
+          strokeWidth={thickness} strokeLinecap="round"
           strokeDasharray={circumference}
           initial={{ strokeDashoffset: circumference }}
           animate={{ strokeDashoffset: circumference * (1 - pct) }}
@@ -94,9 +105,6 @@ export function RingStack({
               value={ring.value}
               target={ring.target}
               color={ring.color}
-              // Tint each track with its own macro so an empty day still reads
-              // as protein / carbs / fat rather than three grey circles.
-              track={`color-mix(in srgb, ${ring.color} 17%, transparent)`}
               size={size - inset * 2}
               thickness={thickness}
               delay={i * 0.07}
@@ -113,10 +121,15 @@ export function RingStack({
   )
 }
 
+/**
+ * Tone, not hue: protein is the darkest because the plan says it is the
+ * non-negotiable, fat the faintest because it is what is left over. Water is
+ * not a macro, so it borrows the middle tone rather than inventing a fourth.
+ */
 export const MACRO_COLORS = {
-  kcal: 'var(--accent)',
-  protein: 'var(--red)',
-  carbs: 'var(--orange)',
-  fat: 'var(--yellow)',
-  water: 'var(--cyan)',
+  kcal: 'var(--fuel-1)',
+  protein: 'var(--fuel-1)',
+  carbs: 'var(--fuel-2)',
+  fat: 'var(--fuel-3)',
+  water: 'var(--fuel-2)',
 } as const

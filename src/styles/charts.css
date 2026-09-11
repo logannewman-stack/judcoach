@@ -1,7 +1,7 @@
 /* ============================================================================
-   Chart furniture — the legend keys and photo comparison strips that sit around
-   the hand-drawn SVG. Nothing here paints inside a chart: the drawing takes its
-   colours from the same tokens the rest of the app does.
+   Chart furniture — the type inside the hand-drawn SVG, plus the legend keys
+   and photo comparison strips that sit around it. Every colour here is a token;
+   nothing in a chart is painted with a literal.
    ========================================================================== */
 
 :root {
@@ -10,6 +10,46 @@
   --shot-scrim: rgba(0, 0, 0, 0.55);
   --shot-label: #ffffff;
 }
+
+/* ------------------------------- chart type -------------------------------
+   A chart is data by definition: every string inside one is a numeral, a date
+   or the name of a mark. So the whole drawing is set in the data face, and the
+   three roles here mirror the three the rest of the app uses — an axis reads
+   like an eyebrow, a scrubbed value like a figure, a mark's label like neither.
+   ------------------------------------------------------------------------ */
+
+.chart text {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-stretch: 100%;
+}
+
+.chart-axis {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  fill: var(--label-2);
+}
+
+.chart-readout {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  fill: var(--label);
+}
+
+.chart-mark {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  fill: var(--label-2);
+}
+
+/* A bar's own value sits above it; the category underneath is quieter, because
+   the bars already carry the comparison. */
+.chart-bar-value { font-size: 10px; font-weight: 700; fill: var(--label-2); }
+.chart-bar-label { font-size: 10px; font-weight: 500; fill: var(--label-3); }
 
 .chart-legend {
   display: flex;
@@ -48,10 +88,13 @@
 
 /* ------------------------------ photo compare ---------------------------- */
 
+/* Two shots joined into one object with a seam down the middle, rather than
+   two photographs that happen to be side by side. The comparison is the thing;
+   the pair is not an album. */
 .compare-pair {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 2px;
 }
 
 .compare-cell {
@@ -68,9 +111,14 @@
   width: 100%;
   max-width: 100%;
   aspect-ratio: 3 / 4;
-  border-radius: var(--r-inset);
   overflow: hidden;
   background: var(--fill-4);
+}
+.compare-cell:first-child .compare-frame {
+  border-radius: var(--r-card) 0 0 var(--r-card);
+}
+.compare-cell:last-child .compare-frame {
+  border-radius: 0 var(--r-card) var(--r-card) 0;
 }
 
 .compare-frame img {
@@ -80,16 +128,53 @@
   object-fit: cover;
 }
 
+/* THEN / NOW is a label on data, so it takes the eyebrow role — and the one
+   place in the app where an eyebrow answers to a photograph rather than to the
+   theme, which is what --shot-label is for. */
 .compare-tag {
   position: absolute;
   top: 6px;
   left: 6px;
-  padding: 2px 7px;
+  padding: 3px 8px 2px;
   border-radius: var(--r-pill);
   background: var(--shot-scrim);
   color: var(--shot-label);
-  font-size: 11px;
-  line-height: 15px;
+}
+
+.compare-date {
+  font-size: 13px;
+  line-height: 17px;
+  font-weight: 700;
+  color: var(--label);
+}
+
+.compare-weight {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--label-2);
+}
+
+/* What the two shots add up to. The pair is the only genuinely emotional
+   surface in the app, and its answer was set as a grey footnote. */
+.compare-delta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* The date burnt into a thumbnail in the archive grid. */
+.shot-date {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 18px 10px 8px;
+  background: linear-gradient(180deg, transparent, var(--shot-scrim));
+  color: var(--shot-label);
+  text-align: left;
+  font-size: 12px;
+  line-height: 16px;
   font-weight: 600;
-  letter-spacing: 0.06px;
 }

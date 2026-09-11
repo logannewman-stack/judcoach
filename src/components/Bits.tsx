@@ -1,16 +1,27 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from './Icon'
 import type { IconName } from './Icon'
+import { initials } from '../lib/format'
 
 /* Small shared display pieces used across screens. */
 
+/**
+ * The label above a section of a screen, in one of the app's two ranks.
+ *
+ * Default — a heading a person reads as language ("Fuel", "Every set"), in SF.
+ * `eyebrow` — a label on data ("THIS WEEK", "PER SIDE"), in the data face. It is
+ * the same role `ListSection` gives a group header, so a screen made of cards
+ * and a screen made of lists label themselves identically.
+ */
 export function SectionHeader({
   title,
   action,
+  eyebrow,
   style,
 }: {
   title: ReactNode
   action?: { label: string; onPress: () => void }
+  eyebrow?: boolean
   style?: CSSProperties
 }) {
   return (
@@ -20,11 +31,11 @@ export function SectionHeader({
         alignItems: 'baseline',
         justifyContent: 'space-between',
         gap: 12,
-        padding: '0 var(--gutter) 8px',
+        padding: eyebrow ? '0 var(--gutter) 7px' : '0 var(--gutter) 8px',
         ...style,
       }}
     >
-      <h2 className="t-title3">{title}</h2>
+      <h2 className={eyebrow ? 'eyebrow' : 't-title3'}>{title}</h2>
       {action && (
         <button
           type="button"
@@ -69,18 +80,18 @@ export function StatTile({
   const Tag = onPress ? 'button' : 'div'
   const toneColor = tone ? TEXT_TONE[tone] ?? tone : undefined
   return (
+    // A number under a label is the definition of the two data roles, so a tile
+    // is where they are least negotiable: eyebrow above, figure below.
     <Tag
       onClick={onPress}
       type={onPress ? 'button' : undefined}
-      className={onPress ? 'pressable' : undefined}
+      className={onPress ? 'surface pressable' : 'surface'}
       style={{
-        background: 'var(--grouped-2)',
-        borderRadius: 'var(--r-card)',
-        padding: '12px 13px',
+        padding: '11px 13px 12px',
         textAlign: 'left',
         display: 'flex',
         flexDirection: 'column',
-        gap: 1,
+        gap: 5,
         minWidth: 0,
         width: '100%',
       }}
@@ -90,23 +101,23 @@ export function StatTile({
           word. Tiles stretch to the tallest in their row, so the value is
           pushed to the bottom and stays aligned across all of them. */}
       <span
-        className="t-caption1 dim"
-        style={{ display: 'flex', alignItems: 'flex-start', gap: 4, fontWeight: 600 }}
+        className="eyebrow"
+        style={{ display: 'flex', alignItems: 'flex-start', gap: 4 }}
       >
         {icon && (
           <Icon
             name={icon}
-            size={12}
-            weight={2.4}
+            size={11}
+            weight={2.6}
             color={toneColor ?? 'var(--label-2)'}
-            style={{ flex: 'none', marginTop: 2 }}
+            style={{ flex: 'none', marginTop: 1 }}
           />
         )}
         {label}
       </span>
       <span
-        className="t-title3 mono-nums truncate"
-        style={{ color: toneColor, fontWeight: 700, letterSpacing: -0.3, marginTop: 'auto' }}
+        className="data truncate"
+        style={{ color: toneColor, fontSize: 20, lineHeight: '23px', fontWeight: 700, marginTop: 'auto' }}
       >
         {value}
       </span>
@@ -115,15 +126,23 @@ export function StatTile({
   )
 }
 
+/**
+ * A card is one surface on the ground. `current` marks the single card on a
+ * screen that carries what is true now — the live week, today's session — with
+ * an accent hairline and nothing else. Two of them on one screen means neither
+ * is current.
+ */
 export function Card({
   children,
   onPress,
   pad = true,
+  current,
   style,
 }: {
   children: ReactNode
   onPress?: () => void
   pad?: boolean
+  current?: boolean
   style?: CSSProperties
 }) {
   const Tag = onPress ? 'button' : 'div'
@@ -132,6 +151,7 @@ export function Card({
       className={`card${pad ? ' card-pad' : ''}`}
       onClick={onPress}
       type={onPress ? 'button' : undefined}
+      data-current={current ? 'true' : undefined}
       style={{ width: 'calc(100% - var(--gutter) * 2)', textAlign: 'left', display: 'block', ...style }}
     >
       {children}
@@ -160,11 +180,18 @@ export function EmptyState({
   )
 }
 
-/** Coach's initial badge — stands in for Jud throughout the app. */
+/**
+ * Coach's initial badge — stands in for Jud throughout the app.
+ *
+ * Flat accent, not a gradient: a monogram is a mark, so it is set in the data
+ * face and left to be one colour. The app has one accent and this is the person
+ * behind everything it asks you to do.
+ */
 export function CoachAvatar({ size = 34, name = 'Jud' }: { size?: number; name?: string }) {
   return (
     <span
       aria-hidden="true"
+      className="data"
       style={{
         width: size,
         height: size,
@@ -172,14 +199,43 @@ export function CoachAvatar({ size = 34, name = 'Jud' }: { size?: number; name?:
         flex: 'none',
         display: 'grid',
         placeItems: 'center',
-        background: 'linear-gradient(160deg, var(--accent) 0%, var(--indigo) 100%)',
+        background: 'var(--accent)',
         color: '#fff',
         fontWeight: 700,
-        fontSize: size * 0.42,
-        letterSpacing: 0.2,
+        fontSize: size * 0.44,
+        lineHeight: 1,
       }}
     >
       {name[0]}
+    </span>
+  )
+}
+
+/**
+ * The client's own monogram, in the same material as the coach's badge but
+ * neutral — they are not the accent, and a photo-shaped grey gradient with white
+ * initials on it was both a decoration and unreadable at 1:1 contrast.
+ */
+export function Monogram({ name, size = 52 }: { name: string; size?: number }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="data"
+      style={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        flex: 'none',
+        display: 'grid',
+        placeItems: 'center',
+        background: 'var(--fill-3)',
+        color: 'var(--label-2)',
+        fontSize: size * 0.38,
+        lineHeight: 1,
+        letterSpacing: '0.01em',
+      }}
+    >
+      {initials(name)}
     </span>
   )
 }

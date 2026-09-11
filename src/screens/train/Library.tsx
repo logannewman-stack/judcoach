@@ -2,18 +2,21 @@ import { useMemo, useState } from 'react'
 import { Screen } from '../../components/ios/Screen'
 import { ListSection, Row } from '../../components/ios/List'
 import { Card, EmptyState, SectionHeader } from '../../components/Bits'
+import { Icon } from '../../components/Icon'
 import { Pill, Segmented } from '../../components/ios/Controls'
 import { SearchField } from '../../components/ios/SearchField'
-import { LineChart, Sparkline } from '../../components/Charts'
-import { LoggedSetChip, flushSection } from './parts'
+import { LineChart } from '../../components/Charts'
+import { flushSection } from './parts'
+import { SetTable, SetTableHead } from './History'
 import { useStore } from '../../store/useStore'
 import { e1rmSeries, performanceHistory, personalRecords } from '../../store/selectors'
 import { EQUIPMENT_LABELS, EXERCISES, MUSCLE_LABELS, getExercise } from '../../data/exercises'
 import type { MuscleGroup } from '../../domain/types'
-import { bestE1RM } from '../../domain/strength'
-import { formatMediumDate, formatShortDate, relativeDay } from '../../lib/date'
-import { estimate, num, pluralize } from '../../lib/format'
+import { bestE1RM, snapRpe, topSet } from '../../domain/strength'
+import { formatShortDate, relativeDay } from '../../lib/date'
+import { num, pluralize, signed } from '../../lib/format'
 import { useNav } from '../../nav/nav'
+import '../../styles/log.css'
 
 /* ------------------------------ the library ----------------------------- */
 
@@ -29,6 +32,7 @@ export function ExerciseLibrary() {
   const pop = useNav((s) => s.pop)
   const push = useNav((s) => s.push)
   const logs = useStore((s) => s.logs)
+  const profile = useStore((s) => s.profile)
   const [query, setQuery] = useState('')
   const [group, setGroup] = useState('all')
 
@@ -42,26 +46,14 @@ export function ExerciseLibrary() {
     })
   }, [query, group])
 
-  // Every row wants a sparkline, so the trend for the whole library is built in
-  // one pass over the logs. Asking for a series per row meant re-scanning,
-  // copying and sorting the full history fifty-odd times per keystroke.
-  const trends = useMemo(() => {
-    const byExercise = new Map<string, number[]>()
-    const chronological = [...logs].sort((a, b) => a.date.localeCompare(b.date))
-    for (const log of chronological) {
-      const seen = new Set<string>()
-      for (const entry of log.exercises) {
-        // One point per exercise per session, matching e1rmSeries().
-        if (entry.sets.length === 0 || seen.has(entry.exerciseId)) continue
-        seen.add(entry.exerciseId)
-        const value = bestE1RM(entry.sets)
-        if (value <= 0) continue
-        const series = byExercise.get(entry.exerciseId)
-        if (series) series.push(value)
-        else byExercise.set(entry.exerciseId, [value])
-      }
-    }
-    return byExercise
+  // The heaviest load handled on each movement, in one pass over the logs.
+  // Asking per row meant re-scanning the full history fifty-odd times per
+  // keystroke, and a normalised sparkline — in which two pounds and fifty look
+  // identical — was never a number anyone could read off a browse row.
+  const best = useMemo(() => {
+    const out = new Map<string, number>()
+    for (const pr of personalRecords(logs)) out.set(pr.exerciseId, pr.topWeight)
+    return out
   }, [logs])
 
   return (
@@ -69,16 +61,12 @@ export function ExerciseLibrary() {
       title="Exercises"
       back={{ onPress: pop }}
       titleAccessory={
-        <div className="gutter" style={{ marginTop: -6, marginBottom: 16 }}>
-          <div className="t-subhead dim">
-            {pluralize(EXERCISES.length, 'movement')} with Jud's cues on every one.
-          </div>
-        </div>
-      }
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-        {/* Search and filter are one control cluster, so they stay tight. */}
-        <div className="gutter" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        // Search and filter are the screen's one control cluster, so they sit
+        // with the title rather than floating a section above the results.
+        <div
+          className="gutter"
+          style={{ marginTop: 2, marginBottom: 18, display: 'flex', flexDirection: 'column', gap: 12 }}
+        >
           <SearchField
             value={query}
             onChange={setQuery}
@@ -91,22 +79,31 @@ export function ExerciseLibrary() {
             onChange={setGroup}
           />
         </div>
-
+      }
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
         {results.length === 0 ? (
           <EmptyState icon="search" title="Nothing matches" message="Try a shorter search term." />
         ) : (
-          <ListSection>
+          // The trailing figures are a column, so the column is named once at
+          // its head rather than carrying a unit on all fifty-five rows.
+          <ListSection
+            header={pluralize(results.length, 'movement')}
+            headerAccessory={<span>Heaviest ({profile.units})</span>}
+            style={flushSection}
+          >
             {results.map((exercise) => {
-              const series = trends.get(exercise.id)
+              const heaviest = best.get(exercise.id) ?? 0
               return (
                 <Row
                   key={exercise.id}
                   title={exercise.name}
                   subtitle={`${exercise.primary.map((m) => MUSCLE_LABELS[m]).join(', ')} · ${EQUIPMENT_LABELS[exercise.equipment]}`}
-                  trailing={
-                    series && series.length > 2 ? (
-                      <Sparkline values={series.slice(-10)} width={44} height={20} />
-                    ) : undefined
+                  trailing={heaviest > 0 ? <span className="lib-best">{num(heaviest, 0)}</span> : undefined}
+                  ariaLabel={
+                    heaviest > 0
+                      ? `${exercise.name}, heaviest ${num(heaviest, 0)} ${profile.units}`
+                      : undefined
                   }
                   chevron
                   onPress={() => push('exerciseDetail', { exerciseId: exercise.id })}
@@ -161,34 +158,58 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-        {/* --------------------------------- PR ----------------------------- */}
-        {pr && (
-          <div className="gutter">
-            <Card style={{ margin: 0, width: '100%' }}>
-              <div style={{ display: 'flex', gap: 14 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="t-footnote dim">Best estimated 1RM</div>
-                  <div className="mono-nums" style={{ fontSize: 30, fontWeight: 700, letterSpacing: -0.7 }}>
+        {/* --------------------------------- PR -----------------------------
+            Shown for a working max alone as well: a client who has set their
+            maxes but not trained yet still has the one number the runner is
+            about to load the bar from. */}
+        {(pr || tm) && (
+          <div>
+            <div className="ledger">
+              {pr?.hasEstimate && (
+                <div className="ledger-cell">
+                  <span className="eyebrow">Est. 1RM</span>
+                  <span className="figure ledger-figure">
                     {num(pr.e1rm, 0)}
-                    <span className="t-callout dim" style={{ fontWeight: 400 }}> {profile.units}</span>
-                  </div>
-                  <div className="t-footnote dim mono-nums" style={{ marginTop: 1 }}>
-                    from {num(pr.weight, 1)} × {pr.reps}
-                    {pr.rpe != null ? ` @ RPE ${num(pr.rpe, 1)}` : ''} · {formatShortDate(pr.date)}
-                  </div>
+                    <span className="ledger-unit"> {profile.units}</span>
+                  </span>
                 </div>
-                <div style={{ textAlign: 'right', flex: 'none' }}>
-                  <div className="t-footnote dim">Heaviest</div>
-                  <div className="mono-nums t-title3">{num(pr.topWeight, 0)}</div>
-                  {tm && (
+              )}
+              {pr && (
+                <div className="ledger-cell">
+                  <span className="eyebrow">Heaviest</span>
+                  <span className="figure ledger-figure">
+                    {num(pr.topWeight, 0)}
+                    <span className="ledger-unit"> {profile.units}</span>
+                  </span>
+                </div>
+              )}
+              {tm && (
+                <div className="ledger-cell">
+                  <span className="eyebrow">Working max</span>
+                  <span className="figure ledger-figure">
+                    {num(tm, 0)}
+                    <span className="ledger-unit"> {profile.units}</span>
+                  </span>
+                </div>
+              )}
+            </div>
+            {pr && (
+              <div className="list-footer">
+                <span className="log-meta" style={{ display: 'inline' }}>
+                  From {num(pr.weight, 1)}
+                  <span className="log-meta-sep"> × </span>
+                  {pr.reps}
+                  {pr.rpe != null && (
                     <>
-                      <div className="t-footnote dim" style={{ marginTop: 6 }}>Working max</div>
-                      <div className="mono-nums t-title3">{num(tm, 0)}</div>
+                      {' '}
+                      <span className="at" data-rpe={snapRpe(pr.rpe)}>@{num(pr.rpe, 1)}</span>
                     </>
                   )}
-                </div>
+                  <span className="log-meta-sep"> · </span>
+                  {formatShortDate(pr.date)}
+                </span>
               </div>
-            </Card>
+            )}
           </div>
         )}
 
@@ -215,7 +236,7 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
           <Card>
             {exercise.setup && exercise.setup.length > 0 && (
               <div style={{ marginBottom: 10 }}>
-                <div className="t-caption1 dim semibold" style={{ marginBottom: 4 }}>SET-UP</div>
+                <div className="eyebrow" style={{ marginBottom: 5 }}>Set-up</div>
                 {exercise.setup.map((s, i) => (
                   <div key={i} className="t-subhead dim" style={{ lineHeight: '20px' }}>{s}</div>
                 ))}
@@ -262,23 +283,52 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
           {history.length === 0 ? (
             <EmptyState icon="clock" title="Not trained yet" message="It'll show up here after your first logged set." />
           ) : (
-            <div className="gutter" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {history.slice(0, 12).map((entry) => (
-                <div key={entry.logId} className="card" style={{ margin: 0, padding: 13 }}>
-                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
-                    <span className="t-subhead semibold">{relativeDay(entry.date)}</span>
-                    <span className="t-caption1 dim mono-nums">
-                      e1RM {estimate(bestE1RM(entry.sets))} · {formatMediumDate(entry.date)}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
-                    {entry.sets.map((s) => (
-                      <LoggedSetChip key={s.id} set={s} units={profile.units} />
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <>
+              {/* The same ruled page a session gets, sliced the other way: one
+                  movement down the block, so the load column reads as a
+                  training history rather than as a stack of cards. */}
+              <div className="card" style={{ padding: '12px 14px 3px' }}>
+                <SetTableHead />
+                {history.slice(0, 12).map((entry, i) => {
+                  const est = bestE1RM(entry.sets)
+                  // The session below is the previous one, so the movement
+                  // between them is the number worth naming.
+                  const before = history[i + 1]
+                  const wasEst = before ? bestE1RM(before.sets) : 0
+                  const delta = est > 0 && wasEst > 0 ? Math.round(est) - Math.round(wasEst) : 0
+                  const heaviest = topSet(entry.sets)
+                  return (
+                    <div className="log-block" key={entry.logId}>
+                      <button
+                        type="button"
+                        className="log-block-head"
+                        onClick={() => push('logDetail', { logId: entry.logId })}
+                        aria-label={`${relativeDay(entry.date)}${
+                          heaviest ? `, top set ${num(heaviest.weight, 1)} ${profile.units}` : ''
+                        }`}
+                      >
+                        <span className="t-headline truncate" style={{ flex: 1, minWidth: 0 }}>
+                          {relativeDay(entry.date)}
+                        </span>
+                        {est > 0 && (
+                          <span className="log-block-est">
+                            <span className="eyebrow">e1RM</span> {num(est, 0)}
+                            {delta !== 0 && (
+                              <span className={delta > 0 ? 'up' : 'down'}> {signed(delta, 0)}</span>
+                            )}
+                          </span>
+                        )}
+                        <Icon name="chevron.right" size={13} weight={2.6} color="var(--label-3)" />
+                      </button>
+                      <SetTable sets={entry.sets} units={profile.units} />
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="list-footer">
+                Estimated max per session, and what it moved since the one below it.
+              </div>
+            </>
           )}
         </div>
       </div>

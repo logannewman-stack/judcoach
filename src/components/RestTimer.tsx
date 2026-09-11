@@ -67,7 +67,7 @@ export function RestTimerBar({ bottomOffset }: { bottomOffset: number | string }
             alignItems: 'center',
             gap: 10,
             padding: '8px 8px 8px 12px',
-            borderRadius: 16,
+            borderRadius: 'var(--r-sheet)',
             background: 'var(--chrome-solid)',
             WebkitBackdropFilter: 'blur(24px)',
             backdropFilter: 'blur(24px)',
@@ -100,18 +100,17 @@ export function RestTimerBar({ bottomOffset }: { bottomOffset: number | string }
             }}
             style={{ flex: 1, minWidth: 0, textAlign: 'left', alignSelf: 'stretch' }}
           >
-            <div
-              className="mono-nums"
-              style={{
-                fontSize: 19,
-                lineHeight: '22px',
-                fontWeight: 700,
-                letterSpacing: -0.4,
-                color: finished ? 'var(--green)' : 'var(--label)',
-              }}
-            >
-              {finished ? 'Rest complete' : formatDuration(remaining)}
-            </div>
+            {/* A countdown is data and takes the data face; "Rest complete" is
+                something a person reads as language, and does not. */}
+            {finished ? (
+              <div className="t-headline" style={{ color: 'var(--green-text)', lineHeight: '23px' }}>
+                Rest complete
+              </div>
+            ) : (
+              <div className="data" style={{ fontSize: 20, lineHeight: '23px', fontWeight: 700 }}>
+                {formatDuration(remaining)}
+              </div>
+            )}
             <div className="t-caption1 dim truncate">{timer.label}</div>
           </button>
 
@@ -164,9 +163,10 @@ const pillBtn: React.CSSProperties = {
   flex: 'none',
   minWidth: 42,
   height: 30,
-  borderRadius: 9,
+  borderRadius: 'var(--r-chip)',
   background: 'var(--fill-3)',
   color: 'var(--label)',
+  fontFamily: 'var(--font-data)',
   fontSize: 13,
   fontWeight: 600,
   fontVariantNumeric: 'tabular-nums',

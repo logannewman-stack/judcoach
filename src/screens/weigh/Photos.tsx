@@ -9,9 +9,10 @@ import { useStore } from '../../store/useStore'
 import type { PhotoPose, ProgressPhoto, Units } from '../../domain/types'
 import { rollingSeries } from '../../domain/weight'
 import { daysBetween, formatMediumDate, formatShortDate, todayISO } from '../../lib/date'
-import { fixed, pluralize, signed } from '../../lib/format'
+import { fixed } from '../../lib/format'
 import { uid } from '../../lib/id'
 import { useNav } from '../../nav/nav'
+import '../../styles/fuel.css'
 
 const POSES: { value: PhotoPose; label: string }[] = [
   { value: 'front', label: 'Front' },
@@ -168,19 +169,7 @@ export function Photos() {
                       alt=""
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     />
-                    <span
-                      style={{
-                        position: 'absolute',
-                        left: 0, right: 0, bottom: 0,
-                        padding: '18px 10px 8px',
-                        background: 'linear-gradient(180deg, transparent, rgba(0,0,0,0.6))',
-                        color: '#fff',
-                        textAlign: 'left',
-                      }}
-                      className="t-caption1 semibold"
-                    >
-                      {formatMediumDate(photo.date)}
-                    </span>
+                    <span className="data shot-date">{formatMediumDate(photo.date)}</span>
                   </button>
                   <button
                     type="button"
@@ -209,8 +198,8 @@ export function Photos() {
               Add {pose} photo
             </Button>
           )}
-          <div className="t-footnote dim" style={{ marginTop: 10, textAlign: 'center' }}>
-            Photos never leave your phone. Share them with Jud yourself when you're ready.
+          <div className="t-footnote dim" style={{ marginTop: 10 }}>
+            Photos never leave your phone. Share them with Jud yourself when you&rsquo;re ready.
           </div>
         </div>
       </div>
@@ -293,6 +282,7 @@ function ComparePair({
   const { then, now } = pair
   const was = weightOn(then.date)
   const is = weightOn(now.date)
+  const weeks = Math.max(1, Math.round(daysBetween(then.date, now.date) / 7))
   return (
     <div>
       <SectionHeader
@@ -310,9 +300,23 @@ function ComparePair({
             onPress={() => onOpen(now.id)}
           />
         </div>
-        <div className="t-footnote dim" style={{ marginTop: 9 }}>
-          {pluralize(Math.max(1, Math.round(daysBetween(then.date, now.date) / 7)), 'week')} apart
-          {was != null && is != null ? ` · ${signed(is - was, 1)} ${units} on the scale` : ''}
+        {/* The answer the screen exists to give. Uncoloured, like the tape's:
+            the app cannot know whether a client was paid to gain or to lose,
+            and the two shots above are the verdict anyway. */}
+        <div className="compare-delta">
+          {was != null && is != null && (
+            // Same decimals as the two weights above it: `signed` trims a
+            // trailing zero, so a 3.0 lb gain came out "+3" under a pair of
+            // numbers both carrying a decimal.
+            <span className="figure" style={{ fontSize: 26 }}>
+              {is - was > 0 ? '+' : is - was < 0 ? '−' : ''}
+              {fixed(Math.abs(is - was), decimals)}
+              <span className="figure-unit" style={{ fontSize: 15 }}> {units}</span>
+            </span>
+          )}
+          <span className="eyebrow">
+            over {weeks} {weeks === 1 ? 'week' : 'weeks'}
+          </span>
         </div>
       </div>
     </div>
@@ -339,14 +343,16 @@ function ComparePane({
     >
       <span className="compare-frame">
         <img src={photo.dataUrl} alt="" />
-        <span className="compare-tag">{tag}</span>
+        <span className="eyebrow compare-tag">{tag}</span>
       </span>
-      <span className="t-footnote semibold" style={{ color: 'var(--label)' }}>
-        {formatShortDate(photo.date)}
-      </span>
-      <span className="t-caption1 dim mono-nums" style={{ marginTop: -5 }}>
-        {weight != null ? `${fixed(weight, decimals)} ${units}` : 'no weigh-in that week'}
-      </span>
+      <span className="data compare-date">{formatShortDate(photo.date)}</span>
+      {weight != null ? (
+        <span className="data compare-weight" style={{ marginTop: -5 }}>
+          {fixed(weight, decimals)}<span className="data-unit"> {units}</span>
+        </span>
+      ) : (
+        <span className="t-caption1 dim" style={{ marginTop: -5 }}>no weigh-in that week</span>
+      )}
     </button>
   )
 }

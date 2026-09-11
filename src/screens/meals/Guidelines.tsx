@@ -53,8 +53,8 @@ export function Guidelines() {
               <SplitLegend label="Fat" pct={split.fat} grams={training.fat} color={MACRO_COLORS.fat} />
             </div>
             <div className="t-caption1 dim" style={{ marginTop: 12 }}>
-              {num(proteinPerLb, 2)} g of protein per lb of bodyweight — the number that protects muscle
-              while you're pushing the percentages.
+              <span className="data">{num(proteinPerLb, 2)} g</span> of protein per lb of bodyweight
+              — the number that protects muscle while you&rsquo;re pushing the percentages.
             </div>
           </Card>
         </div>
@@ -63,28 +63,33 @@ export function Guidelines() {
         <div>
           <SectionHeader title="Training day" />
           <ListSection
-            footer={`Macros total ${kcalFromMacros(training)} kcal.`}
+            footer={<>Macros total <span className="data">{kcalFromMacros(training)} kcal</span>.</>}
             style={{ marginBottom: 0 }}
           >
-            <Row title="Calories" value={`${training.kcal} kcal`} />
-            <Row title="Protein" value={`${training.protein} g`} />
-            <Row title="Carbohydrate" value={`${training.carbs} g`} />
-            <Row title="Fat" value={`${training.fat} g`} />
-            <Row title="Fibre" value={`${training.fiber} g`} />
-            <Row title="Water" value={`${training.waterOz} oz`} />
+            <Row title="Calories" value={<Amount value={training.kcal} unit="kcal" />} />
+            <Row title="Protein" value={<Amount value={training.protein} unit="g" />} />
+            <Row title="Carbohydrate" value={<Amount value={training.carbs} unit="g" />} />
+            <Row title="Fat" value={<Amount value={training.fat} unit="g" />} />
+            <Row title="Fibre" value={<Amount value={training.fiber} unit="g" />} />
+            <Row title="Water" value={<Amount value={training.waterOz} unit="oz" />} />
           </ListSection>
         </div>
 
         <div>
           <SectionHeader title="Rest day" />
           <ListSection
-            footer={`${training.carbs - rest.carbs} g fewer carbs. Protein and fat are unchanged.`}
+            footer={
+              <>
+                <span className="data">{training.carbs - rest.carbs} g</span> fewer carbs. Protein
+                and fat are unchanged.
+              </>
+            }
             style={{ marginBottom: 0 }}
           >
-            <Row title="Calories" value={`${rest.kcal} kcal`} />
-            <Row title="Protein" value={`${rest.protein} g`} />
-            <Row title="Carbohydrate" value={`${rest.carbs} g`} />
-            <Row title="Fat" value={`${rest.fat} g`} />
+            <Row title="Calories" value={<Amount value={rest.kcal} unit="kcal" />} />
+            <Row title="Protein" value={<Amount value={rest.protein} unit="g" />} />
+            <Row title="Carbohydrate" value={<Amount value={rest.carbs} unit="g" />} />
+            <Row title="Fat" value={<Amount value={rest.fat} unit="g" />} />
           </ListSection>
         </div>
 
@@ -113,6 +118,16 @@ export function Guidelines() {
   )
 }
 
+/** A target's value and its unit: one object, both in the data face. */
+function Amount({ value, unit }: { value: number; unit: string }) {
+  return (
+    <span className="data">
+      {value}
+      <span className="data-unit"> {unit}</span>
+    </span>
+  )
+}
+
 function SplitLegend({
   label, pct, grams, color,
 }: {
@@ -125,10 +140,12 @@ function SplitLegend({
     <div style={{ minWidth: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
         <span style={{ width: 8, height: 8, borderRadius: 2, background: color, flex: 'none' }} />
-        <span className="t-caption1 dim semibold truncate">{label}</span>
+        <span className="eyebrow truncate">{label}</span>
       </div>
-      <div className="t-headline mono-nums">{pct}%</div>
-      <div className="t-caption1 dim mono-nums">{grams} g</div>
+      <div className="data" style={{ fontSize: 17, lineHeight: '22px', fontWeight: 700 }}>{pct}%</div>
+      <div className="data" style={{ fontSize: 12, lineHeight: '16px', color: 'var(--label-2)' }}>
+        {grams} g
+      </div>
     </div>
   )
 }

@@ -42,7 +42,7 @@ export function SearchField({
           style={{
             width: '100%',
             padding: '9px 34px 9px 34px',
-            borderRadius: 10,
+            borderRadius: 'var(--r-inset)',
             border: 'none',
             background: 'var(--fill-3)',
             appearance: 'none',

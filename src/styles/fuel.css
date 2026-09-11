@@ -1,0 +1,281 @@
+/* ============================================================================
+   Fuel — the language the Meals screen and the macro rings are drawn in.
+
+   The macros used to be systemRed, systemOrange and systemYellow: three hues
+   picked because food charts are usually drawn that way, which on a chalk
+   ground came out pastel and on iron came out as sludge. They were also lying
+   twice over. Red is this app's destructive colour, and protein — the one
+   number the plan says to protect above all else — cannot be painted in the
+   colour that means "delete". Orange and yellow sit a hue apart from --rpe-9
+   and --rpe-8, so a carbohydrate bar and a grinding set read as the same idea.
+
+   So the macros stop being three colours and become one material in three
+   strengths. Tone says *which* macro, ordered the way the plan orders them:
+   protein is the darkest because it is the non-negotiable, fat the faintest
+   because it is the remainder. Colour is kept back for the one thing worth
+   reporting — a target actually met.
+
+   These belong in tokens.css; they are declared here until they land there.
+   ========================================================================== */
+
+:root {
+  --fuel-1: #2f2f35;
+  --fuel-2: #74747e;
+  --fuel-3: #a4a4ad;
+  /* Deliberately heavier than --fill-4: an unfilled ring has to read as an
+     empty gauge, and at 8% a day with nothing logged had nothing on it. */
+  --fuel-track: rgba(116, 116, 128, 0.19);
+  /* The one colour on the card, and it means what green always means here. */
+  --fuel-hit: var(--green);
+  --fuel-hit-text: var(--green-text);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --fuel-1: #e9e9e3;
+    --fuel-2: #98989f;
+    --fuel-3: #6e6e78;
+    --fuel-track: rgba(232, 232, 226, 0.16);
+  }
+}
+
+:root[data-theme='dark'] {
+  --fuel-1: #e9e9e3;
+  --fuel-2: #98989f;
+  --fuel-3: #6e6e78;
+  --fuel-track: rgba(232, 232, 226, 0.16);
+}
+
+/* A unit belongs to the figure it serves: same face, one step lighter, never
+   SF. base.css's .figure-unit is weighted for a hero number; at list sizes that
+   came out heavier than the digits beside it. Inherits its family from the
+   .figure or .data it sits inside.
+
+   This is a type role rather than a fuel token and belongs beside .figure-unit
+   in base.css; it is declared here until it lands there, which is why the
+   weigh-in screens import this sheet. */
+.data-unit {
+  font-weight: 500;
+  color: var(--label-2);
+}
+
+/* ------------------------------- macro rows -------------------------------
+   One row per macro beside the rings: the name as an eyebrow, the figure and
+   its target as one object, and a bar in the macro's own tone. A met macro
+   takes the hit colour in both the bar and the label, so "protein is done" is
+   legible without reading a digit.
+   ------------------------------------------------------------------------ */
+
+/* The fill colour is set inline by the readout, which resolves the met state
+   with it; an inline custom property outranks anything declared here. */
+.macro-row {
+  --macro: var(--fuel-2);
+}
+
+.macro-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.macro-name {
+  color: var(--label-2);
+}
+.macro-row[data-met='true'] .macro-name {
+  color: var(--fuel-hit-text);
+}
+
+.macro-value {
+  font-size: 13px;
+  line-height: 17px;
+  white-space: nowrap;
+}
+.macro-target {
+  color: var(--label-2);
+  font-weight: 500;
+}
+
+.macro-bar {
+  height: 5px;
+  margin-top: 4px;
+  border-radius: var(--r-pill);
+  background: var(--fuel-track);
+  overflow: hidden;
+}
+.macro-fill {
+  height: 100%;
+  border-radius: var(--r-pill);
+  background: var(--macro);
+}
+
+/* ------------------------------- day strip --------------------------------
+   A fortnight of dates. The numeral is data, the weekday letter is the label
+   above it, and the dot says the day has food logged against it.
+   ------------------------------------------------------------------------ */
+
+.day-cell {
+  flex: 0 0 auto;
+  width: 44px;
+  padding: 7px 0 6px;
+  border-radius: var(--r-chip);
+  background: var(--grouped-2);
+  color: var(--label);
+  border: 1.5px solid transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.day-cell[data-today='true'] { border-color: var(--accent); }
+.day-cell[aria-current] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.day-cell-wd {
+  font-size: 10px;
+  line-height: 13px;
+  letter-spacing: 0.06em;
+  opacity: 0.68;
+}
+.day-cell-num {
+  font-size: 17px;
+  line-height: 20px;
+  font-weight: 700;
+}
+.day-cell-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: transparent;
+}
+.day-cell[data-logged='true'] .day-cell-dot { background: var(--accent); }
+.day-cell[aria-current][data-logged='true'] .day-cell-dot { background: rgba(255, 255, 255, 0.92); }
+
+/* ------------------------------- meal cards -------------------------------
+   Six meals with four foods each is twenty-four rows, and every one of them
+   held its full height whether or not it had already been eaten. A plan a
+   client is executing should get shorter as the day goes on, so a meal that is
+   finished — or deliberately skipped — folds down to its own header line.
+   ------------------------------------------------------------------------ */
+
+.meal-card {
+  margin: 0;
+}
+.meal-card[data-state='skipped'] { opacity: 0.55; }
+
+.meal-head {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 14px;
+  width: 100%;
+}
+.meal-card[data-state='open'] .meal-head { padding-bottom: 9px; }
+
+.meal-check {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--label-3);
+  background: transparent;
+}
+.meal-card[data-state='done'] .meal-check {
+  background: var(--fuel-hit);
+  border-color: transparent;
+}
+
+.meal-name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+/* Which meal to eat next, on today only. It is an eyebrow rather than a bar
+   down the side of the card: the card is not a different kind of thing, it is
+   the next one. */
+.meal-next {
+  color: var(--accent);
+  margin-bottom: 1px;
+}
+
+.meal-count {
+  flex: none;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--label-2);
+}
+.meal-card[data-state='done'] .meal-count { color: var(--fuel-hit-text); }
+
+.meal-foods {
+  padding: 0 14px 10px;
+}
+
+/* ------------------------------- food lines ------------------------------- */
+
+.food-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  /* A real 44pt pitch. Every control in here expands to Apple's 44x44 minimum,
+     so anything shorter has those rectangles overlapping each other and the
+     rows above and below — the classic mis-tap. */
+  min-height: 44px;
+}
+
+.food-check {
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: 1.8px solid var(--label-3);
+  background: transparent;
+}
+.food-line[data-checked='true'] .food-check {
+  background: var(--accent);
+  border-color: transparent;
+}
+
+.food-name {
+  flex: 1;
+  min-width: 0;
+}
+.food-line[data-checked='true'] .food-name {
+  text-decoration: line-through;
+  color: var(--label-3);
+}
+
+.food-qty { color: var(--label-2); }
+.food-line[data-checked='true'] .food-qty { color: inherit; }
+
+/* Fixed width so the kcal column — and everything left of it — lines up down
+   the card instead of ragging with the digit count. */
+.food-kcal {
+  flex: none;
+  min-width: 30px;
+  text-align: right;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--label-2);
+}
+
+.food-portion {
+  flex: none;
+  padding: 2px 7px;
+  border-radius: var(--r-chip);
+  font-size: 12px;
+  line-height: 16px;
+  background: var(--fill-4);
+  color: var(--label-2);
+}
+.food-portion[data-adjusted='true'] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}

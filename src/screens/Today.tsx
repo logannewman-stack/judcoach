@@ -1,30 +1,33 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Screen } from '../components/ios/Screen'
-import { Card, CoachNote, SectionHeader, StatTile } from '../components/Bits'
+import { Card, CoachNote, SectionHeader } from '../components/Bits'
 import { Icon } from '../components/Icon'
-import { Pill } from '../components/ios/Controls'
+import { Button, Pill } from '../components/ios/Controls'
 import { RingStack, MACRO_COLORS } from '../components/Rings'
 import { Sparkline } from '../components/Charts'
 import { useStore, emptyDay } from '../store/useStore'
 import { useCoach } from '../store/coach'
 import { CoachCard } from '../components/CoachCard'
 import {
-  blockSummary, currentWeekIndex, getWeek, isBlockComplete, missedSessions, nextSession,
-  sessionsThisWeek, trainingStreak, useProgram, weekSchedule,
+  blockSummary, currentWeekIndex, getWeek, isBlockComplete, logSetCount, missedSessions,
+  nextSession, sessionsThisWeek, trainingStreak, useProgram, weekSchedule, weekTonnage,
 } from '../store/selectors'
+import { topPrescribedSet } from './train/prescription'
 import { MEAL_PLAN } from '../data/mealPlan'
 import { useDayMode } from './meals/dayMode'
-import type { ExercisePrescription, Profile, Units, WorkoutLog } from '../domain/types'
+import type { Units, WorkoutLog } from '../domain/types'
+import type { ResolvedSet } from '../domain/strength'
 import { getExercise } from '../data/exercises'
 import { consumedTotals } from '../domain/nutrition'
-import { describeReps, formatRpe, resolveSet } from '../domain/strength'
+import { formatRpe } from '../domain/strength'
 import { rateVerdict, rollingSeries, summarizeTrend, weighInsInLast } from '../domain/weight'
-import { formatLongDate, relativeDay, timeOfDayGreeting, todayISO, addDays } from '../lib/date'
+import { formatLongDate, formatMinutes, relativeDay, timeOfDayGreeting, todayISO, addDays } from '../lib/date'
 import { compact, fixed, num, signed } from '../lib/format'
 import { navPresent, navPush, navSwitchTab, useNav } from '../nav/nav'
 import { NumberPad } from '../components/NumberPad'
 import { toast } from '../components/ios/Toast'
+import '../styles/today.css'
 
 export function TodayScreen() {
   const coachSeat = useCoach((s) => s.viewAs === 'coach')
@@ -69,6 +72,7 @@ export function TodayScreen() {
 
   const todaysLog = logs.find((l) => l.date === today)
   const isRestDay = next?.date !== today && !todaysLog
+  const firstName = profile.name.trim().split(' ')[0]
 
   return (
     <Screen
@@ -86,8 +90,9 @@ export function TodayScreen() {
         {/* ------------------------------ hero ----------------------------- */}
         <div>
           <div className="gutter" style={{ marginBottom: 10 }}>
-            <div className="t-footnote dim semibold" style={{ textTransform: 'uppercase', letterSpacing: 0.4 }}>
-              {timeOfDayGreeting()}, {profile.name.split(' ')[0]}
+            {/* A greeting with nobody to greet is not a greeting. */}
+            <div className="eyebrow">
+              {firstName ? `${timeOfDayGreeting()}, ${firstName}` : timeOfDayGreeting()}
             </div>
           </div>
           {blockDone ? (
@@ -103,7 +108,7 @@ export function TodayScreen() {
           ) : active ? (
             <ResumeCard />
           ) : todaysLog ? (
-            <CompletedCard name={todaysLog.sessionName} onPress={() => push('logDetail', { logId: todaysLog.id })} />
+            <CompletedCard log={todaysLog} onPress={() => push('logDetail', { logId: todaysLog.id })} />
           ) : next ? (
             <NextSessionCard
               date={next.date}
@@ -112,7 +117,10 @@ export function TodayScreen() {
               focus={next.session.focus}
               minutes={next.session.estMinutes}
               exercises={next.session.blocks.length}
-              mainLift={mainLiftSummary(next.session.blocks[0], profile)}
+              sets={next.session.blocks.reduce((n, b) => n + b.sets.length, 0)}
+              top={topPrescribedSet(next.session.blocks[0], profile)}
+              liftName={mainLiftName(next.session.blocks[0]?.exerciseId)}
+              units={profile.units}
               weekLabel={next.week.label}
               deload={next.week.deload}
               onStart={() => navPresent('runner', { weekIndex: next.week.index, sessionId: next.session.id })}
@@ -121,6 +129,43 @@ export function TodayScreen() {
             />
           ) : null}
         </div>
+
+        {/* ------------------------------ missed ---------------------------
+            Directly under the day's session, because an overdue workout is
+            part of the answer to "what am I doing today". */}
+        {missed.length > 0 && (
+          <div>
+            <SectionHeader title="Catch up" />
+            <Card>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span
+                  style={{
+                    width: 34, height: 34, borderRadius: 'var(--r-inset)', flex: 'none',
+                    background: 'color-mix(in srgb, var(--orange) 16%, transparent)',
+                    display: 'grid', placeItems: 'center',
+                  }}
+                >
+                  <Icon name="clock" size={19} color="var(--orange)" weight={2} />
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="t-headline">
+                    {missed.length} missed {missed.length === 1 ? 'session' : 'sessions'}
+                  </div>
+                  <div className="t-footnote dim truncate">
+                    {missed.slice(-2).map((m) => `${m.session.name} · ${relativeDay(m.date, today)}`).join(' · ')}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-tinted btn-sm"
+                  onClick={() => navPush('session', { weekIndex: missed[missed.length - 1]!.week.index, sessionId: missed[missed.length - 1]!.session.id })}
+                >
+                  View
+                </button>
+              </div>
+            </Card>
+          </div>
+        )}
 
         {/* ---------------------------- nutrition -------------------------- */}
         <div>
@@ -152,23 +197,22 @@ export function TodayScreen() {
                 ]}
               >
                 <div style={{ lineHeight: 1 }}>
-                  <div className="mono-nums bold" style={{ fontSize: 19, letterSpacing: -0.4 }}>
-                    {Math.round(totals.kcal)}
-                  </div>
-                  <div className="t-caption2 dim" style={{ marginTop: 2 }}>kcal</div>
+                  <div className="figure" style={{ fontSize: 21 }}>{Math.round(totals.kcal)}</div>
+                  <div className="eyebrow" style={{ marginTop: 4 }}>kcal</div>
                 </div>
               </RingStack>
-              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 9 }}>
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <MacroLine label="Protein" value={totals.protein} target={targets.protein} color={MACRO_COLORS.protein} />
                 <MacroLine label="Carbs" value={totals.carbs} target={targets.carbs} color={MACRO_COLORS.carbs} />
                 <MacroLine label="Fat" value={totals.fat} target={targets.fat} color={MACRO_COLORS.fat} />
+                {/* The figure is data; what it means is a sentence, and a
+                    sentence stays in SF. */}
                 <div
                   className="t-caption1"
-                  style={{ marginTop: 1, color: over > 0 ? 'var(--orange)' : 'var(--label-2)' }}
+                  style={{ marginTop: 1, color: over > 0 ? 'var(--orange-text)' : 'var(--label-2)' }}
                 >
-                  {over > 0
-                    ? `${Math.round(over)} kcal over target`
-                    : `${Math.round(-over)} kcal left today`}
+                  <span className="data">{Math.round(Math.abs(over))}</span>
+                  {' '}kcal {over > 0 ? 'over target' : 'left today'}
                 </div>
               </div>
             </div>
@@ -184,15 +228,15 @@ export function TodayScreen() {
           <Card onPress={() => navSwitchTab('weigh')}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="t-footnote dim">7-day average</div>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                  <span className="mono-nums" style={{ fontSize: 30, fontWeight: 700, letterSpacing: -0.7 }}>
+                <div className="eyebrow">7-day average</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 5 }}>
+                  <span className="figure" style={{ fontSize: 32 }}>
                     {trend ? fixed(trend.current, 1) : '—'}
                   </span>
-                  <span className="t-callout dim">{profile.units}</span>
+                  <span className="figure-unit" style={{ fontSize: 16 }}>{profile.units}</span>
                 </div>
                 {trend && (
-                  <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
                     {trend.reliable ? (
                       <Pill tone={rateTone(trend, profile.weeklyRateTarget)}>
                         {signed(trend.perWeek, 2)} {profile.units}/wk
@@ -233,73 +277,24 @@ export function TodayScreen() {
         {/* ------------------------------ this week ------------------------ */}
         <div>
           <SectionHeader title="This week" action={{ label: 'Programme', onPress: () => navSwitchTab('train') }} />
-          <div className="gutter" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-            <StatTile
-              label="Sessions"
-              value={`${weekProgress.done}/${weekProgress.total}`}
-              caption={week?.deload ? 'Deload week' : `Week ${weekIndex}`}
-              icon="dumbbell"
+          <Card>
+            <WeekCard
+              weekIndex={weekIndex}
+              label={week?.deload ? 'Deload' : week?.label.split(' — ')[1]}
+              done={weekProgress.done}
+              total={weekProgress.total}
+              streak={streak}
+              weighDays={weighDays}
+              startedOn={blockStartedOn}
+              units={profile.units}
             />
-            <StatTile
-              label="Streak"
-              value={streak}
-              caption={streak === 1 ? 'session' : 'sessions'}
-              icon="flame.fill"
-              tone={streak >= 3 ? 'var(--orange)' : undefined}
-            />
-            <StatTile
-              label="Weigh-ins"
-              value={`${weighDays}/7`}
-              caption="this week"
-              icon="scale"
-              tone={weighDays >= 5 ? 'var(--green)' : undefined}
-            />
-          </div>
-          <div className="gutter" style={{ marginTop: 10 }}>
-            <WeekStrip />
-          </div>
+          </Card>
+          {week && (
+            <div className="gutter" style={{ marginTop: 12 }}>
+              <CoachNote>{week.emphasis}</CoachNote>
+            </div>
+          )}
         </div>
-
-        {/* ----------------------------- coach note ------------------------ */}
-        {week && (
-          <div className="gutter">
-            <CoachNote>{week.emphasis}</CoachNote>
-          </div>
-        )}
-
-        {/* ------------------------------ missed --------------------------- */}
-        {missed.length > 0 && (
-          <div>
-            <SectionHeader title="Catch up" />
-            <Card>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span
-                  style={{
-                    width: 34, height: 34, borderRadius: 10, flex: 'none',
-                    background: 'rgba(255,149,0,0.16)', display: 'grid', placeItems: 'center',
-                  }}
-                >
-                  <Icon name="clock" size={19} color="var(--orange)" weight={2} />
-                </span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="t-headline">
-                    {missed.length} missed {missed.length === 1 ? 'session' : 'sessions'}
-                  </div>
-                  <div className="t-footnote dim truncate">
-                    {missed.slice(-2).map((m) => `${m.session.name} · ${relativeDay(m.date, today)}`).join(' · ')}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-tinted btn-sm"
-                  onClick={() => navPush('session', { weekIndex: missed[missed.length - 1]!.week.index, sessionId: missed[missed.length - 1]!.session.id })}
-                >
-                  View
-                </button>
-              </div>
-            </Card>
-          </div>
-        )}
 
         {/* ------------------------------- coach --------------------------- */}
         <div>
@@ -342,12 +337,9 @@ function MacroLine({ label, value, target, color }: { label: string; value: numb
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
         <span className="t-caption1 semibold dim">{label}</span>
-        <span
-          className="t-caption1 mono-nums semibold"
-          style={over ? { color: 'var(--orange)' } : undefined}
-        >
+        <span className="data" style={{ fontSize: 12, color: over ? 'var(--orange-text)' : undefined }}>
           {Math.round(value)}
-          <span className="dim" style={{ fontWeight: 400 }}>/{Math.round(target)}g</span>
+          <span className="plan-unit">/{Math.round(target)}g</span>
         </span>
       </div>
       <div className="track" style={{ height: 5, marginTop: 3 }}>
@@ -363,79 +355,90 @@ function MacroLine({ label, value, target, color }: { label: string; value: numb
   )
 }
 
-/** Shown once the block's last week is behind them, so the app doesn't simply
-    run out and pin every client on week eight forever. */
-function BlockCompleteCard({
-  program, logs, units, onStart,
+/**
+ * The day's session, in whichever state it is in.
+ *
+ * All four states share one shell: an eyebrow saying when, the session's name,
+ * the figures that describe it, and a single filled action. It leads the screen
+ * by being first and by being the only button on it — see DESIGN.md §4, and §7
+ * on what a gradient hero costs everything underneath it.
+ */
+function HeroShell({
+  eyebrow, tags, name, detail, children, facts, action, onPress,
 }: {
-  program: ReturnType<typeof useProgram>
-  logs: WorkoutLog[]
-  units: Units
-  onStart: () => void
+  eyebrow: string
+  tags?: React.ReactNode
+  name: string
+  detail?: string
+  children?: React.ReactNode
+  facts?: React.ReactNode
+  action: React.ReactNode
+  onPress?: () => void
 }) {
-  const summary = blockSummary(program, logs)
+  const body = (
+    <>
+      <div className="today-hero-head">
+        <span className="eyebrow">{eyebrow}</span>
+        <span className="spacer" />
+        {tags}
+      </div>
+      <h2 className="today-hero-name">{name}</h2>
+      {detail && <div className="t-subhead dim truncate" style={{ marginTop: 2 }}>{detail}</div>}
+      {children}
+      {facts && (
+        <div className="today-hero-facts">
+          <span className="data truncate">{facts}</span>
+          {onPress && <Icon name="chevron.right" size={15} weight={2.6} className="chev" />}
+        </div>
+      )}
+    </>
+  )
   return (
-    <div
-      className="card"
-      style={{
-        padding: 16,
-        background: 'linear-gradient(155deg, color-mix(in srgb, var(--green) 88%, #000) 0%, color-mix(in srgb, var(--teal) 82%, #000) 100%)',
-        color: '#fff',
-      }}
-    >
-      <div className="t-caption1 semibold" style={{ opacity: 0.86, textTransform: 'uppercase', letterSpacing: 0.4 }}>
-        Block complete
-      </div>
-      <div style={{ fontSize: 26, lineHeight: '31px', fontWeight: 700, letterSpacing: -0.5, marginTop: 2 }}>
-        {program.name}
-      </div>
-      <div className="t-subhead" style={{ opacity: 0.88, marginTop: 3 }}>
-        {summary.sessions} of {summary.scheduled} sessions · {summary.sets} working sets ·{' '}
-        {compact(summary.tonnage)} {units} moved
-      </div>
-      <button
-        type="button"
-        className="btn"
-        style={{ background: '#fff', color: 'var(--green)', marginTop: 14, minHeight: 46 }}
-        onClick={onStart}
-      >
-        Start the next block
-      </button>
-      <div className="t-caption1" style={{ opacity: 0.82, marginTop: 9 }}>
-        Update your working maxes in Settings first if you tested a new single.
-      </div>
+    <div className="today-hero">
+      {onPress ? (
+        <button type="button" className="today-hero-plan pressable" onClick={onPress}>{body}</button>
+      ) : (
+        <div className="today-hero-plan">{body}</div>
+      )}
+      <div className="today-hero-act">{action}</div>
     </div>
   )
 }
 
-/** The headline number for a session: its heaviest prescribed working set. */
-function mainLiftSummary(
-  block: ExercisePrescription | undefined,
-  profile: Profile,
-): string | undefined {
-  if (!block) return undefined
-  const exercise = getExercise(block.exerciseId)
-  if (!exercise) return undefined
-  const tm = profile.trainingMaxes[block.exerciseId]
-
-  const resolved = block.sets.map((set) => ({
-    set,
-    ...resolveSet(set, { trainingMax: tm, profile }),
-  }))
-  const heaviest = resolved.reduce((best, r) =>
-    (r.targetWeight ?? 0) > (best.targetWeight ?? 0) ? r : best,
+/** The heaviest prescribed set, set as the figure it is. */
+function TopSet({ top, liftName, units }: { top: ResolvedSet; liftName?: string; units: Units }) {
+  return (
+    <div className="today-top" data-rpe={top.rpe ?? ''}>
+      <span className="eyebrow today-top-label">
+        Top set{liftName ? ` · ${liftName}` : ''}
+      </span>
+      <span className="today-top-figure figure">
+        {top.targetWeight != null ? (
+          <>
+            {num(top.targetWeight, 1)}
+            <span className="figure-unit"> {units}</span>
+            <span className="today-top-x">×</span>
+            {top.repsLabel}
+          </>
+        ) : (
+          <>
+            {top.repsLabel}
+            <span className="figure-unit"> reps</span>
+          </>
+        )}
+      </span>
+      {top.rpe != null ? (
+        <span className="rpe-ink today-top-rpe">{formatRpe(top.rpe)}</span>
+      ) : (
+        <span className="today-top-rpe t-footnote dim">{top.loadLabel}</span>
+      )}
+    </div>
   )
-  const name = exercise.shortName ?? exercise.name
-  const reps = describeReps(heaviest.set)
-  if (!heaviest.targetWeight) {
-    return `${name} · ${block.sets.length} sets · ${heaviest.loadLabel}`
-  }
-  const rpe = heaviest.rpe != null ? ` @ ${formatRpe(heaviest.rpe)}` : ''
-  return `${name} · top ${num(heaviest.targetWeight, 1)} ${profile.units} × ${reps}${rpe}`
 }
 
 function NextSessionCard({
-  date, today, name, focus, minutes, exercises, mainLift, weekLabel, deload, onStart, onPreview, isRestDay,
+  date, today, name, focus, minutes, exercises, sets, top, liftName, units, weekLabel, deload,
+  onStart, onPreview, isRestDay,
 }: {
   date: string
   today: string
@@ -443,7 +446,10 @@ function NextSessionCard({
   focus: string
   minutes: number
   exercises: number
-  mainLift?: string
+  sets: number
+  top?: ResolvedSet
+  liftName?: string
+  units: Units
   weekLabel: string
   deload?: boolean
   onStart: () => void
@@ -451,107 +457,55 @@ function NextSessionCard({
   isRestDay: boolean
 }) {
   return (
-    <div
-      className="card"
-      style={{
-        padding: 0,
-        overflow: 'hidden',
-        background:
-          'linear-gradient(155deg, color-mix(in srgb, var(--accent) 92%, #000) 0%, color-mix(in srgb, var(--indigo) 88%, #000) 100%)',
-        color: '#fff',
-      }}
-    >
-      <button
-        type="button"
-        onClick={onPreview}
-        style={{ display: 'block', width: '100%', textAlign: 'left', padding: '15px 16px 4px', color: 'inherit' }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}>
-          <span
-            className="t-caption1 semibold"
-            style={{ background: 'rgba(255,255,255,0.2)', padding: '3px 8px', borderRadius: 99 }}
-          >
-            {isRestDay ? `Next · ${relativeDay(date, today)}` : 'Today'}
-          </span>
-          {deload && (
-            <span
-              className="t-caption1 semibold"
-              style={{ background: 'rgba(255,255,255,0.2)', padding: '3px 8px', borderRadius: 99 }}
-            >
-              Deload
-            </span>
-          )}
-          <span className="spacer" />
-          <span className="t-caption1" style={{ opacity: 0.72 }}>{weekLabel.split(' — ')[0]}</span>
-        </div>
-
-        <div style={{ fontSize: 27, lineHeight: '32px', fontWeight: 700, letterSpacing: -0.5 }}>{name}</div>
-        <div className="t-subhead" style={{ opacity: 0.8, marginTop: 2 }}>{focus}</div>
-
-        {mainLift && (
-          <div
-            style={{
-              marginTop: 12,
-              padding: '9px 11px',
-              borderRadius: 10,
-              background: 'rgba(255,255,255,0.14)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 7,
-            }}
-          >
-            <Icon name="bolt.fill" size={14} color="#fff" />
-            <span className="t-footnote semibold mono-nums truncate">{mainLift}</span>
-          </div>
-        )}
-
-        <div style={{ display: 'flex', gap: 14, marginTop: 12, opacity: 0.82 }}>
-          <span className="t-footnote" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <Icon name="clock" size={13} weight={2.2} /> ~{minutes} min
-          </span>
-          <span className="t-footnote" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <Icon name="list" size={13} weight={2.2} /> {exercises} exercises
-          </span>
-        </div>
-      </button>
-
-      <div style={{ padding: '12px 16px 15px' }}>
-        <button
-          type="button"
-          onClick={onStart}
-          className="btn"
-          style={{ background: '#fff', color: 'var(--accent)', minHeight: 48 }}
-        >
-          <Icon name="play.fill" size={17} />
+    <HeroShell
+      eyebrow={isRestDay ? `Next · ${relativeDay(date, today)}` : 'Today'}
+      tags={
+        <>
+          {isRestDay && <Pill>Rest day</Pill>}
+          {deload && <Pill tone="tinted">Deload</Pill>}
+          <span className="eyebrow">{weekLabel.split(' — ')[0]}</span>
+        </>
+      }
+      name={name}
+      detail={focus}
+      facts={`~${minutes} min · ${exercises} exercises · ${sets} sets`}
+      onPress={onPreview}
+      action={
+        <Button icon="play.fill" onPress={onStart}>
           {isRestDay ? 'Start early' : 'Start workout'}
-        </button>
-      </div>
-    </div>
+        </Button>
+      }
+    >
+      {top && <TopSet top={top} liftName={liftName} units={units} />}
+    </HeroShell>
   )
 }
 
-function CompletedCard({ name, onPress }: { name: string; onPress: () => void }) {
+function CompletedCard({ log, onPress }: { log: WorkoutLog; onPress: () => void }) {
+  const worked = [
+    log.durationSec ? formatMinutes(log.durationSec) : null,
+    `${logSetCount(log)} sets`,
+  ].filter(Boolean).join(' · ')
   return (
-    <Card onPress={onPress}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
-        <span
-          style={{
-            width: 46, height: 46, borderRadius: 14, flex: 'none',
-            background: 'rgba(52,199,89,0.16)', display: 'grid', placeItems: 'center',
-          }}
-        >
-          <Icon name="check" size={24} weight={2.6} color="var(--green)" />
-        </span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="t-caption1 semibold" style={{ color: 'var(--green)', textTransform: 'uppercase', letterSpacing: 0.4 }}>
-            Session complete
-          </div>
-          <div className="t-title3" style={{ marginTop: 1 }}>{name}</div>
-          <div className="t-footnote dim">Tap to review your sets</div>
-        </div>
-        <Icon name="chevron.right" size={15} weight={2.6} color="var(--label-3)" />
-      </div>
-    </Card>
+    <HeroShell
+      eyebrow="Session complete"
+      tags={<Icon name="check.circle.fill" size={19} color="var(--green)" />}
+      name={log.sessionName}
+      facts={
+        <>
+          {worked}
+          {log.sessionRpe != null && (
+            <> · <span className="rpe-ink" data-rpe={log.sessionRpe}>{formatRpe(log.sessionRpe)}</span></>
+          )}
+        </>
+      }
+      onPress={onPress}
+      action={
+        <Button variant="tinted" icon="list" onPress={onPress}>
+          Review your sets
+        </Button>
+      }
+    />
   )
 }
 
@@ -565,97 +519,155 @@ function ResumeCard() {
   const total = found?.blocks.reduce((n, b) => n + b.sets.length, 0) ?? 0
 
   return (
-    <div
-      className="card"
-      style={{ padding: 16, background: 'var(--accent)', color: '#fff' }}
-    >
-      <div className="t-caption1 semibold" style={{ opacity: 0.85, textTransform: 'uppercase', letterSpacing: 0.4 }}>
-        Workout in progress
+    <HeroShell
+      eyebrow="Workout in progress"
+      name={found?.name ?? 'Session'}
+      facts={`${done}/${total} sets logged`}
+      action={
+        <Button
+          icon="play.fill"
+          onPress={() => navPresent('runner', { weekIndex: active.weekIndex, sessionId: active.sessionId })}
+        >
+          Resume
+        </Button>
+      }
+    />
+  )
+}
+
+/** Shown once the block's last week is behind them, so the app doesn't simply
+    run out and pin every client on week eight forever. */
+function BlockCompleteCard({
+  program, logs, units, onStart,
+}: {
+  program: ReturnType<typeof useProgram>
+  logs: WorkoutLog[]
+  units: Units
+  onStart: () => void
+}) {
+  const summary = blockSummary(program, logs)
+  return (
+    <HeroShell
+      eyebrow="Block complete"
+      tags={<Icon name="check.circle.fill" size={19} color="var(--green)" />}
+      name={program.name}
+      facts={`${summary.sessions}/${summary.scheduled} sessions · ${summary.sets} sets · ${compact(summary.tonnage)} ${units}`}
+      action={
+        <>
+          <Button onPress={onStart}>Start the next block</Button>
+          <div className="t-caption1 dim" style={{ marginTop: 9 }}>
+            Update your working maxes in Settings first if you tested a new single.
+          </div>
+        </>
+      }
+    />
+  )
+}
+
+/**
+ * The training week as one object: which days carry a session and how they
+ * went, then the three counts that describe it.
+ *
+ * These used to be a row of tiles above the strip, which said "2 of 4" twice
+ * and left the week itself as an afterthought at the bottom of the group.
+ */
+function WeekCard({
+  weekIndex, label, done, total, streak, weighDays, startedOn, units,
+}: {
+  weekIndex: number
+  label?: string
+  done: number
+  total: number
+  streak: number
+  weighDays: number
+  startedOn?: string
+  units: Units
+}) {
+  const today = todayISO()
+  const program = useProgram()
+  const logs = useStore((s) => s.logs)
+  const schedule = weekSchedule(program, weekIndex, logs)
+  const weekStart = addDays(program.startDate, (weekIndex - 1) * 7)
+  const tonnage = weekTonnage(logs, weekStart, addDays(weekStart, 6))
+  const LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+
+  return (
+    <>
+      <div className="today-week-head">
+        <span className="eyebrow">Week {weekIndex}{label ? ` · ${label}` : ''}</span>
+        <span className="spacer" />
+        <span className="data" style={{ fontSize: 13 }}>
+          {done}/{total}<span className="plan-unit"> done</span>
+        </span>
       </div>
-      <div style={{ fontSize: 25, lineHeight: '30px', fontWeight: 700, letterSpacing: -0.5, marginTop: 2 }}>
-        {found?.name ?? 'Session'}
+
+      <div className="today-week-days">
+        {LETTERS.map((letter, i) => {
+          const date = addDays(weekStart, i)
+          const entry = schedule.find((s) => s.date === date)
+          const isToday = date === today
+          // A session scheduled before the client's first day was never theirs
+          // to miss — a Thursday sign-up should not open on two red Mondays.
+          const missed = entry && !entry.log && date < today && (!startedOn || date >= startedOn)
+          const state = !entry ? 'rest'
+            : entry.log ? 'done'
+            : isToday ? 'today'
+            : missed ? 'missed'
+            : 'due'
+          return (
+            <button
+              key={i}
+              type="button"
+              className="today-day"
+              data-state={state}
+              disabled={!entry}
+              aria-label={
+                entry
+                  ? `${entry.session.name}, ${relativeDay(date, today)} — ${
+                      state === 'done' ? 'completed' : state === 'missed' ? 'missed' : 'scheduled'
+                    }`
+                  : `${relativeDay(date, today)} — rest day`
+              }
+              onClick={() => entry && navPush('session', { weekIndex, sessionId: entry.session.id })}
+            >
+              <span className="eyebrow today-day-wd" aria-hidden="true">{letter}</span>
+              <span className="data today-day-num" aria-hidden="true">
+                {Number(date.slice(8))}
+              </span>
+              <span className="today-day-mark" aria-hidden="true" />
+            </button>
+          )
+        })}
       </div>
-      <div className="t-subhead" style={{ opacity: 0.85, marginTop: 2 }}>
-        {done} of {total} sets logged
+
+      {/* Three counts the strip above cannot show. It said how many sessions
+          are done twice over when this row led with that as well. */}
+      <div className="today-week-stats">
+        <WeekStat value={streak} label="Streak" />
+        <WeekStat
+          value={<>{compact(tonnage)}<span className="plan-unit"> {units}</span></>}
+          label="Moved"
+        />
+        <WeekStat value={`${weighDays}/7`} label="Weigh-ins" tone={weighDays >= 5 ? 'var(--green-text)' : undefined} />
       </div>
-      <button
-        type="button"
-        className="btn"
-        style={{ background: '#fff', color: 'var(--accent)', marginTop: 14, minHeight: 46 }}
-        onClick={() => navPresent('runner', { weekIndex: active.weekIndex, sessionId: active.sessionId })}
-      >
-        <Icon name="play.fill" size={16} />
-        Resume
-      </button>
+    </>
+  )
+}
+
+function WeekStat({ value, label, tone }: { value: React.ReactNode; label: string; tone?: string }) {
+  return (
+    <div className="today-stat">
+      <span className="data today-stat-value truncate" style={tone ? { color: tone } : undefined}>{value}</span>
+      <span className="eyebrow today-stat-label truncate">{label}</span>
     </div>
   )
 }
 
-/** Mon–Sun strip showing which sessions are done, due, or rest days. */
-function WeekStrip() {
-  const today = todayISO()
-  const program = useProgram()
-  const logs = useStore((s) => s.logs)
-  const weekIndex = currentWeekIndex(program, today)
-  const schedule = weekSchedule(program, weekIndex, logs)
-  const weekStart = addDays(program.startDate, (weekIndex - 1) * 7)
-  const LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
-
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6 }}>
-      {LETTERS.map((letter, i) => {
-        const date = addDays(weekStart, i)
-        const entry = schedule.find((s) => s.date === date)
-        const isToday = date === today
-        const done = !!entry?.log
-        const missedIt = entry && !done && date < today
-        return (
-          <button
-            key={i}
-            type="button"
-            disabled={!entry}
-            onClick={() =>
-              entry && navPush('session', { weekIndex, sessionId: entry.session.id })
-            }
-            style={{
-              borderRadius: 11,
-              padding: '8px 2px 7px',
-              background: done ? 'var(--accent)' : entry ? 'var(--grouped-2)' : 'transparent',
-              border: isToday ? '1.5px solid var(--accent)' : '1.5px solid transparent',
-              // A rest day is information, not decoration. Dimming it three ways
-              // over — tertiary label, then 0.55 on the cell, then 0.7 on the
-              // letter — put the weekday at 1.7:1, well under anything iOS ships.
-              // The fill and the dot already say which days carry a session.
-              color: done ? '#fff' : entry ? 'var(--label)' : 'var(--label-2)',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 3,
-            }}
-          >
-            <span
-              className="t-caption2 semibold"
-              style={{ opacity: done || entry ? 0.72 : 1 }}
-            >
-              {letter}
-            </span>
-            {done ? (
-              <Icon name="check" size={13} weight={3} color="#fff" />
-            ) : entry ? (
-              <span
-                style={{
-                  width: 7, height: 7, borderRadius: '50%',
-                  background: missedIt ? 'var(--orange)' : 'var(--accent)',
-                }}
-              />
-            ) : (
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--label-4)' }} />
-            )}
-          </button>
-        )
-      })}
-    </div>
-  )
+/** The short name of a session's main lift, for the top-set label. */
+function mainLiftName(exerciseId?: string): string | undefined {
+  if (!exerciseId) return undefined
+  const exercise = getExercise(exerciseId)
+  return exercise?.shortName ?? exercise?.name
 }
 
 /**
