@@ -99,12 +99,16 @@ export function Measurements() {
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
                 <div>
                   <div className="eyebrow">{meta.label}</div>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 3 }}>
-                    <span className="figure" style={{ fontSize: 34 }}>
-                      {latest ? num(latest.y, 1) : '—'}
-                    </span>
-                    <span className="figure-unit" style={{ fontSize: 16 }}>{lengthUnit(units)}</span>
-                  </div>
+                  {/* A 34px em dash beside a live unit reads as a reading that
+                      was taken and withheld. A site nobody has put a tape round
+                      has no figure at all, so it gets none — the line below
+                      says what is missing and the hint says how to take it. */}
+                  {latest && (
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 3 }}>
+                      <span className="figure" style={{ fontSize: 34 }}>{num(latest.y, 1)}</span>
+                      <span className="figure-unit" style={{ fontSize: 16 }}>{lengthUnit(units)}</span>
+                    </div>
+                  )}
                 </div>
                 {first && latest && first !== latest && (
                   <div style={{ textAlign: 'right' }}>
@@ -133,9 +137,9 @@ export function Measurements() {
                 </div>
               ) : (
                 // An empty chart says nothing; say what's missing instead.
-                <div className="t-subhead dim" style={{ marginTop: 8 }}>
+                <div className="t-subhead dim" style={{ marginTop: latest ? 8 : 4 }}>
                   {series.length === 0
-                    ? 'Nothing recorded here yet — add it next time you take the tape out.'
+                    ? `No ${meta.label.toLowerCase()} reading on file — add it next time you take the tape out and it starts its own line.`
                     : 'One reading so far. The line appears the second time you take it.'}
                 </div>
               )}
@@ -165,7 +169,12 @@ export function Measurements() {
                     }
                     value={
                       <span className="data">
-                        {SITES.filter((s) => entry[s.key] != null)
+                        {/* The site being charted above leads, so a row in the
+                            Thigh view is about thighs. Three values is what a
+                            393pt row holds; ordering by the list's own order
+                            meant the Thigh view listed waist, chest and arm. */}
+                        {[...SITES.filter((s) => s.key === site), ...SITES.filter((s) => s.key !== site)]
+                          .filter((s) => entry[s.key] != null)
                           .slice(0, 3)
                           .map((s, i) => (
                             <span key={s.key}>

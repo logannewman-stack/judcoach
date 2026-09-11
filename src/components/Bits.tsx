@@ -115,12 +115,17 @@ export function StatTile({
         )}
         {label}
       </span>
+      {/* A tile read aloud is "THIS WEEK 25,295 lb moved" — the label and the
+          number run into one phrase. The commas are the pause the layout gives a
+          sighted reader. */}
+      <span className="sr-only">, </span>
       <span
         className="data truncate"
-        style={{ color: toneColor, fontSize: 20, lineHeight: '23px', fontWeight: 700, marginTop: 'auto' }}
+        style={{ color: toneColor, fontSize: 'calc(20 * var(--pt))', lineHeight: 1.15, fontWeight: 700, marginTop: 'auto' }}
       >
         {value}
       </span>
+      {caption && <span className="sr-only">, </span>}
       {caption && <span className="t-caption1 dim truncate">{caption}</span>}
     </Tag>
   )

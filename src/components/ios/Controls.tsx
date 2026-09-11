@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { CSSProperties, ReactNode } from 'react'
+import type { CSSProperties, KeyboardEvent, ReactNode } from 'react'
 import { motion } from 'framer-motion'
 import { Icon } from '../Icon'
 import type { IconName } from '../Icon'
@@ -42,8 +42,41 @@ export function Segmented<T extends string>({
     return () => ro.disconnect()
   }, [index, options.length])
 
+  /* One of these, not several: picking a segment is choosing between options,
+     which `aria-pressed` cannot say — it reports each segment as separately
+     on or off, and a reader hears no "1 of 4" and no sense that the others are
+     the alternatives. A radio group says all of it.
+
+     Which also fixes the keyboard: a group of buttons costs one Tab per option
+     and gives the arrow keys nothing to do. A radio group is one stop, and the
+     arrows move the choice — which is how UIKit's own control behaves, and how
+     anyone who has used a segmented control anywhere expects it to. */
+  const move = (delta: number) => {
+    const next = options[(index + delta + options.length) % options.length]
+    if (!next || next.value === value) return
+    haptic('selection')
+    onChange(next.value)
+    // Focus follows selection, as it must in a roving-tabindex group.
+    requestAnimationFrame(() => {
+      ref.current?.querySelectorAll<HTMLElement>('.segment')[options.indexOf(next)]?.focus()
+    })
+  }
+
+  const onKeyDown = (e: KeyboardEvent) => {
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key]
+    if (step) {
+      e.preventDefault()
+      move(step)
+      return
+    }
+    if (e.key === 'Home' || e.key === 'End') {
+      e.preventDefault()
+      move((e.key === 'Home' ? 0 : options.length - 1) - index)
+    }
+  }
+
   return (
-    <div className="segmented" ref={ref} style={style} role="group" aria-label={label}>
+    <div className="segmented" ref={ref} style={style} role="radiogroup" aria-label={label}>
       {thumb && (
         <motion.div
           className="segmented-thumb"
@@ -57,9 +90,14 @@ export function Segmented<T extends string>({
         <button
           key={o.value}
           type="button"
-          aria-pressed={o.value === value}
+          role="radio"
+          aria-checked={o.value === value}
+          // `index` falls back to the first option, so a control whose value
+          // matches nothing is still reachable rather than skipped entirely.
+          tabIndex={options.indexOf(o) === index ? 0 : -1}
           className="segment"
           data-active={o.value === value}
+          onKeyDown={onKeyDown}
           onClick={() => {
             if (o.value !== value) haptic('selection')
             onChange(o.value)
@@ -110,6 +148,7 @@ export function Stepper({
   min = -Infinity,
   max = Infinity,
   format,
+  label,
 }: {
   value: number
   onChange: (v: number) => void
@@ -117,6 +156,8 @@ export function Stepper({
   min?: number
   max?: number
   format?: (v: number) => string
+  /** What is being stepped, so the two halves are not just "Decrease". */
+  label?: string
 }) {
   const held = useRef<number | null>(null)
   const repeated = useRef(false)
@@ -154,10 +195,25 @@ export function Stepper({
     onChange(clamp(value + delta, min, max))
   }
 
+  /* UIStepper is one accessibility element that announces its value every time
+     it changes. Two anonymous buttons and a span that nothing points at are not
+     that: a reader heard "Decrease, button", pressed it, and was told nothing
+     about what had happened or to what. */
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+    <div
+      style={{ display: 'flex', alignItems: 'center', gap: 10 }}
+      role="group"
+      aria-label={label}
+    >
       {format && (
-        <span className="t-body data" style={{ minWidth: 62, textAlign: 'right' }}>
+        <span
+          className="t-body data"
+          style={{ minWidth: 62, textAlign: 'right' }}
+          // Polite and atomic: a held button ramps to sixty steps a second, and
+          // what the client needs is the number it came to rest on, once.
+          aria-live="polite"
+          aria-atomic="true"
+        >
           {format(value)}
         </span>
       )}
@@ -175,7 +231,7 @@ export function Stepper({
         <button
           type="button"
           className="hit-expand"
-          aria-label="Decrease"
+          aria-label={label ? `Decrease ${label}` : 'Decrease'}
           disabled={value <= min}
           onClick={() => bump(-step)}
           onPointerDown={() => startRepeat(-step)}
@@ -189,7 +245,7 @@ export function Stepper({
         <button
           type="button"
           className="hit-expand"
-          aria-label="Increase"
+          aria-label={label ? `Increase ${label}` : 'Increase'}
           disabled={value >= max}
           onClick={() => bump(step)}
           onPointerDown={() => startRepeat(step)}

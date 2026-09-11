@@ -17,9 +17,10 @@ import {
 import { topPrescribedSet } from './train/prescription'
 import { MEAL_PLAN } from '../data/mealPlan'
 import { useDayMode } from './meals/dayMode'
-import type { Units, WorkoutLog } from '../domain/types'
+import type { Profile, Units, WorkoutLog } from '../domain/types'
 import type { ResolvedSet } from '../domain/strength'
-import { getExercise } from '../data/exercises'
+import { MAIN_LIFTS, getExercise } from '../data/exercises'
+import { SEED_PROFILE } from '../data/seed'
 import { consumedTotals } from '../domain/nutrition'
 import { formatRpe } from '../domain/strength'
 import { rateVerdict, rollingSeries, summarizeTrend, weighInsInLast } from '../domain/weight'
@@ -75,6 +76,12 @@ export function TodayScreen() {
   const isRestDay = next?.date !== today && !todaysLog
   const firstName = profile.name.trim().split(' ')[0]
 
+  // Nothing in a percentage-based block has a weight until these do, which is
+  // why they outrank "Start workout" on a client's first morning.
+  const maxesSet = MAIN_LIFTS.filter((l) => (profile.trainingMaxes[l.id] ?? 0) > 0).length
+  const needsMaxes = maxesSet < MAIN_LIFTS.length
+  const demo = isSampleClient(profile, logs)
+
   return (
     <Screen
       title="Today"
@@ -90,12 +97,7 @@ export function TodayScreen() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
         {/* ------------------------------ hero ----------------------------- */}
         <div>
-          <div className="gutter" style={{ marginBottom: 10 }}>
-            {/* A greeting with nobody to greet is not a greeting. */}
-            <div className="eyebrow">
-              {firstName ? `${timeOfDayGreeting()}, ${firstName}` : timeOfDayGreeting()}
-            </div>
-          </div>
+          <Lede name={firstName} demo={demo} />
           {blockDone ? (
             <BlockCompleteCard
               program={program}
@@ -126,7 +128,11 @@ export function TodayScreen() {
               deload={next.week.deload}
               onStart={() => navPresent('runner', { weekIndex: next.week.index, sessionId: next.session.id })}
               onPreview={() => push('session', { weekIndex: next.week.index, sessionId: next.session.id })}
+              onSetMaxes={() => push('trainingMaxes')}
               isRestDay={isRestDay}
+              maxesSet={maxesSet}
+              maxesTotal={MAIN_LIFTS.length}
+              needsMaxes={needsMaxes}
             />
           ) : null}
         </div>
@@ -198,7 +204,7 @@ export function TodayScreen() {
                 ]}
               >
                 <div style={{ lineHeight: 1 }}>
-                  <div className="figure" style={{ fontSize: 21 }}>{Math.round(totals.kcal)}</div>
+                  <div className="figure" style={{ fontSize: 'calc(21 * var(--pt))' }}>{Math.round(totals.kcal)}</div>
                   <div className="eyebrow" style={{ marginTop: 4 }}>kcal</div>
                 </div>
               </RingStack>
@@ -227,16 +233,21 @@ export function TodayScreen() {
             action={{ label: loggedToday ? 'History' : 'Weigh in', onPress: () => navSwitchTab('weigh') }}
           />
           <Card onPress={() => navSwitchTab('weigh')}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="eyebrow">7-day average</div>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 5 }}>
-                  <span className="figure" style={{ fontSize: 32 }}>
-                    {trend ? fixed(trend.current, 1) : '—'}
-                  </span>
-                  <span className="figure-unit" style={{ fontSize: 16 }}>{profile.units}</span>
-                </div>
-                {trend && (
+            {trend ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {/* An average names the days it is an average of. Calling one
+                      morning a seven-day average is a small lie that the pill
+                      underneath then has to talk the client back out of. */}
+                  <div className="eyebrow">
+                    {weighDays >= 7 ? '7-day average'
+                      : weighDays > 0 ? `Average · ${weighDays} of 7 days`
+                      : 'Last average'}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 5 }}>
+                    <span className="figure" style={{ fontSize: 'calc(32 * var(--pt))' }}>{fixed(trend.current, 1)}</span>
+                    <span className="figure-unit" style={{ fontSize: 'calc(16 * var(--pt))' }}>{profile.units}</span>
+                  </div>
                   <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
                     {trend.reliable ? (
                       <Pill tone={rateTone(trend, profile.weeklyRateTarget)}>
@@ -245,17 +256,34 @@ export function TodayScreen() {
                     ) : (
                       <Pill>Trend builds over a week</Pill>
                     )}
-                    <Pill>Goal {num(profile.goalWeight, 0)}</Pill>
+                    {profile.goalWeight > 0 && <Pill>Goal {num(profile.goalWeight, 0)}</Pill>}
                   </div>
+                </div>
+                {/* A sparkline of one point is an empty 92pt hole beside the
+                    figure, not a chart. */}
+                {series.length > 1 && (
+                  <Sparkline
+                    values={series.map((p) => p.avg)}
+                    width={92}
+                    height={44}
+                    color={trend.perWeek >= 0 ? 'var(--green)' : 'var(--accent)'}
+                  />
                 )}
               </div>
-              <Sparkline
-                values={series.map((p) => p.avg)}
-                width={92}
-                height={44}
-                color={trend && trend.perWeek >= 0 ? 'var(--green)' : 'var(--accent)'}
-              />
-            </div>
+            ) : (
+              /* No weigh-ins at all. A 32px em dash where the figure goes reads
+                 as a redaction; say what is missing and what makes it appear. */
+              <div>
+                {/* No eyebrow: the section header two lines up already says
+                    Bodyweight, and labelling a figure that is not there is what
+                    put an em dash under "7-day average" in the first place. */}
+                <div className="t-headline">Nothing on the scale yet</div>
+                <div className="t-footnote dim" style={{ marginTop: 3, lineHeight: 1.384615 }}>
+                  Weigh in each morning. Jud reads the seven-day average, so one
+                  reading on its own never moves anything.
+                </div>
+              </div>
+            )}
           </Card>
           {!loggedToday && (
             <div className="gutter" style={{ marginTop: 10 }}>
@@ -269,7 +297,7 @@ export function TodayScreen() {
                 }}
               >
                 <Icon name="plus" size={15} weight={2.6} />
-                Log this morning's weigh-in
+                {weighIns.length === 0 ? 'Log your first weigh-in' : "Log this morning's weigh-in"}
               </button>
             </div>
           )}
@@ -329,6 +357,56 @@ export function TodayScreen() {
 
 /* ------------------------------ sub-components --------------------------- */
 
+/**
+ * The line above the hero: who this is, or whose data this is.
+ *
+ * A greeting with nobody to greet is not a greeting — "GOOD MORNING" over an
+ * empty name reads as a string that lost its argument — so on a nameless client
+ * nothing renders and the day's session simply sits under the date.
+ *
+ * The sample client gets the slot instead. Somebody who tapped "look around"
+ * ten minutes ago is one weigh-in away from writing their own morning into
+ * Alex's eight weeks, and the only thing standing between them is knowing.
+ */
+function Lede({ name, demo }: { name: string; demo: boolean }) {
+  if (demo) {
+    return (
+      <div className="gutter today-lede">
+        <span className="eyebrow">Sample data · {SEED_PROFILE.name}</span>
+        <button
+          type="button"
+          className="t-subhead tint semibold hit-expand"
+          /* Back to the welcome flow rather than straight into a wipe: the
+             choice between the demo and their own setup is made there, and
+             this is the same door, reopened. */
+          onClick={() => useStore.setState({ onboarded: false })}
+        >
+          Set up mine
+        </button>
+      </div>
+    )
+  }
+  if (!name) return null
+  return (
+    <div className="gutter" style={{ marginBottom: 10 }}>
+      <div className="eyebrow">{timeOfDayGreeting()}, {name}</div>
+    </div>
+  )
+}
+
+/**
+ * True while the app is still holding the sample client rather than this one.
+ *
+ * Derived, because nothing records it: the demo is exactly the seeded profile,
+ * and once a client has renamed it and weighed in as themselves it is theirs.
+ * A `demo` flag written by `resetToSeed` would say it outright, and should.
+ */
+function isSampleClient(profile: Profile, logs: WorkoutLog[]): boolean {
+  return logs.length > 0
+    && profile.name === SEED_PROFILE.name
+    && profile.startWeight === SEED_PROFILE.startWeight
+}
+
 function MacroLine({ label, value, target, color }: { label: string; value: number; target: number; color: string }) {
   const pct = target > 0 ? Math.min((value / target) * 100, 100) : 0
   // Past the target the bar fills and the number turns, so an overshoot reads
@@ -338,7 +416,7 @@ function MacroLine({ label, value, target, color }: { label: string; value: numb
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
         <span className="t-caption1 semibold dim">{label}</span>
-        <span className="data" style={{ fontSize: 12, color: over ? 'var(--orange-text)' : undefined }}>
+        <span className="data" style={{ fontSize: 'calc(12 * var(--pt))', color: over ? 'var(--orange-text)' : undefined }}>
           {Math.round(value)}
           <span className="plan-unit">/{Math.round(target)}g</span>
         </span>
@@ -406,8 +484,17 @@ function HeroShell({
   )
 }
 
-/** The heaviest prescribed set, set as the figure it is. */
+/**
+ * The heaviest prescribed set, set as the figure it is.
+ *
+ * A percentage-based block has no weights until the working maxes are in, and
+ * dropping the load out of the line leaves "5 reps · RPE 7" reading as the
+ * whole prescription — the single most important number on the screen, simply
+ * absent. The percentage is the half that is true either way, so it takes the
+ * figure's place and the line underneath names what it is a share of.
+ */
 function TopSet({ top, liftName, units }: { top: ResolvedSet; liftName?: string; units: Units }) {
+  const pending = top.targetWeight == null && top.percent != null
   return (
     <div className="today-top" data-rpe={top.rpe ?? ''}>
       <span className="eyebrow today-top-label">
@@ -418,6 +505,13 @@ function TopSet({ top, liftName, units }: { top: ResolvedSet; liftName?: string;
           <>
             {num(top.targetWeight, 1)}
             <span className="figure-unit"> {units}</span>
+            <span className="today-top-x">×</span>
+            {top.repsLabel}
+          </>
+        ) : pending ? (
+          <>
+            {num(top.percent!, 1)}
+            <span className="figure-unit">%</span>
             <span className="today-top-x">×</span>
             {top.repsLabel}
           </>
@@ -433,13 +527,18 @@ function TopSet({ top, liftName, units }: { top: ResolvedSet; liftName?: string;
       ) : (
         <span className="today-top-rpe t-footnote dim">{top.loadLabel}</span>
       )}
+      {pending && (
+        <span className="today-top-pending t-caption1">
+          of your {liftName ?? 'working'} max, which has no number on it yet
+        </span>
+      )}
     </div>
   )
 }
 
 function NextSessionCard({
   date, today, name, focus, minutes, exercises, sets, top, liftName, units, weekLabel, deload,
-  onStart, onPreview, isRestDay,
+  onStart, onPreview, onSetMaxes, isRestDay, maxesSet, maxesTotal, needsMaxes,
 }: {
   date: string
   today: string
@@ -455,7 +554,11 @@ function NextSessionCard({
   deload?: boolean
   onStart: () => void
   onPreview: () => void
+  onSetMaxes: () => void
   isRestDay: boolean
+  maxesSet: number
+  maxesTotal: number
+  needsMaxes: boolean
 }) {
   return (
     <HeroShell
@@ -472,9 +575,25 @@ function NextSessionCard({
       facts={`~${minutes} min · ${exercises} exercises · ${sets} sets`}
       onPress={onPreview}
       action={
-        <Button icon="play.fill" onPress={onStart}>
-          {isRestDay ? 'Start early' : 'Start workout'}
-        </Button>
+        /* The first morning's action is not "Start workout". Without the maxes
+           every target in the runner is a dash, so the button that leads the
+           screen is the one that puts weights on the block — DESIGN.md §4. The
+           workout stays reachable underneath, because refusing to let someone
+           train is not honesty. */
+        needsMaxes ? (
+          <>
+            <Button icon="chart.bar" onPress={onSetMaxes}>Set your working maxes</Button>
+            <p className="today-hero-why t-caption1">
+              <span className="data">{maxesSet}</span> of <span className="data">{maxesTotal}</span>
+              {' '}on file. Every weight in this block is a share of them.
+            </p>
+            <Button variant="plain" onPress={onStart}>Start workout anyway</Button>
+          </>
+        ) : (
+          <Button icon="play.fill" onPress={onStart}>
+            {isRestDay ? 'Start early' : 'Start workout'}
+          </Button>
+        )
       }
     >
       {top && <TopSet top={top} liftName={liftName} units={units} />}
@@ -597,7 +716,7 @@ function WeekCard({
       <div className="today-week-head">
         <span className="eyebrow">Week {weekIndex}{label ? ` · ${label}` : ''}</span>
         <span className="spacer" />
-        <span className="data" style={{ fontSize: 13 }}>
+        <span className="data" style={{ fontSize: 'calc(13 * var(--pt))' }}>
           {done}/{total}<span className="plan-unit"> done</span>
         </span>
       </div>
@@ -609,11 +728,15 @@ function WeekCard({
           const isToday = date === today
           // A session scheduled before the client's first day was never theirs
           // to miss — a Thursday sign-up should not open on two red Mondays.
-          const missed = entry && !entry.log && date < today && (!startedOn || date >= startedOn)
+          // Nor was it ever due: week one of a client who started on Friday has
+          // four days that belong to nobody, and painting them the accent's
+          // "due" blue invents three sessions they were never offered.
+          const before = !!startedOn && date < startedOn
           const state = !entry ? 'rest'
             : entry.log ? 'done'
             : isToday ? 'today'
-            : missed ? 'missed'
+            : before ? 'before'
+            : date < today ? 'missed'
             : 'due'
           return (
             <button
@@ -625,7 +748,10 @@ function WeekCard({
               aria-label={
                 entry
                   ? `${entry.session.name}, ${relativeDay(date, today)} — ${
-                      state === 'done' ? 'completed' : state === 'missed' ? 'missed' : 'scheduled'
+                      state === 'done' ? 'completed'
+                        : state === 'missed' ? 'missed'
+                        : state === 'before' ? 'before you started'
+                        : 'scheduled'
                     }`
                   : `${relativeDay(date, today)} — rest day`
               }
@@ -642,22 +768,39 @@ function WeekCard({
       </div>
 
       {/* Three counts the strip above cannot show. It said how many sessions
-          are done twice over when this row led with that as well. */}
+          are done twice over when this row led with that as well.
+
+          In week zero all three are honestly zero, and three full-weight zeros
+          read as an emphatic nothing. They keep their place and step back a
+          tone until there is something to report. */}
       <div className="today-week-stats">
-        <WeekStat value={streak} label="Streak" />
+        <WeekStat value={streak} label="Streak" zero={streak === 0} />
         <WeekStat
           value={<>{compact(tonnage)}<span className="plan-unit"> {units}</span></>}
           label="Moved"
+          zero={tonnage === 0}
         />
-        <WeekStat value={`${weighDays}/7`} label="Weigh-ins" tone={weighDays >= 5 ? 'var(--green-text)' : undefined} />
+        <WeekStat
+          value={`${weighDays}/7`}
+          label="Weigh-ins"
+          zero={weighDays === 0}
+          tone={weighDays >= 5 ? 'var(--green-text)' : undefined}
+        />
       </div>
     </>
   )
 }
 
-function WeekStat({ value, label, tone }: { value: ReactNode; label: string; tone?: string }) {
+function WeekStat({
+  value, label, tone, zero,
+}: {
+  value: ReactNode
+  label: string
+  tone?: string
+  zero?: boolean
+}) {
   return (
-    <div className="today-stat">
+    <div className="today-stat" data-zero={zero ? 'true' : undefined}>
       <span className="data today-stat-value truncate" style={tone ? { color: tone } : undefined}>{value}</span>
       <span className="eyebrow today-stat-label truncate">{label}</span>
     </div>

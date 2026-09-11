@@ -83,6 +83,37 @@
   background: var(--macro);
 }
 
+/* ----------------------------- baseline shot ------------------------------
+   The first photograph in a pose, before there is a second to hold it against.
+   Sits beside its own caption rather than alone in a two-column grid, because
+   what it needs is not another column of photographs — it is a sentence saying
+   what it is for.
+   ------------------------------------------------------------------------ */
+
+.baseline-shot {
+  display: grid;
+  grid-template-columns: minmax(0, 0.44fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.baseline-frame {
+  display: block;
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--r-card);
+  overflow: hidden;
+  background: var(--fill-4);
+}
+.baseline-frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 /* ------------------------------- day strip --------------------------------
    A fortnight of dates. The numeral is data, the weekday letter is the label
    above it, and the dot says the day has food logged against it.

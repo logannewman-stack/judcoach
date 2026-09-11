@@ -1,0 +1,75 @@
+/* ============================================================================
+   First run — the surfaces the welcome screen needs.
+
+   The rest of the flow's chrome (the step shell, its fields, the dots) lives in
+   base.css next to the other app-wide shapes. Everything here belongs to the
+   one screen a client sees before the app has any of their numbers, so it is
+   kept with the screen that renders it.
+
+   No colour is declared: every value is a token. Press states key off
+   `data-pressed`, never `:active` — see lib/press.ts.
+   ========================================================================== */
+
+/* The welcome page scrolls like every other step rather than distributing a
+   short column down a tall screen: on a small phone the asks below have to be
+   reachable, and on a large one an inch of air between a wordmark and a
+   paragraph is not composition. */
+.onboarding-welcome .welcome-body {
+  gap: 28px;
+  padding-top: calc(var(--nav-h) - 8px);
+}
+
+/* Top-left, not centred. DESIGN.md §7 rules out centred body text, and a mark
+   floating in the middle of an empty screen is the app introducing itself by
+   saying nothing. */
+.onboarding-welcome .onboarding-hero {
+  flex: none;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 18px;
+  padding: 0;
+}
+
+.onboarding-welcome .welcome-blurb {
+  margin-top: -4px;
+  max-width: 34em;
+}
+
+.welcome-asks { display: flex; flex-direction: column; gap: 8px; }
+
+/* An ordered list of questions, so it is marked up as one. */
+.welcome-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.welcome-list .onboarding-list-row { padding: 11px 14px; align-items: center; }
+
+/* The step's number. A numeral is data, so it takes the data face — and it is
+   the same object as the counter each step carries in its eyebrow. */
+.welcome-step {
+  width: 22px;
+  flex: none;
+  text-align: center;
+  font-size: calc(15 * var(--pt));
+  line-height: 1.333333;
+  color: var(--accent);
+}
+
+.welcome-note { margin-top: 2px; }
+
+/* The line under the demo button. Tighter than the foot's own rhythm, because
+   it belongs to the button above it rather than to the page. */
+.onboarding-foot .welcome-demo-note {
+  margin: 2px 2px 0;
+  text-align: left;
+}
+
+/* The calculator's answer, aligned like every other tile in the app: the label
+   above, the figure below, both starting at the same edge. Centring is right
+   for a figure on its own and wrong the moment the panel has to say a sentence
+   instead — and DESIGN.md §7 rules centred body text out either way. */
+.onboarding-result {
+  text-align: left;
+  align-items: flex-start;
+}

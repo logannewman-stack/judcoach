@@ -26,11 +26,17 @@ export function ListSection({
         // A group's header is a label above data, which is what the eyebrow role
         // is for. `plainHeader` is the exception: a sentence-case heading is
         // language, so it stays in SF.
+        //
+        // It is also an <h2>, as SectionHeader's is: a section header is how a
+        // reader using the heading rotor finds the part of the screen they want,
+        // and a screen made entirely of groups had nothing for them to land on
+        // between the title and the last row. The accessory stays outside the
+        // heading — it is a control, not part of the name.
         <div
           className={plainHeader ? 'list-header plain' : 'list-header eyebrow'}
           style={headerAccessory ? { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 } : undefined}
         >
-          <span>{header}</span>
+          <h2 style={HEADER_TEXT}>{header}</h2>
           {headerAccessory}
         </div>
       )}
@@ -39,6 +45,9 @@ export function ListSection({
     </section>
   )
 }
+
+/** The heading carries no type of its own — `.list-header` already set it. */
+const HEADER_TEXT: CSSProperties = { font: 'inherit', letterSpacing: 'inherit', color: 'inherit' }
 
 /** The row's own left padding and the gap it puts between leading and text. */
 const ROW_GUTTER = 16
@@ -105,11 +114,18 @@ export function Row({
       {leading}
       <span className="row-body">
         <span className="row-title" style={color ? { color } : undefined}>{title}</span>
+        {/* Read aloud, a row is one string: "Appearance Match iPhone",
+            "Programme Block 3 · Strength + Size · week 5 of 8". UIKit puts a
+            comma between a cell's label and its detail so the two land as two
+            facts with a beat between them; nothing on the web does that for us,
+            so the comma is real text that is never drawn. */}
+        {subtitle && <span className="sr-only">, </span>}
         {subtitle && <span className="row-sub">{subtitle}</span>}
       </span>
       {/* 63 weigh-ins, 315 lb, 8 weeks: a row's value is usually a number, and a
           number is set in the data face. A value that reads as language — a
           name, "Match iPhone" — stays in SF. */}
+      {value != null && <span className="sr-only">, </span>}
       {value != null && (
         <span className={readsAsFigure(value) ? 'row-value data' : 'row-value'}>{value}</span>
       )}

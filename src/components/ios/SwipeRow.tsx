@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
+import type { KeyboardEvent, ReactNode } from 'react'
 import { motion, useMotionValue, useTransform } from 'framer-motion'
 import { Icon } from '../Icon'
 import type { IconName } from '../Icon'
@@ -10,9 +10,16 @@ import { cancelPress } from '../../lib/press'
    Swipe-to-reveal list row.
 
    Drag left to expose the actions; keep dragging past the far threshold and the
-   last action fires straight away, the way Mail deletes a message. Everything
-   stays reachable without the gesture — the row's own onPress still works, and
-   each action is a real button for keyboard and screen-reader users.
+   last action fires straight away, the way Mail deletes a message.
+
+   Nothing here is reachable by the gesture alone. The tray's buttons are out of
+   the tab order and hidden from the reader while it is shut — a tab stop on
+   something that is not on screen is worse than no tab stop — so the keyboard
+   gets the same two moves the finger has: ArrowLeft opens the tray and lands on
+   the first action, ArrowRight or Escape shuts it and hands focus back to the
+   row. A call site is still expected to offer the action somewhere permanent as
+   well, the way Mail keeps Delete in the message itself: a swipe is a shortcut,
+   and a shortcut is not a route.
    ========================================================================== */
 
 export interface SwipeAction {
@@ -50,6 +57,8 @@ export function SwipeRow({
   const trayOpacity = useTransform(x, [-8, -28], [0, 1])
   const from = useRef<{ x: number; y: number } | null>(null)
   const armed = useRef(false)
+  const root = useRef<HTMLDivElement>(null)
+  const tray = useRef<HTMLDivElement>(null)
   // Only a destructive action at the end of the tray is what a full swipe
   // commits to, the way Mail's delete is.
   const last = actions[actions.length - 1]
@@ -61,6 +70,45 @@ export function SwipeRow({
     }
   }, [openId, id, open])
 
+  /* Shutting the tray takes its buttons out of the tab order, so if focus was on
+     one it would be left on an element nothing can reach — which drops the
+     keyboard back to the top of the document. Hand it to the row instead.
+
+     `restore` is off when an action has fired, because the action's whole job is
+     often to delete the row the focus would be handed to. */
+  const shut = (restore = true) => {
+    const insideTray = tray.current?.contains(document.activeElement) ?? false
+    setOpen(false)
+    onOpenChange?.(null)
+    if (!restore || !insideTray) return
+    root.current
+      ?.querySelector<HTMLElement>('.swipe-row-sled button, .swipe-row-sled [href]')
+      ?.focus()
+  }
+
+  const reveal = () => {
+    setOpen(true)
+    onOpenChange?.(id ?? null)
+    // After the state lands, so the button it focuses is in the tab order.
+    requestAnimationFrame(() => tray.current?.querySelector<HTMLElement>('button')?.focus())
+  }
+
+  const onKeyDown = (e: KeyboardEvent) => {
+    // A control inside the row that handles its own arrows — a segmented
+    // control, a slider — has already said so.
+    if (e.defaultPrevented || actions.length === 0) return
+    if (e.key === 'ArrowLeft' && !open) {
+      e.preventDefault()
+      reveal()
+    } else if ((e.key === 'ArrowRight' || e.key === 'Escape') && open) {
+      e.preventDefault()
+      // The tray is the innermost thing open, so this press belongs to it: a
+      // sheet holding the row must not also close on the same Escape.
+      e.stopPropagation()
+      shut()
+    }
+  }
+
   const commit = () => {
     if (!fullSwipe) return
     // No haptic: the swipe already tapped back when it armed, and one event
@@ -71,10 +119,11 @@ export function SwipeRow({
   }
 
   return (
-    <div className="swipe-row">
+    <div className="swipe-row" ref={root} onKeyDown={onKeyDown}>
       {/* The tray carries the last action's colour so pulling past the actions
           stretches that colour, rather than opening a gap of bare row. */}
       <motion.div
+        ref={tray}
         className="swipe-row-tray"
         style={{
           opacity: trayOpacity,
@@ -89,8 +138,7 @@ export function SwipeRow({
             className={`swipe-row-action${action.destructive ? ' destructive' : ''}`}
             tabIndex={open ? 0 : -1}
             onClick={() => {
-              setOpen(false)
-              onOpenChange?.(null)
+              shut(false)
               action.onPress()
             }}
             style={{ width: ACTION_W }}

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Screen } from '../../components/ios/Screen'
 import { Card, SectionHeader } from '../../components/Bits'
-import { Segmented } from '../../components/ios/Controls'
+import { Button, Segmented } from '../../components/ios/Controls'
 import { RPE_DESCRIPTIONS } from '../../components/NumberPad'
 import { useStore } from '../../store/useStore'
 import { MAIN_LIFTS, exerciseShortName } from '../../data/exercises'
@@ -15,16 +15,19 @@ const RPES = ['10', '9.5', '9', '8.5', '8', '7.5', '7', '6.5', '6']
 
 export function RpeGuide() {
   const pop = useNav((s) => s.pop)
+  const push = useNav((s) => s.push)
   const profile = useStore((s) => s.profile)
   const [mode, setMode] = useState<'percent' | 'weight'>('percent')
   const [liftId, setLiftId] = useState(MAIN_LIFTS[0]!.id)
   const tm = profile.trainingMaxes[liftId] ?? 0
+  // Without a working max every one of the eighty-one cells is an em dash, and
+  // a grid of dashes under a heading that promises pounds is the app pretending
+  // to have done arithmetic it could not do.
+  const priced = mode === 'weight' && tm > 0
+  const liftName = MAIN_LIFTS.find((l) => l.id === liftId)?.name.toLowerCase() ?? 'lift'
 
   const cell = (rpe: string, reps: number) => {
-    const row = RPE_CHART[rpe]!
-    const idx = reps - 1
-    const pct = row[idx]
-    if (pct == null) return '—'
+    const pct = RPE_CHART[rpe]![reps - 1]!
     if (mode === 'percent') return `${num(pct, 1)}`
     return num(roundToIncrement(loadFor(tm, reps, Number(rpe)), profile.roundingIncrement), 0)
   }
@@ -89,38 +92,56 @@ export function RpeGuide() {
             )}
           </div>
 
-          <div className="card" style={{ padding: '10px 0 0' }}>
-            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-              <table className="rpe-table">
-                <thead>
-                  <tr>
-                    <th className="eyebrow rpe-table-corner" scope="col">RPE</th>
-                    {REPS.map((r) => (
-                      <th key={r} scope="col">{r}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {RPES.map((rpe) => (
-                    <tr key={rpe}>
-                      {/* The row is found by its colour rather than by counting
-                          down from the top — the same colour the set chip that
-                          sent you here was wearing. */}
-                      <th className="rpe-table-row-head" scope="row" data-rpe={rpe}>{rpe}</th>
+          {mode === 'weight' && !priced ? (
+            <Card>
+              <div className="t-subhead" style={{ lineHeight: '21px', color: 'var(--label-2)' }}>
+                <span className="semibold" style={{ color: 'var(--label)' }}>
+                  No working max on file for the {liftName}.
+                </span>{' '}
+                Every load in this chart is a percentage of one, so there is nothing to price the
+                rows in yet. Set it and the whole grid turns into pounds on the bar — the same
+                numbers the runner will put in front of you.
+              </div>
+              <div style={{ marginTop: 14 }}>
+                <Button variant="tinted" icon="target" onPress={() => push('trainingMaxes')}>
+                  Set your working maxes
+                </Button>
+              </div>
+            </Card>
+          ) : (
+            <div className="card" style={{ padding: '10px 0 0' }}>
+              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                <table className="rpe-table">
+                  <thead>
+                    <tr>
+                      <th className="eyebrow rpe-table-corner" scope="col">RPE</th>
                       {REPS.map((r) => (
-                        <td key={r}>{mode === 'weight' && tm === 0 ? '—' : cell(rpe, r)}</td>
+                        <th key={r} scope="col">{r}</th>
                       ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {RPES.map((rpe) => (
+                      <tr key={rpe}>
+                        {/* The row is found by its colour rather than by counting
+                            down from the top — the same colour the set chip that
+                            sent you here was wearing. */}
+                        <th className="rpe-table-row-head" scope="row" data-rpe={rpe}>{rpe}</th>
+                        {REPS.map((r) => (
+                          <td key={r}>{cell(rpe, r)}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="t-caption1 dim" style={{ padding: '10px 14px 12px' }}>
+                Columns are reps. {mode === 'percent'
+                  ? 'Values are percentages of a true one-rep max.'
+                  : `Values use your ${liftName} working max of ${num(tm, 0)} ${profile.units}.`}
+              </div>
             </div>
-            <div className="t-caption1 dim" style={{ padding: '10px 14px 12px' }}>
-              Columns are reps. {mode === 'percent'
-                ? 'Values are percentages of a true one-rep max.'
-                : `Values use your ${MAIN_LIFTS.find((l) => l.id === liftId)?.name.toLowerCase()} working max of ${num(tm, 0)} ${profile.units}.`}
-            </div>
-          </div>
+          )}
         </div>
 
         <div className="gutter">

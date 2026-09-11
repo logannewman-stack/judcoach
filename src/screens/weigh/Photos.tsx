@@ -124,6 +124,20 @@ export function Photos() {
           />
         )}
 
+        {/* One shot is not half a comparison, it is a baseline — so it is shown
+            as one, beside a line saying what it is for, rather than as a lone
+            thumbnail in a two-column archive with nothing next to it. */}
+        {!pair && now && (
+          <BaselineShot
+            photo={now}
+            weight={weightOn(now.date)}
+            units={units}
+            decimals={decimals}
+            onOpen={() => setViewing(now.id)}
+            onOptions={() => setSelected(now.id)}
+          />
+        )}
+
         {filtered.length === 0 ? (
           <EmptyState
             icon="photo"
@@ -135,7 +149,7 @@ export function Photos() {
               </Button>
             }
           />
-        ) : (
+        ) : filtered.length === 1 ? null : (
           <div>
             {/* Only a heading when there is a pair above it to be told apart
                 from — one photo needs no archive section. */}
@@ -265,6 +279,78 @@ export function Photos() {
 }
 
 /**
+ * The first shot in a pose: a baseline, not half a comparison.
+ *
+ * A single photograph in a two-column archive grid reads as a gallery with one
+ * thing in it. What it actually is, is the measurement everything after it gets
+ * read against — so it is named, stamped with the weight it was taken at, and
+ * told what turns it into a comparison.
+ */
+function BaselineShot({
+  photo, weight, units, decimals, onOpen, onOptions,
+}: {
+  photo: ProgressPhoto
+  weight: number | null
+  units: Units
+  decimals: number
+  onOpen: () => void
+  onOptions: () => void
+}) {
+  return (
+    <div>
+      <SectionHeader title="Where you're starting" />
+      <div className="gutter">
+        <div className="baseline-shot">
+          <div style={{ position: 'relative', minWidth: 0 }}>
+            <button
+              type="button"
+              className="baseline-frame pressable"
+              onClick={onOpen}
+              aria-label={`View ${photo.pose} photo from ${formatMediumDate(photo.date)}`}
+            >
+              <img src={photo.dataUrl} alt="" />
+            </button>
+            {/* Sibling, never nested: a button inside a button is invalid, and
+                only a real button answers to both Enter and Space. */}
+            <button
+              type="button"
+              aria-label={`Options for ${photo.pose} photo from ${formatMediumDate(photo.date)}`}
+              className="hit-expand"
+              onClick={onOptions}
+              style={{
+                position: 'absolute', top: 6, right: 6,
+                width: 28, height: 28, borderRadius: '50%',
+                background: 'var(--shot-scrim)',
+                display: 'grid', placeItems: 'center',
+              }}
+            >
+              <Icon name="ellipsis" size={16} color="#fff" />
+            </button>
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div className="eyebrow">First {photo.pose} shot</div>
+            <div className="data compare-date" style={{ fontSize: 15, marginTop: 3 }}>
+              {formatMediumDate(photo.date)}
+            </div>
+            {weight != null ? (
+              <div className="data compare-weight" style={{ fontSize: 13 }}>
+                at {fixed(weight, decimals)}<span className="data-unit"> {units}</span>
+              </div>
+            ) : (
+              <div className="t-caption1 dim">no weigh-in that week</div>
+            )}
+            <div className="t-footnote dim" style={{ marginTop: 9, lineHeight: '18px' }}>
+              Nothing to hold it against yet. Take the next one about four weeks out — closer than
+              that and you will see the light change before you see anything else.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/**
  * Two shots side by side with the weight each was taken at. A grid of thumbnails
  * is an archive; this is the only view that answers the question anyone opens
  * the screen to ask.
@@ -303,21 +389,33 @@ function ComparePair({
         {/* The answer the screen exists to give. Uncoloured, like the tape's:
             the app cannot know whether a client was paid to gain or to lose,
             and the two shots above are the verdict anyway. */}
-        <div className="compare-delta">
-          {was != null && is != null && (
-            // Same decimals as the two weights above it: `signed` trims a
-            // trailing zero, so a 3.0 lb gain came out "+3" under a pair of
-            // numbers both carrying a decimal.
+        {was != null && is != null ? (
+          <div className="compare-delta">
+            {/* Same decimals as the two weights above it: `signed` trims a
+                trailing zero, so a 3.0 lb gain came out "+3" under a pair of
+                numbers both carrying a decimal. */}
             <span className="figure" style={{ fontSize: 26 }}>
               {is - was > 0 ? '+' : is - was < 0 ? '−' : ''}
               {fixed(Math.abs(is - was), decimals)}
               <span className="figure-unit" style={{ fontSize: 15 }}> {units}</span>
             </span>
-          )}
-          <span className="eyebrow">
-            over {weeks} {weeks === 1 ? 'week' : 'weeks'}
-          </span>
-        </div>
+            <span className="eyebrow">
+              over {weeks} {weeks === 1 ? 'week' : 'weeks'}
+            </span>
+          </div>
+        ) : (
+          // Dropping the figure on its own left the span of time captioning
+          // nothing — an eyebrow is a label, and a label needs something to
+          // label. Say why the number is missing instead.
+          <div className="compare-delta" style={{ display: 'block' }}>
+            <span className="eyebrow">over {weeks} {weeks === 1 ? 'week' : 'weeks'}</span>
+            <div className="t-footnote dim" style={{ marginTop: 2, lineHeight: '18px' }}>
+              No weigh-in within a few days of{' '}
+              {was == null && is == null ? 'either shot' : was == null ? 'the older shot' : 'the newer shot'},
+              so there is no weight to put on the change. The photographs are the comparison anyway.
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

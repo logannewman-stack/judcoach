@@ -11,7 +11,7 @@ import {
   currentWeekIndex, getWeek, logSetCount, useProgram, weekSchedule, sessionsThisWeek,
 } from '../../store/selectors'
 import type { Profile, Program, SessionTemplate, WorkoutLog } from '../../domain/types'
-import { EXERCISES, getExercise } from '../../data/exercises'
+import { EXERCISES, MAIN_LIFTS, getExercise } from '../../data/exercises'
 import { formatMinutes, formatShortDate, todayISO, weekdayShortFromDow } from '../../lib/date'
 import { num, pluralize } from '../../lib/format'
 import { navPresent, useNav } from '../../nav/nav'
@@ -51,6 +51,11 @@ export function TrainHome() {
     ? schedule.find((s) => s.date === today && !s.log)
     : undefined
 
+  // Until these exist the block is a page of percentages, so they outrank
+  // "Start workout" here for the same reason they do on Today.
+  const maxesSet = MAIN_LIFTS.filter((l) => (profile.trainingMaxes[l.id] ?? 0) > 0).length
+  const needsMaxes = maxesSet < MAIN_LIFTS.length
+
   return (
     <Screen
       title="Train"
@@ -88,7 +93,27 @@ export function TrainHome() {
         )}
 
         {/* --------------------------- primary action ------------------------- */}
-        {dueToday && (
+        {needsMaxes ? (
+          <div className="gutter" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <Button icon="chart.bar" onPress={() => push('trainingMaxes')}>
+              Set your working maxes
+            </Button>
+            <p className="t-caption1 dim" style={{ margin: '5px 0 1px' }}>
+              <span className="data">{maxesSet}</span> of{' '}
+              <span className="data">{MAIN_LIFTS.length}</span> on file. Every load below is a
+              share of them, which is why the sessions read in percentages.
+            </p>
+            {dueToday && (
+              <Button
+                variant="plain"
+                onPress={() => navPresent('runner', { weekIndex, sessionId: dueToday.session.id })}
+                style={{ fontSize: 'calc(15 * var(--pt))' }}
+              >
+                Start workout anyway
+              </Button>
+            )}
+          </div>
+        ) : dueToday ? (
           <div className="gutter">
             <Button
               icon="play.fill"
@@ -97,7 +122,7 @@ export function TrainHome() {
               Start workout
             </Button>
           </div>
-        )}
+        ) : null}
 
         {/* ------------------------------ sessions ---------------------------- */}
         <ListSection header="Sessions" style={flushSection}>
@@ -124,7 +149,7 @@ export function TrainHome() {
                     <span className="eyebrow" style={{ display: 'block', color: 'inherit' }}>
                       {weekdayShortFromDow(session.weekday)}
                     </span>
-                    <span className="data" style={{ display: 'block', fontSize: 17, lineHeight: '21px' }}>
+                    <span className="data" style={{ display: 'block', fontSize: 'calc(17 * var(--pt))', lineHeight: 1.235294 }}>
                       {formatShortDate(date).split(' ')[1]}
                     </span>
                   </span>
@@ -189,6 +214,7 @@ export function TrainHome() {
           <Row
             title="Working maxes"
             subtitle="Drives every percentage in the block"
+            value={<span className="data">{maxesSet}/{MAIN_LIFTS.length}</span>}
             icon="chart.bar"
             iconColor="var(--blue)"
             chevron
@@ -198,7 +224,7 @@ export function TrainHome() {
 
         <div className="gutter">
           <Card>
-            <div className="t-footnote dim" style={{ lineHeight: '18px' }}>
+            <div className="t-footnote dim" style={{ lineHeight: 1.384615 }}>
               <span className="semibold" style={{ color: 'var(--label)' }}>Goal: </span>
               {program.goal}
             </div>
@@ -338,7 +364,10 @@ function PlannedLine({ session, profile }: { session: SessionTemplate; profile: 
       <span className="data">
         {top.targetWeight != null
           ? <>{num(top.targetWeight, 1)}<span className="plan-unit"> {profile.units} ×</span> {top.repsLabel}</>
-          : <>{top.repsLabel}<span className="plan-unit"> × {top.loadLabel}</span></>}
+          /* Load first either way. Reps-then-load read as "5 sets of 78.6%" and
+             put the two halves of the same prescription in opposite orders on
+             the same screen depending on whether a max happened to exist. */
+          : <>{top.loadLabel}<span className="plan-unit"> ×</span> {top.repsLabel}</>}
       </span>
       {top.rpe != null && (
         <span className="rpe-ink" data-rpe={top.rpe} style={{ marginLeft: 6 }}>@{num(top.rpe, 1)}</span>

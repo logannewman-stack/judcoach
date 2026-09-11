@@ -4,7 +4,7 @@ import { Screen } from '../../components/ios/Screen'
 import { ListSection, Row } from '../../components/ios/List'
 import { Card, EmptyState, SectionHeader } from '../../components/Bits'
 import { Icon } from '../../components/Icon'
-import { Segmented } from '../../components/ios/Controls'
+import { Button, Segmented } from '../../components/ios/Controls'
 import { BarChart } from '../../components/Charts'
 import { flushSection } from './parts'
 import { useStore } from '../../store/useStore'
@@ -189,6 +189,9 @@ export function History() {
     return weeks
   }, [logs, today])
 
+  const trainedThisWeek = Object.keys(weeklyVolume).length > 0
+  const weeksTrained = lastFourWeeks.filter((w) => w.sets > 0).length
+
   const totals = useMemo(() => {
     const rated = logs.filter((l) => l.sessionRpe != null)
     return {
@@ -239,7 +242,11 @@ export function History() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
         {tab === 'sessions' ? (
           sorted.length === 0 ? (
-            <EmptyState icon="calendar" title="No workouts logged" message="Finish a session and it lands here." />
+            <EmptyState
+              icon="calendar"
+              title="Nothing logged yet"
+              message="Finish a session and it is written here — every set, with what it cost you. This is the page Jud reads before he changes anything."
+            />
           ) : (
             months.map((month) => (
               <ListSection key={month.key} header={month.label} style={flushSection}>
@@ -279,31 +286,57 @@ export function History() {
               </ListSection>
             ))
           )
+        ) : logs.length === 0 ? (
+          // A chart drawn over nothing is a white rectangle, and two of them
+          // under headings that promise a dashed line and a deload dip is the
+          // app claiming to have measured something. Say what the tab counts
+          // and what it is counted against instead.
+          <EmptyState
+            icon="chart.bar"
+            title="Nothing to count yet"
+            message="Volume here is hard sets per muscle group, per week. Jud's floor is ten on each — the bars start drawing themselves from your first logged session."
+          />
         ) : (
           <>
             <ListSection
               header="Hard sets this week"
-              footer="Dashed line marks ten hard sets — the weekly floor Jud aims for on each muscle group. Secondary involvement counts as half a set."
+              footer={
+                trainedThisWeek
+                  ? 'Dashed line marks ten hard sets — the weekly floor Jud aims for on each muscle group. Secondary involvement counts as half a set.'
+                  : 'Ten hard sets per muscle group is the weekly floor. The week resets on Monday, so this one is still all to play for.'
+              }
               style={flushSection}
             >
-              <div style={{ padding: 16 }}>
-                <BarChart
-                  bars={Object.entries(weeklyVolume)
-                    .sort((a, b) => b[1] - a[1])
-                    .slice(0, 8)
-                    .map(([muscle, sets]) => ({
-                      label: (MUSCLE_LABELS[muscle] ?? muscle).slice(0, 5),
-                      value: Math.round(sets),
-                      target: 10,
-                    }))}
-                  height={170}
-                />
-              </div>
+              {trainedThisWeek ? (
+                <div style={{ padding: 16 }}>
+                  <BarChart
+                    bars={Object.entries(weeklyVolume)
+                      .sort((a, b) => b[1] - a[1])
+                      .slice(0, 8)
+                      .map(([muscle, sets]) => ({
+                        label: (MUSCLE_LABELS[muscle] ?? muscle).slice(0, 5),
+                        value: Math.round(sets),
+                        target: 10,
+                      }))}
+                    height={170}
+                  />
+                </div>
+              ) : (
+                <div className="t-subhead dim" style={{ padding: '14px 16px' }}>
+                  Nothing logged this week yet — no muscle group is above zero.
+                </div>
+              )}
             </ListSection>
 
             <ListSection
               header="Last four weeks"
-              footer="Working sets per week. A deload should visibly dip — if it doesn't, you didn't deload."
+              footer={
+                // A four-bar chart of which three are a client's first week has
+                // no deload in it to look for.
+                weeksTrained > 1
+                  ? "Working sets per week. A deload should visibly dip — if it doesn't, you didn't deload."
+                  : 'Working sets per week. A fourth bar beside this one is what makes the number mean anything.'
+              }
             >
               <div style={{ padding: 16 }}>
                 <BarChart
@@ -434,8 +467,13 @@ export function LogDetail({ logId, focus }: { logId: string; focus?: string }) {
               )
             })}
           </div>
+          {/* Only where there is one to explain. On a first session every
+              movement is new, and a footnote about dated lines that aren't on
+              the page is a caption for a thing that isn't there. */}
           <div className="list-footer">
-            A dated line under a movement is the best set you hit last time.
+            {previous.size > 0
+              ? 'A dated line under a movement is the best set you hit last time.'
+              : 'First time through these. The next session on them prints last time’s best set under each, on the same columns.'}
           </div>
         </div>
 
@@ -490,22 +528,35 @@ export function PersonalRecordsScreen() {
     undefined,
   )
 
+  // Nothing tested and no maxes on file is the only state in which this screen
+  // has no number of any kind, and the one thing worth doing about it.
+  const maxesSet = MAIN_LIFTS.filter((l) => (profile.trainingMaxes[l.id] ?? 0) > 0).length
+
   return (
     <Screen
       title="Records"
       back={{ onPress: pop }}
       titleAccessory={
-        latest ? (
-          <div className="gutter" style={{ marginTop: -6, marginBottom: 18 }}>
-            <div className="t-subhead dim" style={{ lineHeight: '21px' }}>
-              Your last record: {exerciseName(latest.exerciseId)},{' '}
-              <span className="data" style={{ color: 'var(--label)' }}>
-                {num(latest.hasEstimate ? latest.e1rm : latest.topWeight, 0)} {profile.units}
-              </span>
-              , {relativeDay(latest.date, today).toLowerCase()}.
-            </div>
+        <div className="gutter" style={{ marginTop: -6, marginBottom: 18 }}>
+          <div className="t-subhead dim" style={{ lineHeight: '21px' }}>
+            {latest ? (
+              <>
+                Your last record: {exerciseName(latest.exerciseId)},{' '}
+                <span className="data" style={{ color: 'var(--label)' }}>
+                  {num(latest.hasEstimate ? latest.e1rm : latest.topWeight, 0)} {profile.units}
+                </span>
+                , {relativeDay(latest.date, today).toLowerCase()}.
+              </>
+            ) : maxesSet > 0 ? (
+              // The board is not blank in this state — it is holding the
+              // working maxes — so the line above it says what they are and
+              // what turns one into a record.
+              'Nothing tested yet. The board is holding your working maxes until a hard set beats one.'
+            ) : (
+              'Nothing on the board yet. Records here are worked back from sets you log, never from a max you claim.'
+            )}
           </div>
-        ) : undefined
+        </div>
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
@@ -517,6 +568,7 @@ export function PersonalRecordsScreen() {
                 key={lift.id}
                 name={exerciseShortName(lift.id)}
                 pr={byId.get(lift.id)}
+                trainingMax={profile.trainingMaxes[lift.id]}
                 units={profile.units}
                 onPress={() => push('exerciseDetail', { exerciseId: lift.id })}
               />
@@ -532,10 +584,21 @@ export function PersonalRecordsScreen() {
             )}
           </div>
           <div className="list-footer">
-            {records.length === 0
-              ? 'A heavy set on any of these writes its number, worked back from the load, reps and RPE you log.'
-              : 'Estimated maxes come from the RPE chart, not a tested single.'}
+            {records.length > 0
+              ? 'Estimated maxes come from the RPE chart, not a tested single.'
+              : maxesSet > 0
+                ? 'A hard set on any of these writes a real number in its place, worked back from the load, reps and RPE you log.'
+                : 'A working max is what the bar gets loaded from. Set the four and the board has somewhere to start.'}
           </div>
+          {/* The one screen in the app that can be completely empty of its own
+              subject, so it carries the action that ends that. */}
+          {records.length === 0 && maxesSet === 0 && (
+            <div className="gutter" style={{ marginTop: 12 }}>
+              <Button variant="tinted" icon="target" onPress={() => push('trainingMaxes')}>
+                Set your working maxes
+              </Button>
+            </div>
+          )}
         </div>
 
         {estimated.length > 0 && (
@@ -595,20 +658,45 @@ function RecordSource({ pr, load = true }: { pr: PersonalRecord; load?: boolean 
 }
 
 function BoardCell({
-  name, pr, units, onPress,
+  name, pr, trainingMax, units, onPress,
 }: {
   name: string
   pr?: PersonalRecord
+  /** What the bar is loaded from until a set writes a real record. */
+  trainingMax?: number
   units: string
   onPress: () => void
 }) {
   if (!pr) {
+    // A 27px em dash is a redaction, not a gap: it is the only mark in the
+    // cell, it is the weight of a figure, and it says the number was withheld.
+    // The working max is the honest number that does exist here — it is what
+    // every prescribed set on this lift is calculated from — so it holds the
+    // slot, at label weight so it can never be mistaken for a record. With no
+    // max either, the slot stays open and the cell says only what it knows.
     return (
-      <div className="board-cell">
+      <button
+        type="button"
+        className="board-cell pressable"
+        data-open={trainingMax ? undefined : 'true'}
+        onClick={onPress}
+        aria-label={
+          trainingMax
+            ? `${name}, no record yet, working max ${num(trainingMax, 0)} ${units}`
+            : `${name}, nothing logged yet`
+        }
+      >
         <span className="eyebrow">{name}</span>
-        <span className="figure board-figure empty">—</span>
-        <span className="board-source">Not logged yet</span>
-      </div>
+        {trainingMax ? (
+          <span className="figure board-figure pending">
+            {num(trainingMax, 0)}
+            <span className="ledger-unit"> {units}</span>
+          </span>
+        ) : null}
+        <span className="board-source">
+          {trainingMax ? 'Working max · not tested' : 'Nothing logged'}
+        </span>
+      </button>
     )
   }
   const value = pr.hasEstimate ? pr.e1rm : pr.topWeight

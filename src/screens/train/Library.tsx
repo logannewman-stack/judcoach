@@ -9,11 +9,13 @@ import { LineChart } from '../../components/Charts'
 import { flushSection } from './parts'
 import { SetTable, SetTableHead } from './History'
 import { useStore } from '../../store/useStore'
-import { e1rmSeries, performanceHistory, personalRecords } from '../../store/selectors'
+import {
+  e1rmSeries, performanceHistory, personalRecords, sessionDate, useProgram,
+} from '../../store/selectors'
 import { EQUIPMENT_LABELS, EXERCISES, MUSCLE_LABELS, getExercise } from '../../data/exercises'
 import type { MuscleGroup } from '../../domain/types'
 import { bestE1RM, snapRpe, topSet } from '../../domain/strength'
-import { formatShortDate, relativeDay } from '../../lib/date'
+import { formatShortDate, relativeDay, todayISO } from '../../lib/date'
 import { num, pluralize, signed } from '../../lib/format'
 import { useNav } from '../../nav/nav'
 import '../../styles/log.css'
@@ -83,13 +85,27 @@ export function ExerciseLibrary() {
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
         {results.length === 0 ? (
-          <EmptyState icon="search" title="Nothing matches" message="Try a shorter search term." />
+          <EmptyState
+            icon="search"
+            title={query.trim() ? `No match for “${query.trim()}”` : 'Nothing in this group'}
+            message={
+              query.trim()
+                ? 'Try a shorter term, or clear the filter above — it is still narrowing the list.'
+                : 'Nothing in the library is filed under this group yet.'
+            }
+          />
         ) : (
           // The trailing figures are a column, so the column is named once at
-          // its head rather than carrying a unit on all fifty-five rows.
+          // its head rather than carrying a unit on all fifty-five rows — and
+          // only when the column has something in it. A client who has not
+          // trained yet was being shown a heading over fifty-five blanks.
           <ListSection
             header={pluralize(results.length, 'movement')}
-            headerAccessory={<span>Heaviest ({profile.units})</span>}
+            headerAccessory={
+              results.some((e) => (best.get(e.id) ?? 0) > 0)
+                ? <span>Heaviest ({profile.units})</span>
+                : undefined
+            }
             style={flushSection}
           >
             {results.map((exercise) => {
@@ -119,6 +135,41 @@ export function ExerciseLibrary() {
 
 /* ----------------------------- exercise detail --------------------------- */
 
+/** "Back Squat and Front Squat" — a list a person reads, not a CSV. */
+function listNames(names: string[]): string {
+  if (names.length <= 1) return names[0] ?? ''
+  if (names.length === 2) return `${names[0]} and ${names[1]}`
+  return `${names.slice(0, 2).join(', ')} and ${names.length - 2} more`
+}
+
+/**
+ * Where a movement sits in the block, and what stands in for it.
+ *
+ * "When will I meet this?" is the only thing a movement nobody has trained can
+ * honestly say about itself, and the programme already knows the answer — so a
+ * screen with no history on it is not a screen with nothing on it.
+ */
+function useProgrammeSlot(exerciseId: string) {
+  const program = useProgram()
+  const today = todayISO()
+  return useMemo(() => {
+    let next: { date: string; session: string } | undefined
+    let appears = 0
+    for (const week of program.weeks) {
+      for (const session of week.sessions) {
+        if (!session.blocks.some((b) => b.exerciseId === exerciseId)) continue
+        appears++
+        const date = sessionDate(program, week.index, session.weekday)
+        if (date >= today && (!next || date < next.date)) next = { date, session: session.name }
+      }
+    }
+    // Reverse the substitution list: a movement reached from "if it's taken or
+    // it hurts" is in the app precisely because something else is programmed.
+    const standsInFor = EXERCISES.filter((e) => e.substituteIds?.includes(exerciseId))
+    return { appears, next, standsInFor }
+  }, [program, exerciseId, today])
+}
+
 export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
   const pop = useNav((s) => s.pop)
   const push = useNav((s) => s.push)
@@ -132,6 +183,7 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
     () => personalRecords(logs).find((p) => p.exerciseId === exerciseId),
     [logs, exerciseId],
   )
+  const slot = useProgrammeSlot(exerciseId)
 
   if (!exercise) {
     return (
@@ -281,7 +333,19 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
         <div>
           <SectionHeader title="Your history" />
           {history.length === 0 ? (
-            <EmptyState icon="clock" title="Not trained yet" message="It'll show up here after your first logged set." />
+            <EmptyState
+              icon="clock"
+              title="Not trained yet"
+              message={
+                slot.next
+                  ? `Next up in ${slot.next.session}, ${relativeDay(slot.next.date).toLowerCase()}. Your sets land here as you log them.`
+                  : slot.appears > 0
+                    ? 'It is in this block but every session holding it is behind you. Log it and the table below writes itself.'
+                    : slot.standsInFor.length > 0
+                      ? `Not in this block — it is here as a stand-in for ${listNames(slot.standsInFor.map((e) => e.name))}. Swap it in mid-session and it starts keeping its own history.`
+                      : 'Nothing logged on it yet. The first set you record starts the table.'
+              }
+            />
           ) : (
             <>
               {/* The same ruled page a session gets, sliced the other way: one

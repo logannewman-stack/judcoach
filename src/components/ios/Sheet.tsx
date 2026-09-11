@@ -97,14 +97,29 @@ function useModalFocus(open: boolean, ref: RefObject<HTMLElement>) {
   }, [open, ref])
 }
 
+/* Every open overlay, innermost last. Escape is the hardware keyboard's
+   swipe-down, and a swipe-down dismisses the sheet in front of you — not the one
+   behind it as well. Every open overlay had its own window listener, so one
+   press closed the lot. */
+const escapeStack: (() => void)[] = []
+
 function useEscape(open: boolean, onDismiss: () => void) {
   useEffect(() => {
     if (!open) return
+    const dismiss = () => onDismiss()
+    escapeStack.push(dismiss)
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onDismiss()
+      if (e.key !== 'Escape') return
+      if (escapeStack[escapeStack.length - 1] !== dismiss) return
+      e.stopPropagation()
+      onDismiss()
     }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      const at = escapeStack.indexOf(dismiss)
+      if (at >= 0) escapeStack.splice(at, 1)
+    }
   }, [open, onDismiss])
 }
 
@@ -253,6 +268,7 @@ export function ActionSheet({
 }) {
   const ref = usePresentation(open, onClose)
   const titleId = useId()
+  const messageId = useId()
 
   return (
     <SheetPortal active={open}>
@@ -276,14 +292,18 @@ export function ActionSheet({
             transition={SHEET_TRANSITION}
             role="dialog"
             aria-modal="true"
+            // Name and description apart, as Alert already has them: pointing
+            // the name at the whole block made the sheet announce its warning
+            // as its title and then read it again as the first thing inside.
             aria-labelledby={title ? titleId : undefined}
+            aria-describedby={message ? messageId : undefined}
             tabIndex={-1}
           >
             <div className="action-group">
               {(title || message) && (
-                <div className="action-title" id={titleId}>
-                  {title && <div className="semibold" style={{ color: 'var(--label)' }}>{title}</div>}
-                  {message && <div>{message}</div>}
+                <div className="action-title">
+                  {title && <div className="semibold" id={titleId} style={{ color: 'var(--label)' }}>{title}</div>}
+                  {message && <div id={messageId}>{message}</div>}
                 </div>
               )}
               {items.map((item, i) => (

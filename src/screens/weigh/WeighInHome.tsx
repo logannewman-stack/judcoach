@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import type { ComponentProps } from 'react'
 import { motion } from 'framer-motion'
 import { Screen } from '../../components/ios/Screen'
 import { ListSection, Row } from '../../components/ios/List'
@@ -106,6 +107,35 @@ export function WeighInHome() {
   const weekAgo = [...series].reverse().find((p) => daysBetween(p.date, today) >= 7)
   const loggedDays = weighInsInLast(weighIns, today, 7)
   const spanDays = weighIns.length > 1 ? daysBetween(weighIns[0]!.date, today) : 0
+
+  const tiles: ComponentProps<typeof StatTile>[] = []
+  if (trend && baseline > 0 && weighIns.length > 1) {
+    tiles.push({
+      label: 'Since start',
+      value: signed(trend.current - baseline, 1),
+      caption: `from ${num(baseline, 0)} ${profile.units}`,
+      icon: trend.current >= baseline ? 'arrow.up' : 'arrow.down',
+    })
+  }
+  if (weekAgo && trend) {
+    tiles.push({
+      label: 'Last 7 days',
+      value: signed(trend.current - weekAgo.avg, 1),
+      caption: 'vs a week ago',
+      icon: 'chart.line',
+    })
+  }
+  // A consecutive-day streak breaks on the first missed morning and then reads
+  // as failure for a fortnight. Days out of seven is the same fact stated as
+  // something a client can still fix today — and it is what decides whether the
+  // average above means anything.
+  tiles.push({
+    label: 'Logged',
+    value: `${loggedDays}/7`,
+    caption: 'days this week',
+    icon: 'flame.fill',
+    tone: loggedDays >= 6 ? 'var(--orange)' : undefined,
+  })
 
   if (weighIns.length === 0) {
     return (
@@ -411,32 +441,29 @@ export function WeighInHome() {
           </ListSection>
         )}
 
-        {/* -------------------------------- stats ---------------------------- */}
-        <div className="gutter" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-          <StatTile
-            label="Since start"
-            value={trend && baseline > 0 && weighIns.length > 1 ? signed(trend.current - baseline, 1) : '—'}
-            caption={baseline > 0 ? `from ${num(baseline, 0)} ${profile.units}` : 'no start on file'}
-            icon={trend && trend.current >= baseline ? 'arrow.up' : 'arrow.down'}
-          />
-          <StatTile
-            label="Last 7 days"
-            value={weekAgo && trend ? signed(trend.current - weekAgo.avg, 1) : '—'}
-            caption={weekAgo ? 'vs a week ago' : 'needs a week'}
-            icon="chart.line"
-          />
-          {/* A consecutive-day streak breaks on the first missed morning and
-              then reads as failure for a fortnight. Days out of seven is the
-              same fact stated as something a client can still fix today — and
-              it is what decides whether the average above means anything. */}
-          <StatTile
-            label="Logged"
-            value={`${loggedDays}/7`}
-            caption="days this week"
-            icon="flame.fill"
-            tone={loggedDays >= 6 ? 'var(--orange)' : undefined}
-          />
-        </div>
+        {/* -------------------------------- stats ----------------------------
+            Only the tiles that have a number in them. A change against a start
+            weight does not exist on the morning the start weight was set, and a
+            change against last week does not exist in the first week — both
+            were printing an em dash in a 20px data slot, which reads as a
+            figure withheld rather than a figure not yet earned. So the row
+            grows: one tile on day one, two by the second morning, three once
+            there is a week behind it.
+            ----------------------------------------------------------------- */}
+        {tiles.length > 1 && (
+          <div
+            className="gutter"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: `repeat(${tiles.length}, minmax(0, 1fr))`,
+              gap: 10,
+            }}
+          >
+            {tiles.map((tile) => (
+              <StatTile key={tile.label} {...tile} />
+            ))}
+          </div>
+        )}
 
         {/* ------------------------------ more ------------------------------- */}
         <TrackMoreSection

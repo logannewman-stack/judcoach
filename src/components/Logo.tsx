@@ -92,14 +92,14 @@ export function GritTile({ size = 56, radius }: { size?: number; radius?: number
 }
 
 /**
- * The wordmark, set in the data face — DESIGN.md §1 lists it there with the
- * numerals, and it was the one thing on the list still coming out of SF, which
- * made it read as a heading that happened to say GRIT.
+ * The wordmark. Archivo at its widest and heaviest, with the letters drawn
+ * almost together: four capitals of a name want to be one shape, not four.
  *
- * Archivo at its widest and heaviest, with the letters drawn almost together:
- * four capitals of a name want to be one shape, not four. The tagline is an
- * eyebrow — same face, opened right out, so it sits under the word as a rule
- * rather than as a second line of type.
+ * The tagline is an eyebrow, so it follows the app's label face wherever that
+ * lands. Its tracking is the wordmark's own rather than the eyebrow's, because
+ * a monospace is already wide: at the eyebrow's 0.12em the line ran half again
+ * past the mark and stopped reading as a rule under it. Pulled in, it sits at
+ * roughly the width of the word at every size the app asks for.
  */
 export function Wordmark({
   size = 28,
@@ -134,10 +134,13 @@ export function Wordmark({
         <span
           className="eyebrow"
           style={{
-            fontSize: Math.max(8, size * 0.235),
+            fontSize: Math.max(8, size * 0.22),
             lineHeight: 1.2,
-            letterSpacing: `${Math.min(0.22, size * 0.006)}em`,
+            letterSpacing: `${Math.min(0.08, size * 0.002)}em`,
             whiteSpace: 'nowrap',
+            // The name, not a column heading: the eyebrow's own grey is a step
+            // too far back for the one line that says what the app is.
+            color: 'var(--label-2)',
           }}
         >
           Fitness and Performance

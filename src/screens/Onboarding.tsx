@@ -1,21 +1,21 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { GritMark, GritTile, Wordmark } from '../components/Logo'
 import { Icon } from '../components/Icon'
 import { Segmented } from '../components/ios/Controls'
-import { NumberPad, RpePicker } from '../components/NumberPad'
-import { Sheet } from '../components/ios/Sheet'
+import { NumberPad } from '../components/NumberPad'
 import { Barbell } from '../components/Barbell'
+import { MaxCalculator } from './settings/TrainingMaxes'
 import { useStore } from '../store/useStore'
+import { nextSession, useProgram } from '../store/selectors'
 import { MAIN_LIFTS } from '../data/exercises'
 import { COACH } from '../data/seed'
-import {
-  DEFAULT_PLATES_KG, DEFAULT_PLATES_LB, e1RM, formatRpe, roundToIncrement,
-} from '../domain/strength'
+import { DEFAULT_PLATES_KG, DEFAULT_PLATES_LB, roundToIncrement } from '../domain/strength'
 import type { Units } from '../domain/types'
-import { todayISO } from '../lib/date'
+import { relativeDay, todayISO } from '../lib/date'
 import { fixed, num } from '../lib/format'
 import { haptic } from '../lib/haptics'
+import '../styles/onboarding.css'
 
 /* ============================================================================
    First run.
@@ -111,9 +111,12 @@ export function Onboarding() {
         </motion.div>
       </AnimatePresence>
 
-      {index > 0 && index < FLOW.length && (
+      {/* One dot per question, and none on the summary: a fifth dot lit on a
+          screen whose eyebrow says "Step 4 of 4" is the progress bar and the
+          counter disagreeing about the same flow. */}
+      {index > 0 && index < FLOW.length - 1 && (
         <div className="onboarding-dots" aria-hidden="true">
-          {FLOW.slice(1).map((s, i) => (
+          {FLOW.slice(1, -1).map((s, i) => (
             <span key={s} data-on={i <= index - 1} />
           ))}
         </div>
@@ -175,41 +178,74 @@ function StepShell({
 
 /* -------------------------------- welcome ------------------------------- */
 
+/* What setup actually asks for, in the order it asks. A client deciding whether
+   to spend a minute on this deserves to know what the minute buys, and the last
+   line is the one that matters: without the maxes the app has no weights to
+   show them. */
+const ASKS: { ask: string; detail?: string }[] = [
+  { ask: 'What Jud should call you' },
+  { ask: 'Pounds or kilos' },
+  { ask: 'Your weight now, and the one you want' },
+  {
+    ask: 'A working max for each main lift',
+    // Named, because "the main lifts" is the one ask a client cannot answer in
+    // their head before opening the flow — and it is the ask that decides
+    // whether the eight weeks arrive with weights on them.
+    detail: MAIN_LIFTS.map((l) => l.shortName ?? l.name).join(' · '),
+  },
+]
+
 function Welcome({ onStart, onDemo }: { onStart: () => void; onDemo: () => void }) {
   return (
     <div className="onboarding-welcome">
-      <div className="onboarding-hero">
+      <div className="onboarding-body welcome-body">
         <motion.div
-          initial={{ scale: 0.82, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+          className="onboarding-hero"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.42, ease: [0.32, 0.72, 0, 1] }}
         >
-          <GritTile size={96} />
+          <GritTile size={60} />
+          <Wordmark size={38} />
+          {/* Left-aligned and full measure: DESIGN.md §7 rules out centred body
+              text, and the old centred line was the only thing the app said
+              about itself before asking for four one-rep maxes. */}
+          <p className="onboarding-blurb welcome-blurb">
+            An eight-week block written by {COACH.name}, the meal plan that pays for it, and one
+            place to log both. Every load is a share of what you can lift, worked out through the
+            RPE chart so the weight and the effort it asks for always agree.
+          </p>
         </motion.div>
+
         <motion.div
+          className="welcome-asks"
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.14, duration: 0.42, ease: [0.32, 0.72, 0, 1] }}
+          transition={{ delay: 0.12, duration: 0.42, ease: [0.32, 0.72, 0, 1] }}
         >
-          <Wordmark size={44} align="center" />
+          <div className="eyebrow">Setup asks four things</div>
+          <ol className="onboarding-list welcome-list">
+            {ASKS.map(({ ask, detail }, i) => (
+              <li key={ask} className="onboarding-list-row">
+                <span className="welcome-step data" aria-hidden="true">{i + 1}</span>
+                <span style={{ minWidth: 0 }}>
+                  <span className="t-subhead" style={{ display: 'block' }}>{ask}</span>
+                  {detail && <span className="t-footnote dim">{detail}</span>}
+                </span>
+              </li>
+            ))}
+          </ol>
+          <p className="onboarding-note welcome-note">
+            About a minute, and the whole eight weeks has numbers on it.
+          </p>
         </motion.div>
-        <motion.p
-          className="onboarding-blurb"
-          style={{ textAlign: 'center', maxWidth: 300 }}
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.24, duration: 0.42, ease: [0.32, 0.72, 0, 1] }}
-        >
-          Percentage-based training and the nutrition that pays for it — programmed
-          by {COACH.name}, logged by you.
-        </motion.p>
       </div>
 
       <motion.div
         className="onboarding-foot"
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.34, duration: 0.42, ease: [0.32, 0.72, 0, 1] }}
+        transition={{ delay: 0.24, duration: 0.42, ease: [0.32, 0.72, 0, 1] }}
       >
         <button type="button" className="btn btn-filled" onClick={onStart} style={{ minHeight: 52 }}>
           Set up my programme
@@ -217,6 +253,12 @@ function Welcome({ onStart, onDemo }: { onStart: () => void; onDemo: () => void 
         <button type="button" className="btn btn-plain" onClick={onDemo}>
           Look around with sample data
         </button>
+        {/* The demo is somebody else's training. Saying whose, here, is what
+            stops a client logging their own weigh-in into it on Tuesday. */}
+        <p className="onboarding-note welcome-demo-note">
+          Opens a finished client's eight weeks so you can see the app full. Your own setup
+          stays one tap away on the Today screen.
+        </p>
       </motion.div>
     </div>
   )
@@ -234,7 +276,7 @@ function NameStep({
 }) {
   return (
     <StepShell
-      eyebrow="Step 1 of 5"
+      eyebrow="Step 1 of 4"
       title="What should Jud call you?"
       blurb="It shows up on your dashboard and on every check-in he reads."
       onNext={onNext}
@@ -265,7 +307,7 @@ function UnitsStep({ onNext, onBack }: { onNext: () => void; onBack: () => void 
 
   return (
     <StepShell
-      eyebrow="Step 2 of 5"
+      eyebrow="Step 2 of 4"
       title="Pounds or kilos?"
       blurb="This sets your plate inventory and the smallest jump the app will round a percentage to."
       onNext={onNext}
@@ -322,7 +364,7 @@ function WeightStep({ onNext, onBack }: { onNext: () => void; onBack: () => void
 
   return (
     <StepShell
-      eyebrow="Step 3 of 5"
+      eyebrow="Step 3 of 4"
       title="Where are you, and where are you going?"
       blurb="Everything on the weigh-in screen is measured against these two numbers."
       onNext={onNext}
@@ -347,7 +389,9 @@ function WeightStep({ onNext, onBack }: { onNext: () => void; onBack: () => void
         />
       </div>
 
-      <div className="onboarding-rate">
+      {/* A rate needs a direction, and a direction needs two weights. Before
+          they exist the row claims "gaining" on the strength of 0 minus 0. */}
+      <div className="onboarding-rate" hidden={needsWeight}>
         <div className="eyebrow">
           Weekly rate — {direction >= 0 ? 'gaining' : 'losing'}
         </div>
@@ -410,7 +454,7 @@ function MaxesStep({ onNext, onBack }: { onNext: () => void; onBack: () => void 
 
   return (
     <StepShell
-      eyebrow="Step 4 of 5"
+      eyebrow="Step 4 of 4"
       title="Your working maxes"
       blurb="The most you can lift for one rep right now — every percentage in the programme is a slice of it. Not sure? Tap Work it out and enter your best recent set."
       onNext={onNext}
@@ -440,7 +484,7 @@ function MaxesStep({ onNext, onBack }: { onNext: () => void; onBack: () => void 
               {profile.trainingMaxes[lift.id] ? (
                 <>
                   {num(profile.trainingMaxes[lift.id]!, 0)}
-                  <span className="figure-unit" style={{ fontSize: 15 }}> {profile.units}</span>
+                  <span className="figure-unit" style={{ fontSize: 'calc(15 * var(--pt))' }}> {profile.units}</span>
                 </>
               ) : (
                 <span className="t-subhead semibold" style={{ color: 'var(--accent)' }}>Add</span>
@@ -483,10 +527,14 @@ function ReadyStep({
   onDone: () => void
   onBack: () => void
 }) {
-  const program = useStore((s) => s.programStartDate)
+  // What they will actually be asked to do, rather than when a block they have
+  // never seen notionally began. On an empty history this is always the first
+  // session of week one, which is the point.
+  const program = useProgram()
+  const first = nextSession(program, [], todayISO())
   return (
     <StepShell
-      eyebrow="Step 5 of 5"
+      eyebrow="All set"
       title={`You're set${name ? `, ${name.split(' ')[0]}` : ''}.`}
       blurb="Everything below is already waiting for you."
       onNext={onDone}
@@ -506,17 +554,16 @@ function ReadyStep({
             </span>
             <div style={{ minWidth: 0 }}>
               <div className="t-subhead semibold">{item.title}</div>
-              <div className="t-footnote dim" style={{ lineHeight: '18px' }}>{item.body}</div>
+              <div className="t-footnote dim" style={{ lineHeight: 1.384615 }}>{item.body}</div>
             </div>
           </div>
         ))}
       </div>
-      <div className="onboarding-note" style={{ textAlign: 'center' }}>
-        Block one started {new Date(`${program}T00:00:00`).toLocaleDateString(undefined, {
-          month: 'long',
-          day: 'numeric',
-        })}.
-      </div>
+      {first && (
+        <div className="onboarding-note">
+          First up: {first.session.name}, {relativeDay(first.date, todayISO()).toLowerCase()}.
+        </div>
+      )}
     </StepShell>
   )
 }
@@ -542,105 +589,9 @@ function BigField({
       ) : (
         <span className="figure onboarding-bigvalue">
           {value}
-          <span className="figure-unit" style={{ fontSize: 15 }}> {unit}</span>
+          <span className="figure-unit" style={{ fontSize: 'calc(15 * var(--pt))' }}> {unit}</span>
         </span>
       )}
     </button>
-  )
-}
-
-/** Turn "the best set I've done lately" into a working max. */
-function MaxCalculator({
-  liftId, units, increment, onClose, onApply,
-}: {
-  liftId: string | null
-  units: string
-  increment: number
-  onClose: () => void
-  onApply: (liftId: string, trainingMax: number) => void
-}) {
-  const [weight, setWeight] = useState(0)
-  const [reps, setReps] = useState(5)
-  const [rpe, setRpe] = useState(8)
-  const [pad, setPad] = useState<'weight' | 'reps' | null>(null)
-
-  const lift = MAIN_LIFTS.find((l) => l.id === liftId)
-  const estimate = useMemo(() => e1RM(weight, reps, rpe), [weight, reps, rpe])
-  const workingMax = roundToIncrement(estimate, increment)
-
-  if (!liftId || !lift) return null
-
-  return (
-    <Sheet
-      open={!!liftId}
-      onClose={onClose}
-      title="Work it out"
-      left={{ label: 'Cancel', onPress: onClose }}
-      right={{
-        label: 'Use',
-        strong: true,
-        disabled: weight <= 0,
-        onPress: () => onApply(liftId, workingMax),
-      }}
-      detent={0.82}
-    >
-      <div style={{ padding: '4px 16px 16px' }}>
-        <div className="t-footnote dim" style={{ marginBottom: 14 }}>
-          Your best {lift.name.toLowerCase()} set in the last month or so.
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
-          <button type="button" className="onboarding-minifield" onClick={() => setPad('weight')}>
-            <span className="eyebrow">Weight</span>
-            <span className="data">
-              {num(weight, 1)}
-              <span className="figure-unit" style={{ fontSize: 15 }}> {units}</span>
-            </span>
-          </button>
-          <button type="button" className="onboarding-minifield" onClick={() => setPad('reps')}>
-            <span className="eyebrow">Reps</span>
-            <span className="data">{reps}</span>
-          </button>
-        </div>
-
-        <div className="onboarding-note" style={{ margin: '18px 0 8px' }}>
-          How hard was it?
-        </div>
-        <RpePicker value={rpe} onChange={setRpe} />
-
-        <div className="onboarding-result">
-          <div className="eyebrow">Working max</div>
-          <div className="figure">
-            {weight > 0 ? num(workingMax, 0) : '—'}
-            <span className="figure-unit" style={{ fontSize: 17 }}> {units}</span>
-          </div>
-          {weight > 0 && (
-            <div className="t-caption1 dim">
-              Worked back from {num(weight, 1)} × {reps} at {formatRpe(rpe)}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <NumberPad
-        open={pad === 'weight'}
-        onClose={() => setPad(null)}
-        onSubmit={setWeight}
-        title="Weight lifted"
-        initial={weight}
-        unit={units}
-        steps={[-10, -5, 5, 10]}
-      />
-      <NumberPad
-        open={pad === 'reps'}
-        onClose={() => setPad(null)}
-        onSubmit={(v) => setReps(Math.max(1, Math.round(v)))}
-        title="Reps"
-        initial={reps}
-        allowDecimal={false}
-        max={30}
-        steps={[-1, 1]}
-      />
-    </Sheet>
   )
 }
