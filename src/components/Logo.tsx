@@ -59,14 +59,17 @@ export function GritMark({
 }
 
 /**
- * The mark on its dark tile — the same artwork as the home-screen icon, and the
- * only place in the app where a gradient is allowed, because it is a picture of
- * an object rather than a surface of the app.
+ * The mark on its tile — the same artwork as the home-screen icon, and the only
+ * place in the app where a gradient does this much work, because it is a picture
+ * of an object rather than a surface of the app.
  *
- * The values are public/icon.svg's, to the stop: iron ground, a GRIT-blue sheen
- * from the upper left and a violet one from the lower right. It carries no drop
- * shadow for the same reason a home-screen icon does not — the icon is flat on
- * the wallpaper; the rim is the icon's own edge.
+ * The values are public/icon.svg's, to the stop: GRIT blue at two lightnesses,
+ * a white sheen from the upper left that gives the square its curve, and the far
+ * side deepened at the lower right. It carries no drop shadow for the same
+ * reason a home-screen icon does not — the icon is flat on the wallpaper; the
+ * rim is the icon's own edge. `size * 0.8` is scripts/make-icons.mjs's MARK, and
+ * the two have to stay in step or Settings shows a different logo to the one on
+ * the Home Screen.
  */
 export function GritTile({ size = 56, radius }: { size?: number; radius?: number }) {
   const r = radius ?? size * 0.2237
@@ -80,26 +83,26 @@ export function GritTile({ size = 56, radius }: { size?: number; radius?: number
         display: 'grid',
         placeItems: 'center',
         background:
-          'radial-gradient(95% 95% at 28% 16%, rgba(11,87,240,0.34) 0%, rgba(11,87,240,0) 100%),'
-          + ' radial-gradient(80% 80% at 82% 102%, rgba(76,72,224,0.16) 0%, rgba(76,72,224,0) 100%),'
-          + ' linear-gradient(180deg, #16161a 0%, #0b0b0c 100%)',
-        boxShadow: 'inset 0 0 0 0.5px rgba(255,255,255,0.09)',
+          'radial-gradient(88% 88% at 26% 13%, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0) 100%),'
+          + ' radial-gradient(82% 82% at 86% 106%, rgba(0,51,184,0.30) 0%, rgba(0,51,184,0) 100%),'
+          + ' linear-gradient(180deg, #4aa3ff 0%, #0a5bf5 100%)',
+        boxShadow: 'inset 0 0 0 0.5px rgba(255,255,255,0.22)',
       }}
     >
-      <GritMark size={size * 0.62} color="#fff" />
+      <GritMark size={size * 0.8} color="#fff" />
     </div>
   )
 }
 
 /**
- * The wordmark. Archivo at its widest and heaviest, with the letters drawn
- * almost together: four capitals of a name want to be one shape, not four.
+ * The wordmark. The rounded face at its heaviest, with the letters drawn almost
+ * together: four capitals of a name want to be one shape, not four.
  *
  * The tagline is an eyebrow, so it follows the app's label face wherever that
- * lands. Its tracking is the wordmark's own rather than the eyebrow's, because
- * a monospace is already wide: at the eyebrow's 0.12em the line ran half again
- * past the mark and stopped reading as a rule under it. Pulled in, it sits at
- * roughly the width of the word at every size the app asks for.
+ * lands. Its tracking is the wordmark's own rather than the eyebrow's: at the
+ * eyebrow's own 0.12em the line ran half again past the mark and stopped reading
+ * as a rule under it. Pulled in, it sits at roughly the width of the word at
+ * every size the app asks for.
  */
 export function Wordmark({
   size = 28,
@@ -123,9 +126,8 @@ export function Wordmark({
         className="figure"
         style={{
           fontSize: size,
-          fontWeight: 800,
-          fontStretch: '112%',
-          letterSpacing: '-0.015em',
+          fontWeight: 900,
+          letterSpacing: '-0.02em',
         }}
       >
         GRIT

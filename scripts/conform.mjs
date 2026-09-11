@@ -3,8 +3,19 @@
 // state that went back to :active. `npm run conform`
 import { readFileSync, globSync } from 'node:fs'
 
-const SRC = globSync('src/**/*.{ts,tsx,css}', { cwd: process.cwd() })
-  .filter((f) => !f.endsWith('tokens.css'))
+const ALL = globSync('src/**/*.{ts,tsx,css}', { cwd: process.cwd() })
+const SRC = ALL.filter((f) => !f.endsWith('tokens.css'))
+
+/* Every custom property the app actually defines, anywhere: a CSS declaration,
+   or a key in a React style object. A var() naming anything not in here does
+   nothing at all and does it silently, which is the one kind of drift that
+   looks fine in review and is invisible in a screenshot. */
+const DEFINED = new Set()
+for (const file of ALL) {
+  const source = readFileSync(file, 'utf8')
+  for (const m of source.matchAll(/(--[a-zA-Z0-9-]+)\s*:/g)) DEFINED.add(m[1])
+  for (const m of source.matchAll(/['"`](--[a-zA-Z0-9-]+)['"`]/g)) DEFINED.add(m[1])
+}
 
 /** Radii DESIGN.md §3 allows, in px, plus 50%/999px for a circle or pill. */
 const RADII = new Set(['14', '16', '18', '22', '28', '50%', '999', '9999', '0'])
@@ -50,6 +61,20 @@ for (const file of SRC) {
       add('colour', file, n, `rgba literal — ${code.trim().slice(0, 60)}`)
     }
 
+    // A var() that names nothing resolves to nothing, so the declaration is
+    // dropped and the element quietly keeps whatever it inherited.
+    for (const m of code.matchAll(/var\(\s*(--[a-zA-Z0-9-]+)\s*([,)])/g)) {
+      // A var() with a fallback is a deliberate "if this is set" and is fine.
+      if (m[2] === ',') continue
+      if (!DEFINED.has(m[1])) add('token', file, n, `${m[1]} is never defined`)
+    }
+
+    // DESIGN.md §7: no monospace. The app was once mistaken for a trading
+    // terminal and a ledger of mono digits is how it got there.
+    if (/font-family|font:/.test(code) && /monospace|SFMono|SF Mono|Menlo|JetBrains|Consolas|Courier|Roboto Mono/.test(code)) {
+      add('mono', file, n, code.trim().slice(0, 72))
+    }
+
     // Press state must come from pointer events, not the browser's late :active.
     if (file.endsWith('.css') && /:active\b/.test(code)) {
       add('active', file, n, code.trim().slice(0, 72))
@@ -76,8 +101,10 @@ for (const file of SRC) {
 const KINDS = [
   ['colour', 'colour literals that cannot follow the theme'],
   ['active', ':active press states (use data-pressed)'],
-  ['radius', 'radii outside the five DESIGN.md allows'],
+  ['radius', 'radii DESIGN.md \u00a71 does not name'],
   ['shadow', 'shadows not from a token'],
+  ['token', 'var() naming a property nothing defines'],
+  ['mono', 'monospace faces (DESIGN.md \u00a77 bans them)'],
 ]
 
 const cap = Number(process.env.CONFORM_LIST ?? 12)

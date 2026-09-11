@@ -34,6 +34,13 @@ const G = {
 G.rOuter = G.rMid + G.half
 G.gapFrom = (Math.asin(G.half / G.rOuter) / DEG)
 
+/* The mark's share of the tile it sits on. Drawn at full size the G reaches the
+   corners and iOS's own squircle mask starts cutting into it; pulled to 0.8 it
+   sits on Apple's icon grid with air around it. The in-app tile insets the same
+   figure by the same share, so Settings and the Home Screen show one logo. */
+const MARK = 0.8
+const MARK_IN = (1 - MARK) / 2
+
 function gMark(x, y) {
   // Undo the forward lean before evaluating the upright shape.
   const px = x + G.shear * (y - G.cy)
@@ -53,6 +60,36 @@ function gMark(x, y) {
   return 0
 }
 
+/* ---------------------------------------------------------------------------
+   The tile the mark sits on. One hue at two lightnesses — DESIGN.md §2 allows a
+   soft two-stop wash within a hue and bans the rainbow — lit from the upper left
+   with white so the square reads as a curved, glossy object rather than a flat
+   swatch, and deepened at the lower right so it has a far side. This is the
+   app's own blue: the icon and the accent inside it are the same colour.
+   ------------------------------------------------------------------------- */
+const TILE_TOP = [0.290, 0.639, 1.000] // #4aa3ff
+const TILE_BOT = [0.039, 0.357, 0.961] // #0a5bf5
+const TILE_DEEP = [0.000, 0.200, 0.722] // #0033b8
+
+/** The tile's colour at (u,v), both 0..1 across the tile. */
+function tilePixel(u, v) {
+  let r = mix(TILE_TOP[0], TILE_BOT[0], v)
+  let g = mix(TILE_TOP[1], TILE_BOT[1], v)
+  let b = mix(TILE_TOP[2], TILE_BOT[2], v)
+
+  const sheen = Math.pow(1 - clamp01(Math.hypot(u - 0.26, v - 0.13) / 0.88), 2.2) * 0.42
+  r += (1 - r) * sheen
+  g += (1 - g) * sheen
+  b += (1 - b) * sheen
+
+  const far = Math.pow(1 - clamp01(Math.hypot(u - 0.86, v - 1.06) / 0.82), 2.4) * 0.30
+  r += (TILE_DEEP[0] - r) * far
+  g += (TILE_DEEP[1] - g) * far
+  b += (TILE_DEEP[2] - b) * far
+
+  return [r, g, b]
+}
+
 function renderIcon(size, { rounded = false } = {}) {
   const px = Buffer.alloc(size * size * 4)
   const inv = 1 / (size * SS)
@@ -64,22 +101,7 @@ function renderIcon(size, { rounded = false } = {}) {
           const u = (pxi * SS + sx + 0.5) * inv
           const v = (py * SS + sy + 0.5) * inv
 
-          // --- background: graphite gradient + cool radial sheen ---
-          // Iron, matching the dark theme's ground (#16161a down to #0b0b0c),
-          // so the icon and the app it opens are made of the same material.
-          let r = mix(0.086, 0.043, v)
-          let g = mix(0.086, 0.043, v)
-          let b = mix(0.102, 0.047, v)
-          const d = Math.hypot(u - 0.28, v - 0.16) / 0.95
-          const glow = Math.pow(1 - clamp01(d), 2.1) * 0.34
-          r += (0.043 - r) * glow
-          g += (0.341 - g) * glow
-          b += (0.941 - b) * glow
-          const d2 = Math.hypot(u - 0.82, v - 1.02) / 0.8
-          const glow2 = Math.pow(1 - clamp01(d2), 2.6) * 0.16
-          r += (0.298 - r) * glow2
-          g += (0.282 - g) * glow2
-          b += (0.878 - b) * glow2
+          let [r, g, b] = tilePixel(u, v)
 
           // iOS masks home-screen icons itself, so only the favicon needs
           // its own corners.
@@ -87,7 +109,7 @@ function renderIcon(size, { rounded = false } = {}) {
           if (rounded) alpha = sdRoundRect(u, v, 0.5, 0.5, 0.5, 0.5, 0.2237) <= 0 ? 1 : 0
 
           br += r * alpha; bg += g * alpha; bb += b * alpha; ba += alpha
-          mark += gMark(u, v) * alpha
+          mark += gMark((u - MARK_IN) / MARK, (v - MARK_IN) / MARK) * alpha
         }
       }
       const n = SS * SS
@@ -207,16 +229,16 @@ function iconSvg() {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1">
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#16161a"/>
-      <stop offset="1" stop-color="#0b0b0c"/>
+      <stop offset="0" stop-color="#4aa3ff"/>
+      <stop offset="1" stop-color="#0a5bf5"/>
     </linearGradient>
-    <radialGradient id="s" cx="0.28" cy="0.16" r="0.95">
-      <stop offset="0" stop-color="#0b57f0" stop-opacity="0.34"/>
-      <stop offset="1" stop-color="#0b57f0" stop-opacity="0"/>
+    <radialGradient id="s" cx="0.26" cy="0.13" r="0.88">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.42"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
     </radialGradient>
-    <radialGradient id="s2" cx="0.82" cy="1.02" r="0.8">
-      <stop offset="0" stop-color="#4c48e0" stop-opacity="0.16"/>
-      <stop offset="1" stop-color="#4c48e0" stop-opacity="0"/>
+    <radialGradient id="s2" cx="0.86" cy="1.06" r="0.82">
+      <stop offset="0" stop-color="#0033b8" stop-opacity="0.30"/>
+      <stop offset="1" stop-color="#0033b8" stop-opacity="0"/>
     </radialGradient>
     <clipPath id="c"><rect width="1" height="1" rx="0.2237"/></clipPath>
   </defs>
@@ -224,9 +246,11 @@ function iconSvg() {
     <rect width="1" height="1" fill="url(#g)"/>
     <rect width="1" height="1" fill="url(#s)"/>
     <rect width="1" height="1" fill="url(#s2)"/>
-    <g transform="${lean}" fill="#fff">
-      <path d="${ring}"/>
-      <path d="${spur}"/>
+    <g transform="translate(${f(MARK_IN)} ${f(MARK_IN)}) scale(${f(MARK)})">
+      <g transform="${lean}" fill="#fff">
+        <path d="${ring}"/>
+        <path d="${spur}"/>
+      </g>
     </g>
   </g>
 </svg>
@@ -241,6 +265,10 @@ console.log('public/icon.svg')
 /* Without these iOS shows a blank white page while a home-screen app boots,
    which is the single loudest tell that something is a web app. Portrait only —
    the manifest locks orientation.
+
+   Two of each, because a launch image that does not match the appearance the app
+   is about to draw flashes: a dark screen that opens onto a chalk-white Today is
+   the tell it was meant to hide. The media query carries prefers-color-scheme.
 
    Each entry is [css width, css height, dpr]; the pixel size is the product. */
 const DEVICES = [
@@ -277,20 +305,37 @@ function markCoverage(x, y, span) {
   return clamp01(0.5 - d / span)
 }
 
-function renderSplash(w, h) {
+/* The app's two grounds, top stop to bottom stop. Taken from tokens.css so a
+   launch image is literally the screen the app is about to paint. */
+const GROUND = {
+  light: [[1.000, 1.000, 1.000], [0.949, 0.949, 0.968]], // #ffffff -> #f2f2f7
+  dark: [[0.071, 0.075, 0.086], [0.039, 0.043, 0.047]], // #121316 -> #0a0b0c
+}
+
+/**
+ * A launch screen is the icon on the app's own ground: the tile a client just
+ * tapped, at rest in the middle of the screen it opens. Drawing the tile rather
+ * than a bare white mark is what makes the tap and the launch feel like one
+ * movement instead of two pictures.
+ */
+function renderSplash(w, h, theme) {
   const px = Buffer.alloc(w * h * 4)
-  // The mark sits a touch above centre, the way a launch screen usually does.
-  const markSize = Math.round(Math.min(w, h) * 0.26)
-  const markX = (w - markSize) / 2
-  const markY = h * 0.5 - markSize * 0.62
-  const span = 1 / markSize // one pixel, in mark space
+  const [top, bot] = GROUND[theme]
+
+  const tile = Math.round(Math.min(w, h) * 0.25)
+  const tileX = Math.round((w - tile) / 2)
+  // A touch above centre, the way a launch screen usually sits.
+  const tileY = Math.round(h * 0.5 - tile * 0.66)
+  const radius = 0.2237 // the icon's own corner, in tile space
+  const span = 1 / tile // one pixel, in tile space
+  const markIn = MARK_IN
 
   for (let y = 0; y < h; y++) {
     // Row-constant background, which is what makes the Up filter pay off.
     const v = y / (h - 1)
-    const br = Math.round(clamp01(mix(0.086, 0.043, v)) * 255)
-    const bg = Math.round(clamp01(mix(0.086, 0.043, v)) * 255)
-    const bb = Math.round(clamp01(mix(0.102, 0.047, v)) * 255)
+    const br = Math.round(clamp01(mix(top[0], bot[0], v)) * 255)
+    const bg = Math.round(clamp01(mix(top[1], bot[1], v)) * 255)
+    const bb = Math.round(clamp01(mix(top[2], bot[2], v)) * 255)
     for (let x = 0; x < w; x++) {
       const o = (y * w + x) * 4
       px[o] = br
@@ -298,36 +343,54 @@ function renderSplash(w, h) {
       px[o + 2] = bb
       px[o + 3] = 255
     }
-    if (y < markY || y >= markY + markSize) continue
-    const my = (y - markY) / markSize
-    for (let x = Math.max(0, Math.floor(markX)); x < Math.min(w, markX + markSize); x++) {
-      const cov = markCoverage((x - markX) / markSize, my, span)
+    if (y < tileY || y >= tileY + tile) continue
+
+    const ty = (y + 0.5 - tileY) / tile
+    for (let x = tileX; x < tileX + tile; x++) {
+      const tx = (x + 0.5 - tileX) / tile
+      // Coverage of the rounded square, so the corners are smooth at any size.
+      const cov = clamp01(0.5 - sdRoundRect(tx, ty, 0.5, 0.5, 0.5, 0.5, radius) / span)
       if (cov <= 0) continue
+
+      const [tr, tg, tb] = tilePixel(tx, ty)
+      // The mark, white, inset to the same share of the tile the app uses.
+      const mk = markCoverage((tx - markIn) / MARK, (ty - markIn) / MARK, span / MARK)
+      const r = mix(tr, 1, mk)
+      const g = mix(tg, 1, mk)
+      const b = mix(tb, 1, mk)
+
       const o = (y * w + x) * 4
-      px[o] = Math.round(mix(px[o], 255, cov))
-      px[o + 1] = Math.round(mix(px[o + 1], 255, cov))
-      px[o + 2] = Math.round(mix(px[o + 2], 255, cov))
+      px[o] = Math.round(mix(px[o], clamp01(r) * 255, cov))
+      px[o + 1] = Math.round(mix(px[o + 1], clamp01(g) * 255, cov))
+      px[o + 2] = Math.round(mix(px[o + 2], clamp01(b) * 255, cov))
     }
   }
   return px
 }
 
+const THEMES = [['light', ''], ['dark', '-dark']]
+
 for (const [cw, ch, dpr] of DEVICES) {
   const w = cw * dpr
   const h = ch * dpr
-  writeFileSync(
-    new URL(`../public/splash-${w}x${h}.png`, import.meta.url),
-    encodePNG(w, h, renderSplash(w, h), { up: true }),
-  )
-  console.log(`public/splash-${w}x${h}.png`)
+  for (const [theme, suffix] of THEMES) {
+    writeFileSync(
+      new URL(`../public/splash-${w}x${h}${suffix}.png`, import.meta.url),
+      encodePNG(w, h, renderSplash(w, h, theme), { up: true }),
+    )
+    console.log(`public/splash-${w}x${h}${suffix}.png`)
+  }
 }
 
 /** The <link> tags index.html needs for the list above. */
 console.log('\n--- paste into index.html ---')
-for (const [cw, ch, dpr] of DEVICES) {
-  console.log(
-    `    <link rel="apple-touch-startup-image" href="./splash-${cw * dpr}x${ch * dpr}.png"`
-    + ` media="(device-width: ${cw}px) and (device-height: ${ch}px)`
-    + ` and (-webkit-device-pixel-ratio: ${dpr}) and (orientation: portrait)" />`,
-  )
+for (const [theme, suffix] of THEMES) {
+  for (const [cw, ch, dpr] of DEVICES) {
+    console.log(
+      `    <link rel="apple-touch-startup-image" href="./splash-${cw * dpr}x${ch * dpr}${suffix}.png"`
+      + ` media="(prefers-color-scheme: ${theme}) and (device-width: ${cw}px)`
+      + ` and (device-height: ${ch}px) and (-webkit-device-pixel-ratio: ${dpr})`
+      + ` and (orientation: portrait)" />`,
+    )
+  }
 }

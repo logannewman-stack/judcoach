@@ -83,8 +83,9 @@
   --bg: #ffffff;
   --bg-2: #f2f2f7;
   --bg-3: #ffffff;
-  /* Apple's #f2f2f7 carries a blue cast that reads as stock iOS. This is the
-     same value with the blue taken out and a hair of warmth left in. */
+  /* A grouped table's ground. Apple's own #f2f2f7: an earlier pass warmed it to
+     get away from stock iOS, which is the wrong fight — what makes this app its
+     own is the colour and the corners, not a degree of hue in the paper. */
   --grouped: #f2f2f7;
   --grouped-2: #ffffff;
   --grouped-3: #f2f2f7;
@@ -110,8 +111,8 @@
   /* ---- shadows ---- */
   --shadow-sm: 0 1px 2px rgba(28, 30, 48, 0.05), 0 4px 14px rgba(28, 30, 48, 0.05);
   --shadow-md: 0 2px 6px rgba(28, 30, 48, 0.06), 0 10px 28px rgba(28, 30, 48, 0.10);
-  --shadow-lg: 0 12px 38px rgba(0, 0, 0, 0.16);
-  --shadow-float: 0 6px 22px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 4px 10px rgba(28, 30, 48, 0.07), 0 20px 54px rgba(28, 30, 48, 0.16);
+  --shadow-float: 0 3px 8px rgba(28, 30, 48, 0.07), 0 14px 32px rgba(28, 30, 48, 0.14);
   /* Cast leftward by a screen pushed over the one beneath it. */
   --shadow-push: -10px 0 30px rgba(0, 0, 0, 0.13);
   /* The contact shadow under the one part of a control a finger moves: a switch
@@ -145,11 +146,11 @@
      the guide, a session average — it takes its colour from here. These are the
      fill values; the -text set below is what type is set in on a light ground.
      --------------------------------------------------------------------- */
-  --rpe-6: #3aa3d8;
-  --rpe-7: #35b58b;
-  --rpe-8: #d8a11f;
-  --rpe-9: #e2701c;
-  --rpe-10: #d63a2a;
+  --rpe-6: #32ade6;
+  --rpe-7: #30c9a0;
+  --rpe-8: #ffcc00;
+  --rpe-9: #ff9500;
+  --rpe-10: #ff3b30;
   --rpe-6-text: #17708f;
   --rpe-7-text: #17795a;
   --rpe-8-text: #8a6100;
@@ -157,18 +158,21 @@
   --rpe-10-text: #b02418;
 
   /* ---- fuel ---------------------------------------------------------------
-     The three macros are one material in three strengths, not three hues.
-     Every free hue was already spoken for — blue is the accent, cyan through
-     red is the intensity ramp, green and red are verdicts — and tone-ordering
-     is truer anyway: the plan does not weight the three equally. Protein is
-     darkest because it is the one number the plan says to protect, fat faintest
-     because it is what is left. Colour is kept back for the one event worth
-     reporting, which is a target actually met.
+     Three rings, so three hues — an earlier pass drained these to three greys
+     and the screen stopped being worth looking at. Protein leads in the Meals
+     domain's own green because it is the one number the plan says to protect;
+     carbohydrate takes amber and fat a violet, far enough apart to be told
+     apart at ring width and in a 4pt legend swatch. The -text values are what
+     type is set in on a light ground, where bright green and amber are both
+     far too pale to read.
      --------------------------------------------------------------------- */
-  --fuel-1: #2f2f35;
-  --fuel-2: #74747e;
-  --fuel-3: #a4a4ad;
-  --fuel-track: rgba(116, 116, 128, 0.19);
+  --fuel-1: #34c759;
+  --fuel-2: #ffb10a;
+  --fuel-3: #7b61ff;
+  --fuel-1-text: #218036;
+  --fuel-2-text: #8f5b00;
+  --fuel-3-text: #5a42d2;
+  --fuel-track: rgba(116, 116, 128, 0.16);
   --fuel-hit: var(--green);
   --fuel-hit-text: var(--green-text);
 
@@ -216,32 +220,21 @@
   --font-rounded: ui-rounded, -apple-system, BlinkMacSystemFont, 'SF Pro Rounded',
     'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
 
-  /* ---- the data face ------------------------------------------------------
-     Archivo, self-hosted, weight and width axes. It sets numerals, the units
-     attached to them, and uppercase data eyebrows — never a sentence. See
-     DESIGN.md: the app's content is its numbers, so the numbers get a face
-     chosen for them while SF keeps the chrome native.
+  /* ---- the figure face ----------------------------------------------------
+     Every number in the app. ui-rounded resolves to SF Pro Rounded on an Apple
+     device — free, already installed, and exactly what Fitness and Activity set
+     their figures in, which is most of why those screens feel friendly rather
+     than clinical. Nunito is bundled only so a non-Apple browser sees something
+     close in the demo; on a phone it is never downloaded.
      --------------------------------------------------------------------- */
-  /* Every number in the app. ui-rounded is SF Pro Rounded on an Apple device —
-     free, native, and exactly what Fitness and Activity set their figures in.
-     Nunito is bundled so a non-Apple browser sees something close in the demo,
-     and only ever as a fallback. */
   --font-display: ui-rounded, -apple-system, 'SF Pro Rounded', 'Nunito',
     'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
 
-  /* Everything that belongs in a column. Every feature stylesheet already
-     routes its data through this one token, so pointing it at the mono is what
-     turns nine screens of tables into something that reads as computed. */
+  /* Every feature stylesheet routes its numerals through this one name, so a
+     column of them is one edit away from the figure face above. It is an alias
+     and not a second face: DESIGN.md §7 bans a monospace outright, because a
+     table of ledger digits is the look this app was twice mistaken for. */
   --font-data: var(--font-display);
-
-  /* ---- the table face -----------------------------------------------------
-     A training log is a table, a programme is a grid, plate maths is
-     arithmetic. In a monospace the columns lock and the digits stop shuffling,
-     and the page starts to look like something that was computed rather than
-     laid out. This is the face that makes the app read as software.
-     --------------------------------------------------------------------- */
-  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono',
-    Menlo, Consolas, monospace;
 
   color-scheme: light;
 }
@@ -275,9 +268,12 @@
     --mint: #63e6e2;
     --cyan: #64d2ff;
 
-    --fuel-1: #e9e9e3;
-    --fuel-2: #98989f;
-    --fuel-3: #6e6e78;
+    --fuel-1: #30d158;
+    --fuel-2: #ffc22e;
+    --fuel-3: #9d87ff;
+    --fuel-1-text: #30d158;
+    --fuel-2-text: #ffc22e;
+    --fuel-3-text: #9d87ff;
     --fuel-track: rgba(232, 232, 226, 0.16);
 
     --red-text: #ff453a;
@@ -286,16 +282,16 @@
     --green-text: #30d158;
     --cyan-text: #64d2ff;
 
-    --rpe-6: #58bde8;
-    --rpe-7: #45cf9f;
-    --rpe-8: #efc04a;
-    --rpe-9: #ff9145;
-    --rpe-10: #ff6250;
-    --rpe-6-text: #58bde8;
-    --rpe-7-text: #45cf9f;
-    --rpe-8-text: #efc04a;
-    --rpe-9-text: #ff9145;
-    --rpe-10-text: #ff6250;
+    --rpe-6: #6fd3ff;
+    --rpe-7: #5ae0bb;
+    --rpe-8: #ffd60a;
+    --rpe-9: #ffa53a;
+    --rpe-10: #ff6a5e;
+    --rpe-6-text: #6fd3ff;
+    --rpe-7-text: #5ae0bb;
+    --rpe-8-text: #ffd60a;
+    --rpe-9-text: #ffa53a;
+    --rpe-10-text: #ff6a5e;
 
     --gray: #8e8e93;
     --gray2: #636366;
@@ -329,7 +325,6 @@
     --chrome: rgba(14, 15, 17, 0.86);
     --chrome-solid: #0e0f11;
     --sheet-scrim: rgba(0, 0, 0, 0.5);
-  --push-dim: rgba(0, 0, 0, 0.3);
     --push-dim: rgba(0, 0, 0, 0.3);
     --elevated: #1a1c20;
 
@@ -339,9 +334,6 @@
     --shadow-float: 0 6px 22px rgba(0, 0, 0, 0.55);
     --shadow-push: -10px 0 34px rgba(0, 0, 0, 0.5);
     --shadow-knob: 0 3px 8px rgba(0, 0, 0, 0.5), 0 1px 1px rgba(0, 0, 0, 0.4);
-  --shadow-knob: 0 3px 8px rgba(0, 0, 0, 0.5), 0 1px 1px rgba(0, 0, 0, 0.4);
-  --shadow-push: -10px 0 34px rgba(0, 0, 0, 0.5);
-  --shadow-knob: 0 3px 8px rgba(0, 0, 0, 0.5), 0 1px 1px rgba(0, 0, 0, 0.4);
 
     color-scheme: dark;
   }
@@ -369,9 +361,12 @@
   --mint: #63e6e2;
   --cyan: #64d2ff;
 
-  --fuel-1: #e9e9e3;
-  --fuel-2: #98989f;
-  --fuel-3: #6e6e78;
+  --fuel-1: #30d158;
+  --fuel-2: #ffc22e;
+  --fuel-3: #9d87ff;
+  --fuel-1-text: #30d158;
+  --fuel-2-text: #ffc22e;
+  --fuel-3-text: #9d87ff;
   --fuel-track: rgba(232, 232, 226, 0.16);
 
   --red-text: #ff453a;
@@ -380,16 +375,16 @@
   --green-text: #30d158;
   --cyan-text: #64d2ff;
 
-  --rpe-6: #58bde8;
-  --rpe-7: #45cf9f;
-  --rpe-8: #efc04a;
-  --rpe-9: #ff9145;
-  --rpe-10: #ff6250;
-  --rpe-6-text: #58bde8;
-  --rpe-7-text: #45cf9f;
-  --rpe-8-text: #efc04a;
-  --rpe-9-text: #ff9145;
-  --rpe-10-text: #ff6250;
+  --rpe-6: #6fd3ff;
+  --rpe-7: #5ae0bb;
+  --rpe-8: #ffd60a;
+  --rpe-9: #ffa53a;
+  --rpe-10: #ff6a5e;
+  --rpe-6-text: #6fd3ff;
+  --rpe-7-text: #5ae0bb;
+  --rpe-8-text: #ffd60a;
+  --rpe-9-text: #ffa53a;
+  --rpe-10-text: #ff6a5e;
 
   --gray: #8e8e93;
   --gray2: #636366;
