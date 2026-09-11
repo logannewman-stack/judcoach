@@ -1,7 +1,9 @@
+/* Only a stand-in: on an iPhone `ui-rounded` resolves to SF Pro Rounded and
+   this is never downloaded. It exists so the demo looks right on a laptop. */
 @font-face {
-  font-family: 'JetBrains Mono';
-  src: url('../assets/jetbrains-mono-var.woff2') format('woff2');
-  font-weight: 400 700;
+  font-family: 'Nunito';
+  src: url('../assets/nunito-var.woff2') format('woff2');
+  font-weight: 400 900;
   font-style: normal;
   font-display: swap;
 }
@@ -9,28 +11,36 @@
 /* ============================================================================
    GRIT — design tokens.  See DESIGN.md for what any of this is for.
 
-   The structure is Apple's — the same roles, the same three-state theme, so the
-   app behaves like a native one. The values are nothing like Apple's, and that
-   is the point: see DESIGN.md §0. This is an instrument, so the neutrals do
-   almost all the work, the rules are thin and cool, and the accent appears only
-   where there is an action. Dark is the primary appearance.
+   Apple's structure and Apple's palette, at full brightness. See DESIGN.md:
+   colour is not rationed here, it is how the app says where you are and how you
+   are doing. Every domain owns a hue the way Health and Fitness do, and --tint
+   resolves to whichever one is in front of you. Light is the primary
+   appearance; dark keeps the same brightness of character.
 
    Every colour is defined on bare :root first; dark overrides only redefine.
    ========================================================================== */
 
 :root {
   /* ---- accent (user-selectable in Settings; --accent is the live value) ---- */
-  --accent-blue: #0b57f0;
+  --accent-blue: #007aff;
   --accent-indigo: #5856d6;
   --accent-green: #34c759;
   --accent-orange: #ff9500;
   --accent-pink: #ff2d55;
   --accent-purple: #af52de;
   --accent: var(--accent-blue);
-  --accent-soft: rgba(11, 87, 240, 0.11);
+  --accent-soft: rgba(0, 122, 255, 0.14);
 
   /* ---- system colours ---- */
   --blue: #007aff;
+
+  /* Every domain owns a colour; --tint is whichever is in front of you. */
+  --tint-today: #007aff;
+  --tint-train: #ff8a00;
+  --tint-meals: #34c759;
+  --tint-weigh: #af52de;
+  --tint-coach: #ff2d70;
+  --tint: var(--tint-today);
   --green: #34c759;
   --indigo: #5856d6;
   --orange: #ff9500;
@@ -64,20 +74,20 @@
   --gray6: #f2f2f7;
 
   /* ---- labels ---- */
-  --label: #14161a;
+  --label: #000000;
   --label-2: rgba(35, 40, 48, 0.62);
   --label-3: rgba(35, 40, 48, 0.34);
   --label-4: rgba(58, 58, 62, 0.18);
 
   /* ---- backgrounds ---- */
   --bg: #ffffff;
-  --bg-2: #f2f3f2;
+  --bg-2: #f2f2f7;
   --bg-3: #ffffff;
   /* Apple's #f2f2f7 carries a blue cast that reads as stock iOS. This is the
      same value with the blue taken out and a hair of warmth left in. */
-  --grouped: #f2f3f2;
+  --grouped: #f2f2f7;
   --grouped-2: #ffffff;
-  --grouped-3: #f2f3f2;
+  --grouped-3: #f2f2f7;
 
   /* ---- fills ---- */
   --fill: rgba(120, 120, 128, 0.2);
@@ -86,7 +96,7 @@
   --fill-4: rgba(116, 116, 128, 0.08);
 
   /* ---- separators ---- */
-  --sep: rgba(30, 36, 44, 0.16);
+  --sep: rgba(60, 60, 67, 0.22);
   --sep-opaque: #dfe1e0;
 
   /* ---- chrome (translucent bars) ---- */
@@ -98,8 +108,8 @@
   --elevated: #ffffff;
 
   /* ---- shadows ---- */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.09);
+  --shadow-sm: 0 1px 2px rgba(28, 30, 48, 0.05), 0 4px 14px rgba(28, 30, 48, 0.05);
+  --shadow-md: 0 2px 6px rgba(28, 30, 48, 0.06), 0 10px 28px rgba(28, 30, 48, 0.10);
   --shadow-lg: 0 12px 38px rgba(0, 0, 0, 0.16);
   --shadow-float: 0 6px 22px rgba(0, 0, 0, 0.15);
   /* Cast leftward by a screen pushed over the one beneath it. */
@@ -110,23 +120,23 @@
   --shadow-knob: 0 3px 8px rgba(0, 0, 0, 0.13), 0 1px 1px rgba(0, 0, 0, 0.12);
 
   /* ---- radii (iOS continuous-ish corners) ---- */
-  --r-inset: 6px;
-  --r-card: 6px;
+  --r-inset: 18px;
+  --r-card: 22px;
   /* UIAlertController's corner, shared by an alert and an action sheet's
      groups. Both were 18px, which reads as a web card rather than a panel. */
-  --r-alert: 10px;
-  --r-sheet: 10px;
-  --r-btn: 6px;
+  --r-alert: 28px;
+  --r-sheet: 28px;
+  --r-btn: 999px;
   /* A chip is any small object or control that holds one thing: a logged set,
      a bar button, a segmented track, a 29pt icon tile, half a stepper. It reads
      wrong at a card's radius. */
-  --r-chip: 3px;
+  --r-chip: 14px;
   /* A control the size of a search field. Shares the inset list's value and not
      its meaning, so it gets its own name. */
-  --r-field: 6px;
+  --r-field: 16px;
   /* A speech bubble is not a card and does not take a card's corner; this is
      the radius iOS Messages uses. */
-  --r-bubble: 10px;
+  --r-bubble: 22px;
   --r-pill: 999px;
 
   /* ---- intensity ---------------------------------------------------------
@@ -212,15 +222,17 @@
      DESIGN.md: the app's content is its numbers, so the numbers get a face
      chosen for them while SF keeps the chrome native.
      --------------------------------------------------------------------- */
-  /* The display face: a figure meant to be read across a room. Archivo,
-     because a monospace at 50px looks weak rather than deliberate. */
-  --font-display: 'Archivo', 'SF Pro Text', -apple-system, BlinkMacSystemFont,
-    'Helvetica Neue', Arial, sans-serif;
+  /* Every number in the app. ui-rounded is SF Pro Rounded on an Apple device —
+     free, native, and exactly what Fitness and Activity set their figures in.
+     Nunito is bundled so a non-Apple browser sees something close in the demo,
+     and only ever as a fallback. */
+  --font-display: ui-rounded, -apple-system, 'SF Pro Rounded', 'Nunito',
+    'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
 
   /* Everything that belongs in a column. Every feature stylesheet already
      routes its data through this one token, so pointing it at the mono is what
      turns nine screens of tables into something that reads as computed. */
-  --font-data: var(--font-mono);
+  --font-data: var(--font-display);
 
   /* ---- the table face -----------------------------------------------------
      A training log is a table, a programme is a grid, plate maths is

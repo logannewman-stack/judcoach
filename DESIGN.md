@@ -1,116 +1,113 @@
 # GRIT — design direction
 
-GRIT is the software a strength coach programmes in and a lifter executes from.
-It is an **instrument**, not a consumer app: a thing you learn, keep open, and
-trust with numbers that decide what you put on a bar.
+GRIT should look and feel like **the best app Apple never shipped**. Bright,
+rounded, colourful, alive. A client opens it in the morning and it is a pleasure
+to look at; they open it between sets and it answers instantly.
 
-That is the whole brief. Everything below follows from it.
+That is the whole brief.
 
-## 0. The correction
+## 0. Two corrections, so nobody makes them again
 
-An earlier pass optimised for iOS fidelity and got it: white cards floating on
-grey, system blue, rounded rectangles, generous padding. It looked like Settings
-with fitness content in it — indistinguishable from every other app on the
-phone, and nothing like a tool a professional would choose.
+**It was once stock iOS.** White cards on grey, system blue, nothing of its own.
+Correct platform, no character. Being native is the floor, not the finish.
 
-**Native behaviour is quality. Native chrome is generic.** Keep the first
-absolutely — the push curve, the edge-swipe with velocity, momentum scrolling,
-sheet physics, press states that answer the finger in the same frame. That is
-what makes software feel expensive on a phone and it stays exactly as it is.
+**Then it was an instrument.** Monospace tables, near-black, 3px corners. Precise
+and cold — software for a machine operator, not an app a person is glad to open.
 
-Replace the second. The surface should read as an instrument: panels rather than
-cards, rules rather than gaps, density rather than air, and numbers set in a
-face that says the machine means them.
+The answer is neither. It is iOS at its most expressive: Apple's own vocabulary —
+soft continuous corners, generous colour, springy motion, translucent materials,
+big friendly numerals — used with more care and more joy than most apps bother
+with. **Very iOS. Very bright. Very round. Nothing sharp anywhere.**
 
-## 1. Dark by default
+## 1. Shape — nothing sharp
 
-Professional tools are dark, gyms are dark, and GRIT's own mark is iron. Dark is
-the app's primary appearance and is designed first. Light is a real alternative,
-fully designed, for a client who wants it — not an afterthought and not a wash
-of the dark one.
+Roundness is the app's signature. Every surface is generously, softly rounded,
+and the corners are *continuous* (the squircle iOS draws), never a plain arc.
 
-## 2. Typography — three faces, split by role
-
-| face | role | where |
+| token | px | what it is |
 |---|---|---|
-| **system (SF)** | language | screen titles, row titles, body copy, buttons, coach notes, anything read as a sentence |
-| **Archivo** | display figures | the runner's target, today's weight, a PR, a headline total — a number meant to be seen across a room |
-| **JetBrains Mono** | data and labels | every table cell, every set, every percentage, and every uppercase label above data |
+| `--r-chip` | 14 | a small object: a set, a badge, a day |
+| `--r-inset` | 18 | an inset-grouped list |
+| `--r-card` | 22 | a card |
+| `--r-btn` | 999 | **every button is a capsule** |
+| `--r-field` | 16 | a field |
+| `--r-sheet` / `--r-alert` | 28 | a panel in front of the app |
+| `--r-bubble` | 22 | a message bubble |
+| `--r-pill` | 999 | a pill |
 
-The mono is the move that makes this read as software rather than as an app. A
-training log is a table; a programme is a grid; plate maths is arithmetic. In a
-monospace the columns lock, the digits stop shuffling, and the page starts
-looking like something that was computed rather than laid out.
+If a shape needs a radius none of these names, it needs a name — add the token
+and this row. Never type a number. `npm run conform` checks.
 
-Classes: `.figure` (Archivo display), `.data` (mono tabular), `.eyebrow` (mono
-uppercase label). Only `.eyebrow` carries a size; the other two take the size of
-what they sit in.
+## 2. Colour — bright, and used generously
 
-Never set a sentence in Archivo or in the mono. Never set a number in SF.
+Apple's system palette, at full brightness, on a bright ground. Colour is not
+rationed here: it is how the app tells you where you are and how you are doing.
 
-## 3. Surfaces — panels, not cards
+**Every domain owns a colour**, the way Health and Fitness do. It tints that
+tab's icons, its headers, its rings and its accents:
 
-A card floats. A panel is part of the instrument.
+| domain | colour |
+|---|---|
+| Today | blue |
+| Train | orange |
+| Meals | green |
+| Weigh-In | purple |
+| Coach | pink |
 
-- **ground** — the chassis. Nothing sits on it loose.
-- **panel** — where content lives. Meets its neighbours along a hairline rather
-  than floating in a gap with a shadow under it.
-- **raised** — genuinely in front of the app: a sheet, an alert, the toast, the
-  rest timer. These are the only things that get a shadow.
+`--tint` resolves to the current domain's colour; use it for anything that
+belongs to that section. `--accent` stays blue and means *the primary action*.
 
-Data runs edge to edge. A table does not get a margin because a card wanted one.
+**Intensity keeps its ramp.** RPE runs 6 to 10, cool to hot (`--rpe`,
+`--rpe-fill`, `--rpe-solid`). It is the app's one original idea and it is
+gloriously colourful, so it stays.
 
-Radii are small and named. Nothing is rounder than it needs to be: `--r-chip` 3,
-`--r-inset` / `--r-card` / `--r-btn` / `--r-field` 6, `--r-sheet` / `--r-alert`
-10, `--r-bubble` 10, `--r-pill` full. A number typed into a style is drift and
-`npm run conform` will find it.
+**Gradients are allowed** where Apple uses them — a hero card, a ring, a filled
+capsule — as a *soft two-stop wash within one hue family*. Never rainbow, never
+purple-to-blue, never on text.
 
-## 4. Colour
+Light is the primary appearance. Dark is a real, fully designed alternative that
+keeps the same brightness of character.
 
-**Neutrals do the work.** Nearly the whole app is ground, panel, rule and three
-weights of text. That restraint is what reads as expensive; a screen where four
-things are coloured has nothing left to emphasise with.
+## 3. Material and depth
 
-**One accent**, and it means *this is the action* — never decoration, never a
-large fill, never a second job. Decorative row icons are grey.
+Surfaces float. Cards sit on a tinted ground with a soft, wide, low-opacity
+shadow — the iOS card, not a web box-shadow. Bars and sheets are translucent
+materials with a blur behind them. Layering is real: the app recedes behind a
+sheet, chrome blurs what passes under it.
 
-**Intensity has its own ramp and it is the app's one real idea.** RPE runs 6 to
-10, cool to hot, and anywhere effort appears it takes `--rpe` (type),
-`--rpe-fill` (a wash behind type) or `--rpe-solid` (a bar or a series). A client
-should read the shape of a session by glancing down the page.
+## 4. Typography
 
-**Semantics** — good, warning, bad — stay separate from the accent and from the
-ramp. Green means on target, never "intense".
+| face | role |
+|---|---|
+| **SF Pro (system)** | every word: titles, rows, body, buttons |
+| **SF Pro Rounded** (`ui-rounded`) | **every number** — targets, weights, counts, percentages, timers |
 
-Every colour is declared on bare `:root` first; the theme blocks only redefine.
-Three states: bare `:root`, `@media (prefers-color-scheme: dark)` guarded by
-`:root:not([data-theme='light'])`, and `:root[data-theme='dark']`.
+Rounded numerals are what makes an app feel warm rather than clinical; it is
+what Apple Fitness and Activity use, and it is free on the device. Nunito is
+bundled only so non-Apple browsers see something close in the demo.
 
-## 5. Density
+Numbers are big and confident. A figure is a thing to be proud of, not a cell.
 
-An instrument shows you your data, not its own padding. A screen that can show
-twelve rows shows twelve.
+Classes: `.figure` (a hero number), `.data` (a number in a row), `.eyebrow` (a
+small uppercase label). Never set a sentence in the rounded face.
 
-- A row's subtitle never wraps. Truncate, or say less.
-- Section rhythm 24; inside a panel 8–12. Nothing else.
-- Prefer a rule to a gap, and a column to a card.
-- If a thing can be a table, it is a table.
+## 5. Motion — springy and alive
 
-## 6. Motion
+Springs, not ramps. Things arrive with a little overshoot and settle. A tap
+squeezes. A ring fills. A completed set pops. Nothing is stiff.
 
-One curve (`--ease-ios`) and two durations (`--dur-state` 200ms in place,
-`--dur-push` 350ms presenting). Springs only where something settles under a
-finger. Press state comes from `data-pressed`, never `:active` — see
-`src/lib/press.ts`. Everything respects `prefers-reduced-motion` and the app is
-fully usable with it on.
+Press state comes from `data-pressed`, never `:active`. Everything respects
+`prefers-reduced-motion` and the app stays delightful with it on — just still.
 
-Motion is feedback, never flourish. Nothing animates because a screen looked
-static.
+## 6. Density
 
-## 7. What this must never become
+Comfortable, not cramped. Generous padding, real breathing room, 44pt minimum on
+everything tappable. An app that feels good to use beats one that fits one more
+row.
 
-No gradient heroes. No purple-to-blue. No emoji as section markers. No accent
-bar down the side of a panel that needed something. No shadow on a thing that is
-not in front of the app. No centred body text. No unnamed radius. No second
-accent. No animation that exists to be noticed. And nothing that makes the app
-look like it shipped with the phone.
+## 7. Never
+
+No sharp corners. No monospace. No grey-on-grey screens. No hairline-ruled
+tables where a card would do. No colour used so sparingly the app reads as
+austere. No animation that is merely decorative — but do not mistake restraint
+for quality: this app should feel *alive*.

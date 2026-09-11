@@ -1521,7 +1521,7 @@ function FinishSheet({
           <div
             className="t-footnote"
             style={{
-              padding: '10px 12px', borderRadius: 10, marginBottom: 18,
+              padding: '10px 12px', borderRadius: 'var(--r-chip)', marginBottom: 18,
               background: 'color-mix(in srgb, var(--orange) 13%, transparent)',
               color: 'var(--orange-text)',
             }}

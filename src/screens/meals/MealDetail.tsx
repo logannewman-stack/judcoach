@@ -169,7 +169,7 @@ function SwapSheet({
                 key={swap.id}
                 type="button"
                 className="row"
-                style={{ borderRadius: 10 }}
+                style={{ borderRadius: 'var(--r-chip)' }}
                 onClick={() => onPick(swap)}
               >
                 <span className="row-body">

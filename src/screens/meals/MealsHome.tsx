@@ -624,7 +624,7 @@ function QuickAddSheet({ open, onClose, date }: { open: boolean; onClose: () => 
             key={food.id}
             type="button"
             className="row"
-            style={{ borderRadius: 10 }}
+            style={{ borderRadius: 'var(--r-chip)' }}
             onClick={() => {
               const { id: _id, ...rest } = food
               addExtraFood(date, rest)
