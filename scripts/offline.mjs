@@ -58,7 +58,9 @@ check('a launch image is declared for the common iPhones',
 const manifest = await (await page.request.get(new URL('./manifest.webmanifest', url).href)).json()
 check('the manifest is standalone and portrait',
   manifest.display === 'standalone' && manifest.orientation === 'portrait')
-check('the launch colour matches the launch image', manifest.background_color === '#111113',
+// The image's own ground is a vertical ramp; this is its midpoint, so a splash
+// that falls back to the flat colour does not jump when the image arrives.
+check('the launch colour matches the launch image', manifest.background_color === '#0f0f11',
   manifest.background_color)
 
 /* the worker installs and precaches this build's assets */
