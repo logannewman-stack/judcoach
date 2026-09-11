@@ -382,7 +382,15 @@ function buildSession(skeleton: SessionSkeleton, spec: WeekSpec, weekIndex: numb
   }
 }
 
-export function buildProgram(startDate: string): Program {
+/**
+ * `blockNumber` is which block of Jud's this is for this client, and it is the
+ * only thing that varies between two clients on the same template. It is stored
+ * rather than derived because it is a fact about the person, not the calendar:
+ * the sample client is three blocks in, and someone who signed up this morning
+ * is on their first. Hard-coding it read "Block 3 · week 1" to every new client
+ * and went on saying Block 3 after they rolled into the next one.
+ */
+export function buildProgram(startDate: string, blockNumber: number): Program {
   const weeks: WeekTemplate[] = WEEK_SPECS.map((spec, i) => {
     const index = i + 1
     return {
@@ -396,8 +404,8 @@ export function buildProgram(startDate: string): Program {
   })
 
   return {
-    id: 'block-3-strength-hypertrophy',
-    name: 'Block 3 · Strength + Size',
+    id: `block-${blockNumber}-strength-hypertrophy`,
+    name: `Block ${blockNumber} · Strength + Size`,
     subtitle: '8 weeks · 4 days · upper/lower',
     goal: 'Add 20 lb across the big three while gaining at 0.4 lb a week — strength up, waist flat.',
     coach: 'Jud',
@@ -409,12 +417,16 @@ export function buildProgram(startDate: string): Program {
 
 const programCache = new Map<string, Program>()
 
-/** Memoised so every consumer shares one programme object per start date. */
-export function getProgram(startDate: string): Program {
-  let program = programCache.get(startDate)
+/**
+ * Memoised so every consumer shares one programme object. Keyed on both, because
+ * rolling into the next block keeps neither the date nor the number.
+ */
+export function getProgram(startDate: string, blockNumber: number): Program {
+  const key = `${startDate}|${blockNumber}`
+  let program = programCache.get(key)
   if (!program) {
-    program = buildProgram(startDate)
-    programCache.set(startDate, program)
+    program = buildProgram(startDate, blockNumber)
+    programCache.set(key, program)
   }
   return program
 }

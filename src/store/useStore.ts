@@ -6,8 +6,8 @@ import type {
 } from '../domain/types'
 import { convertUnits } from '../domain/units'
 import {
-  SEED_PROFILE, SEED_SETTINGS, seedCheckIns, seedMeasurements, seedStartDate,
-  seedWeighIns, seedWorkoutLogs,
+  SEED_BLOCK_NUMBER, SEED_PROFILE, SEED_SETTINGS, seedCheckIns, seedMeasurements,
+  seedStartDate, seedWeighIns, seedWorkoutLogs,
 } from '../data/seed'
 import { getProgram } from '../data/program'
 import { startOfWeek, todayISO } from '../lib/date'
@@ -31,6 +31,12 @@ export interface AppState {
    * workouts from a Monday you had no account for.
    */
   blockStartedOn: string
+  /**
+   * Which block of Jud's this client is on. Stored rather than counted from the
+   * calendar: a client's history with a coach is not a function of dates, and
+   * the programme template is the same eight weeks whichever block it is.
+   */
+  blockNumber: number
   weighIns: WeighIn[]
   measurements: MeasurementEntry[]
   photos: ProgressPhoto[]
@@ -132,6 +138,7 @@ function seedState() {
     seededAt: new Date().toISOString(),
     onboarded: false,
     blockStartedOn: startDate,
+    blockNumber: SEED_BLOCK_NUMBER,
   }
 }
 
@@ -174,6 +181,8 @@ export const useStore = create<AppState>()(
           restTimer: null,
           programStartDate: startOfWeek(todayISO(), 1),
           blockStartedOn: todayISO(),
+          // Nor the sample client's history with Jud: this is block one.
+          blockNumber: 1,
           // A new client must not inherit the sample client's body or
           // strength — a pre-filled 465 lb deadlift reads as a suggestion.
           profile: {
@@ -192,9 +201,10 @@ export const useStore = create<AppState>()(
        * on week eight forever.
        */
       startNextBlock: () =>
-        set(() => ({
+        set((s) => ({
           programStartDate: startOfWeek(todayISO(), 1),
           blockStartedOn: todayISO(),
+          blockNumber: s.blockNumber + 1,
           active: null,
           restTimer: null,
         })),
@@ -355,7 +365,7 @@ export const useStore = create<AppState>()(
           // resolved from the programme — falling back to the block id would
           // write "w5-lowerA-b0" where "back-squat" belongs, which silently
           // orphans the set from history, records and volume.
-          const session = getProgram(s.programStartDate)
+          const session = getProgram(s.programStartDate, s.blockNumber)
             .weeks.find((w) => w.index === active.weekIndex)
             ?.sessions.find((x) => x.id === active.sessionId)
 
@@ -486,6 +496,7 @@ export const useStore = create<AppState>()(
           // maxes and mid-block calendar back.
           programStartDate: startOfWeek(todayISO(), 1),
           blockStartedOn: todayISO(),
+          blockNumber: 1,
           profile: { ...s.profile, name: s.profile.name },
         }))
       },
@@ -504,6 +515,7 @@ export const useStore = create<AppState>()(
           settings: { ...get().settings, ...next.settings },
           programStartDate: next.programStartDate ?? get().programStartDate,
           blockStartedOn: next.blockStartedOn ?? get().blockStartedOn,
+          blockNumber: next.blockNumber ?? get().blockNumber,
           weighIns: next.weighIns,
           measurements: next.measurements,
           photos: next.photos,
@@ -523,7 +535,7 @@ export const useStore = create<AppState>()(
     }),
     {
       name: 'grit-store-v1',
-      version: 2,
+      version: 3,
       storage: createResilientJSONStorage(),
       /* A top-level spread would drop any `profile` or `settings` field added
          after a client's first launch, rehydrating it as undefined. */
@@ -534,6 +546,18 @@ export const useStore = create<AppState>()(
           // Photos used to ride along in the main blob. Give them their own key.
           writePhotos(state.photos as ProgressPhoto[])
         }
+        if (version < 3 && state.blockNumber == null) {
+          // The block number used to be hard-coded to three, so a client who had
+          // started fresh was told they were three blocks into a programme they
+          // began last week. No logged sets and no working maxes is exactly what
+          // startFresh leaves behind, and it is the one state that cannot have
+          // reached a third block; everyone else keeps the number they were
+          // already being shown.
+          const maxes = (state.profile as { trainingMaxes?: object } | undefined)?.trainingMaxes
+          const untouched = (!maxes || Object.keys(maxes).length === 0)
+            && (!Array.isArray(state.logs) || state.logs.length === 0)
+          state.blockNumber = untouched ? 1 : SEED_BLOCK_NUMBER
+        }
         return state
       },
       partialize: (s) => ({
@@ -541,6 +565,7 @@ export const useStore = create<AppState>()(
         settings: s.settings,
         programStartDate: s.programStartDate,
         blockStartedOn: s.blockStartedOn,
+        blockNumber: s.blockNumber,
         weighIns: s.weighIns,
         measurements: s.measurements,
         logs: s.logs,

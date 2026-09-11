@@ -21,6 +21,13 @@ function rng(seed: number) {
 
 /* -------------------------------- profile ------------------------------- */
 
+/**
+ * Which block of Jud's the sample client is on. The seed's whole story is that
+ * they are mid-programme — five weeks in, with three blocks of history behind
+ * them — so it is 3 here and 1 for anyone starting fresh.
+ */
+export const SEED_BLOCK_NUMBER = 3
+
 export const SEED_PROFILE: Profile = {
   name: 'Alex Rivera',
   goalLabel: 'Lean gain · 0.4 lb / week',
@@ -177,7 +184,7 @@ function accessoryLoad(exerciseId: string, weekIndex: number, deload: boolean, j
  * charts, PR history and "last time" anchors all have real data behind them.
  */
 export function seedWorkoutLogs(today = todayISO(), startDate = seedStartDate(today)): WorkoutLog[] {
-  const program = buildProgram(startDate)
+  const program = buildProgram(startDate, SEED_BLOCK_NUMBER)
   const rand = rng(4242)
   const logs: WorkoutLog[] = []
 

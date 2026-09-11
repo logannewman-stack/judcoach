@@ -35,6 +35,7 @@ export interface ImportedState {
   settings: Partial<Settings>
   programStartDate?: string
   blockStartedOn?: string
+  blockNumber?: number
   weighIns: WeighIn[]
   measurements: MeasurementEntry[]
   photos: ProgressPhoto[]
@@ -312,6 +313,11 @@ export function guardPersistedShape(persisted: unknown): unknown {
   for (const key of ['programStartDate', 'blockStartedOn', 'seededAt'] as const) {
     if (key in out && typeof out[key] !== 'string') delete out[key]
   }
+  // A block number out of a damaged file must not become NaN in a heading.
+  if ('blockNumber' in out
+    && (typeof out.blockNumber !== 'number' || !Number.isFinite(out.blockNumber) || out.blockNumber < 1)) {
+    delete out.blockNumber
+  }
   if ('onboarded' in out && typeof out.onboarded !== 'boolean') delete out.onboarded
 
   return out
@@ -359,6 +365,10 @@ export function validateImport(raw: unknown): ImportResult {
       settings: readSettings(raw.settings),
       programStartDate: isoDate(raw.programStartDate),
       blockStartedOn: isoDate(raw.blockStartedOn),
+      blockNumber: typeof raw.blockNumber === 'number' && Number.isFinite(raw.blockNumber)
+        && raw.blockNumber >= 1
+        ? Math.floor(raw.blockNumber)
+        : undefined,
       weighIns: byDateDesc(weighIns.out),
       measurements: byDateDesc(measurements.out),
       photos: byDateDesc(photos.out),

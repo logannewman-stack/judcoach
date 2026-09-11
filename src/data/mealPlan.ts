@@ -6,8 +6,10 @@ import type { MealPlan } from '../domain/types'
  * followed. Swaps are macro-matched within ~40 kcal / 6 g protein.
  */
 export const MEAL_PLAN: MealPlan = {
-  id: 'plan-block-3',
-  name: 'Block 3 Fuelling',
+  id: 'plan-fuelling',
+  // Not "Block 3 Fuelling": the plan is the same one whichever block a client
+  // is on, and a name that counts blocks is wrong for everyone but the sample.
+  name: 'Fuelling Plan',
   subtitle: 'High-protein · carbs cycled around training',
   targets: { kcal: 2920, protein: 247, carbs: 283, fat: 89, fiber: 32, waterOz: 128 },
   restDayTargets: { kcal: 2590, protein: 247, carbs: 200, fat: 89, fiber: 27, waterOz: 120 },

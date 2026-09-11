@@ -14,7 +14,8 @@ export { getProgram }
 
 export function useProgram(): Program {
   const startDate = useStore((s) => s.programStartDate)
-  return useMemo(() => getProgram(startDate), [startDate])
+  const blockNumber = useStore((s) => s.blockNumber)
+  return useMemo(() => getProgram(startDate, blockNumber), [startDate, blockNumber])
 }
 
 /** The block runs Monday-first; templates store weekday as 0=Sunday. */
