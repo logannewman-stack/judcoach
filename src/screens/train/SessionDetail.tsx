@@ -261,7 +261,7 @@ export function SessionDetail({ weekIndex, sessionId }: { weekIndex: number; ses
                 {log.durationSec ? ` · ${formatMinutes(log.durationSec)}` : ''}
                 {(() => {
                   const best = log.exercises[0] ? topSet(log.exercises[0].sets) : undefined
-                  return best ? ` · top set ${best.weight} ${profile.units} × ${best.reps}` : ''
+                  return best ? ` · top set ${num(best.weight, 1)} ${profile.units} × ${best.reps}` : ''
                 })()}
               </div>
             </Card>

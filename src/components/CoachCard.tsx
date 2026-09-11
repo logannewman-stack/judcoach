@@ -32,14 +32,30 @@ export function CoachCard() {
 
   const openThread = () => { switchTab('settings'); push('messages') }
 
-  // Nothing has ever been said: the profile card is still the right thing.
+  /* Nothing has come back from the other side. The card still introduces them,
+     but an introduction alone is a profile row: this is the only place on the
+     first screen from which the conversation can start, so it has to say so.
+     Which line depends on whose move it is — "Say hello" to somebody already
+     waiting on a reply would be the app not reading its own thread. */
   if (!newest) {
+    const waiting = notes.some((n) => n.author === viewAs)
     return (
       <button type="button" className="card coach-card" onClick={openThread}>
         <CoachAvatar size={44} name={themFull} />
         <span className="coach-card-body">
           <span className="t-headline">{themFull}</span>
-          <span className="t-footnote dim truncate">{COACH.title} · {COACH.credentials}</span>
+          {/* Jud's credentials are Jud's. In his seat the other party is the
+              client, and the line under their name has to be theirs. */}
+          {viewAs === 'client' && (
+            <span className="t-footnote dim truncate">{COACH.title} · {COACH.credentials}</span>
+          )}
+          {waiting ? (
+            <span className="t-footnote dim">Sent &middot; no reply yet</span>
+          ) : (
+            <span className="t-footnote" style={{ color: 'var(--accent)', fontWeight: 600 }}>
+              Say hello
+            </span>
+          )}
         </span>
         <Icon name="chevron.right" size={15} weight={2.6} color="var(--label-3)" />
       </button>

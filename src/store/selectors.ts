@@ -15,7 +15,18 @@ export { getProgram }
 export function useProgram(): Program {
   const startDate = useStore((s) => s.programStartDate)
   const blockNumber = useStore((s) => s.blockNumber)
-  return useMemo(() => getProgram(startDate, blockNumber), [startDate, blockNumber])
+  const blockStartedOn = useStore((s) => s.blockStartedOn)
+  const units = useStore((s) => s.profile.units)
+  /* The built programme is memoised on what builds it and shared by every
+     caller, and the day this client rolled over is not part of that — it is a
+     fact about the person, like the block number. So it is stamped onto a copy
+     here rather than written into the shared object. `units` does belong to the
+     build (it is the goal line's unit) and has to be a dependency of this memo
+     as well as an argument, or a switch hands back the sentence it replaced. */
+  return useMemo(
+    () => ({ ...getProgram(startDate, blockNumber, units), blockStartedOn }),
+    [startDate, blockNumber, units, blockStartedOn],
+  )
 }
 
 /** The block runs Monday-first; templates store weekday as 0=Sunday. */
@@ -54,17 +65,35 @@ export interface ScheduledSession {
 }
 
 /**
+ * The first day whose logs belong to the block currently running.
+ *
+ * A block's calendar hangs off the Monday of its first week, but a client rolls
+ * over on whatever day they tap the button, and `startNextBlock` backdates
+ * `programStartDate` to the Monday just gone so week one is this week. Flooring
+ * on that Monday therefore swept up the sessions trained on it under the block
+ * that was still running: rolling over on a Friday handed the new block's week
+ * five three of the old block's logs, dated four weeks before the week they were
+ * being counted in. `blockStartedOn` is the day the client actually crossed
+ * over, and it is the honest floor. Guarded rather than taken, because an
+ * imported file can carry one of the two dates without the other.
+ */
+const blockFloor = (program: Program): string =>
+  program.blockStartedOn && program.blockStartedOn > program.startDate
+    ? program.blockStartedOn
+    : program.startDate
+
+/**
  * Whether a log belongs to the block currently running.
  *
  * A session id carries its week and its slot — `w1-lowerA` — but not the block,
  * so the ids repeat every time a client rolls into the next eight weeks. Matching
  * on the id alone handed block four's first month block three's logs: the week
  * read 4/4 done against sessions nobody had trained, the streak counted them, and
- * the next session jumped four weeks past the one actually due. A block starts on
- * its own Monday and a log is dated the day it was finished, so the block's start
- * date is what separates this `w1-lowerA` from the last one's.
+ * the next session jumped four weeks past the one actually due. A log is dated
+ * the day it was finished, so the day the block began is what separates this
+ * `w1-lowerA` from the last one's.
  */
-const inBlock = (program: Program, log: WorkoutLog): boolean => log.date >= program.startDate
+const inBlock = (program: Program, log: WorkoutLog): boolean => log.date >= blockFloor(program)
 
 /** The log that belongs to one session of *this* block, if it has been trained. */
 export function findSessionLog(
@@ -125,7 +154,7 @@ export function missedSessions(
 ): ScheduledSession[] {
   const out: ScheduledSession[] = []
   const upTo = currentWeekIndex(program, today)
-  const floor = since ?? program.startDate
+  const floor = since ?? blockFloor(program)
   for (let w = 1; w <= upTo; w++) {
     for (const s of weekSchedule(program, w, logs)) {
       if (s.date < today && s.date >= floor && !s.log) out.push(s)
@@ -142,7 +171,7 @@ export function isBlockComplete(program: Program, today = todayISO()): boolean {
 /** Everything the client did across the block, for the completion summary. */
 export function blockSummary(program: Program, logs: WorkoutLog[]) {
   const end = addDays(program.startDate, program.weeks.length * 7 - 1)
-  const inBlock = logs.filter((l) => l.date >= program.startDate && l.date <= end)
+  const inBlock = logs.filter((l) => l.date >= blockFloor(program) && l.date <= end)
   const scheduled = program.weeks.reduce((n, w) => n + w.sessions.length, 0)
   return {
     sessions: inBlock.length,

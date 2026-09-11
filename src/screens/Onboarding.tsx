@@ -13,7 +13,7 @@ import { MAIN_LIFTS } from '../data/exercises'
 import { COACH } from '../data/seed'
 import { DEFAULT_PLATES_KG, DEFAULT_PLATES_LB, roundToIncrement } from '../domain/strength'
 import type { Units } from '../domain/types'
-import { relativeDay, todayISO } from '../lib/date'
+import { relativeTime, todayISO } from '../lib/date'
 import { fixed, num } from '../lib/format'
 import { haptic } from '../lib/haptics'
 import { IOS_PUSH } from '../nav/Stack'
@@ -371,8 +371,13 @@ function WeightStep({ onNext, onBack }: { onNext: () => void; onBack: () => void
   const updateProfile = useStore((s) => s.updateProfile)
   const [editing, setEditing] = useState<'start' | 'goal' | null>(null)
   const needsWeight = profile.startWeight <= 0
+  // A goal nobody typed is not a goal. Setup used to seed this field from
+  // today's weight so it would not look blank, and the whole app downstream then
+  // had to work out that a goal equal to the start weight was really an absence
+  // — an empty progress bar, a destination the client was already standing on.
+  const needsGoal = profile.goalWeight <= 0
 
-  const direction = profile.goalWeight - profile.startWeight
+  const direction = needsGoal ? 0 : profile.goalWeight - profile.startWeight
   const rateOptions = profile.units === 'kg' ? [0.1, 0.2, 0.35, 0.5] : [0.25, 0.5, 0.75, 1]
 
   // The stored rate may not be one of the offered steps; snap it so a chip is
@@ -381,7 +386,10 @@ function WeightStep({ onNext, onBack }: { onNext: () => void; onBack: () => void
   const snapped = rateOptions.reduce((best, r) =>
     Math.abs(r - magnitude) < Math.abs(best - magnitude) ? r : best,
   )
-  const signedRate = direction >= 0 ? snapped : -snapped
+  // No direction, no rate: 0 is what the rest of the app reads as "no target",
+  // and it is the only honest answer while the two weights are equal or one of
+  // them is missing.
+  const signedRate = direction === 0 ? 0 : direction > 0 ? snapped : -snapped
   useEffect(() => {
     if (profile.weeklyRateTarget !== signedRate) updateProfile({ weeklyRateTarget: signedRate })
   }, [signedRate, profile.weeklyRateTarget, updateProfile])
@@ -417,7 +425,7 @@ function WeightStep({ onNext, onBack }: { onNext: () => void; onBack: () => void
 
       {/* A rate needs a direction, and a direction needs two weights. Before
           they exist the row claims "gaining" on the strength of 0 minus 0. */}
-      <div className="onboarding-rate" hidden={needsWeight}>
+      <div className="onboarding-rate" hidden={needsWeight || needsGoal}>
         <div className="eyebrow">
           {/* Two equal weights are not a direction; saying "gaining" of them is
               the app deciding something the client has not. */}
@@ -452,10 +460,7 @@ function WeightStep({ onNext, onBack }: { onNext: () => void; onBack: () => void
       <NumberPad
         open={editing === 'start'}
         onClose={() => setEditing(null)}
-        onSubmit={(v) =>
-          // Seed the goal from today's weight so the next field isn't a blank.
-          updateProfile({ startWeight: v, goalWeight: profile.goalWeight > 0 ? profile.goalWeight : v })
-        }
+        onSubmit={(v) => updateProfile({ startWeight: v })}
         title="Today's weight"
         initial={profile.startWeight > 0 ? profile.startWeight : 180}
         unit={profile.units}
@@ -466,6 +471,9 @@ function WeightStep({ onNext, onBack }: { onNext: () => void; onBack: () => void
         onClose={() => setEditing(null)}
         onSubmit={(v) => updateProfile({ goalWeight: v })}
         title="Goal weight"
+        // Today's weight is where the pad opens, so the client still never
+        // starts from a blank — but it is a suggestion they have to press Save
+        // on, and until they do the app knows they have not named a goal.
         initial={profile.goalWeight > 0 ? profile.goalWeight : profile.startWeight}
         unit={profile.units}
         steps={[-5, -1, 1, 5]}
@@ -589,7 +597,10 @@ function ReadyStep({
       </div>
       {first && (
         <div className="onboarding-note">
-          First up: {first.session.name}, {relativeDay(first.date, todayISO()).toLowerCase()}.
+          {/* `.lower` rather than `.toLowerCase()`: finishing onboarding on a
+              Saturday puts the first session two days out, which is the
+              weekday branch — and "monday" is not a word. */}
+          First up: {first.session.name}, {relativeTime(first.date, todayISO()).lower}.
         </div>
       )}
     </StepShell>

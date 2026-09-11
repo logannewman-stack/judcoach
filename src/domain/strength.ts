@@ -175,9 +175,19 @@ export interface ResolvedSet {
   restSec: number
 }
 
+/**
+ * The rep target in the fewest characters that still say all of it.
+ *
+ * A capped AMRAP is read as the range it is. "5+" dropped the cap entirely —
+ * the one number on an RPE-9 last set that says where to stop — and left it to
+ * the set's own prose, which is not what a lifter between sets looks at.
+ * Writing the cap after the plus would be worse than silence: "5–8+" reads as
+ * eight or more, the exact opposite of the instruction. The push is not lost
+ * either way, because every screen that shows an AMRAP badges it as one.
+ */
 export function describeReps(set: SetPrescription): string {
-  if (set.amrap) return `${set.reps}+`
   if (set.repsMax && set.repsMax !== set.reps) return `${set.reps}–${set.repsMax}`
+  if (set.amrap) return `${set.reps}+`
   return String(set.reps)
 }
 

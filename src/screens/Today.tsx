@@ -29,7 +29,7 @@ import { rateVerdict, rollingSeries, summarizeTrend, weighInsInLast } from '../d
 import { formatLongDate, formatMinutes, relativeDay, timeOfDayGreeting, todayISO, addDays } from '../lib/date'
 import { compact, fixed, num, pluralize, signed, weight } from '../lib/format'
 import { navPresent, navPush, navSwitchTab, useNav } from '../nav/nav'
-import { NumberPad } from '../components/NumberPad'
+import { LogSheet } from './weigh/WeighInHome'
 import { toast } from '../components/ios/Toast'
 import '../styles/today.css'
 
@@ -325,7 +325,6 @@ export function TodayScreen() {
               done={weekProgress.done}
               total={weekProgress.total}
               streak={streak}
-              weighDays={weighDays}
               startedOn={blockStartedOn}
               units={profile.units}
               emphasis={week?.emphasis}
@@ -378,19 +377,17 @@ export function TodayScreen() {
         ]}
       />
 
-      <NumberPad
+      {/* The Weigh-In tab's own sheet, not a second copy of it. The copy here
+          had no zero guard, so a client with no start weight on file who
+          pressed Save untouched filed a bodyweight of 0. */}
+      <LogSheet
         open={loggingWeight}
         onClose={() => setLoggingWeight(false)}
-        onSubmit={(w) => {
+        initial={weighIns[weighIns.length - 1]?.weight ?? profile.startWeight}
+        onSave={(w) => {
           saveWeighIn({ date: today, weight: w })
           toast(`${fixed(w, decimals)} ${profile.units} logged`, { icon: 'scale', tone: 'good' })
         }}
-        title="Today's weight"
-        initial={weighIns[weighIns.length - 1]?.weight ?? profile.startWeight}
-        unit={profile.units}
-        steps={[-1, -0.2, 0.2, 1]}
-        hint="First thing, after the bathroom, before food or water."
-        submitLabel="Save"
       />
     </Screen>
   )
@@ -833,14 +830,13 @@ function BlockCompleteCard({
  * hero, because a training week is what the client is actually here for.
  */
 function WeekCard({
-  weekIndex, label, done, total, streak, weighDays, startedOn, units, emphasis,
+  weekIndex, label, done, total, streak, startedOn, units, emphasis,
 }: {
   weekIndex: number
   label?: string
   done: number
   total: number
   streak: number
-  weighDays: number
   startedOn?: string
   units: Units
   emphasis?: string
@@ -849,9 +845,17 @@ function WeekCard({
   const still = useReducedMotion()
   const program = useProgram()
   const logs = useStore((s) => s.logs)
+  const weighIns = useStore((s) => s.weighIns)
   const schedule = weekSchedule(program, weekIndex, logs)
   const weekStart = addDays(program.startDate, (weekIndex - 1) * 7)
-  const tonnage = weekTonnage(logs, weekStart, addDays(weekStart, 6))
+  const weekEnd = addDays(weekStart, 6)
+  const tonnage = weekTonnage(logs, weekStart, weekEnd)
+  // The Monday-to-Sunday the strip above draws, not the rolling window the
+  // trend card upstairs counts in: under a "Week n" heading, beside a tonnage
+  // scoped to the same seven days, "5/7" can only mean these seven days.
+  const weighDays = new Set(
+    weighIns.filter((w) => w.date >= weekStart && w.date <= weekEnd).map((w) => w.date),
+  ).size
   const LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
   const pct = total > 0 ? (done / total) * 100 : 0
 

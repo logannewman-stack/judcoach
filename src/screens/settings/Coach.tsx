@@ -84,12 +84,16 @@ export function Coach() {
         <Row
           title="Weekly check-in"
           subtitle={
+            /* Not "Last sent": `addCheckIn` writes to this device and nothing
+               leaves it, so the row must not claim a transport either. */
             lastCheckIn
-              ? `Last sent ${formatMediumDate(lastCheckIn.date)}`
+              ? `Last check-in ${formatMediumDate(lastCheckIn.date)}`
               : 'Sunday nights — two minutes, big payoff'
           }
           icon="note"
-          iconColor="var(--green)"
+          // Teal, because that is what the Weigh-In tab's row to this same
+          // screen wears; green would read as Meals on a Coach row besides.
+          iconColor="var(--teal)"
           chevron
           onPress={() => push('checkIns')}
         />

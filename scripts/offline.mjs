@@ -60,10 +60,35 @@ check('a launch image is declared for the common iPhones',
 const manifest = await (await page.request.get(new URL('./manifest.webmanifest', url).href)).json()
 check('the manifest is standalone and portrait',
   manifest.display === 'standalone' && manifest.orientation === 'portrait')
-// The image's own ground is a vertical ramp; this is its midpoint, so a splash
-// that falls back to the flat colour does not jump when the image arrives.
-check('the launch colour matches the launch image', manifest.background_color === '#0f0f11',
-  manifest.background_color)
+/* The image's own ground is a vertical ramp and the flat colour is what a
+   launcher paints before the image arrives, so the two have to meet at the
+   ramp's midpoint or the splash jumps. This used to assert a hex typed in here,
+   which is a check that stops testing anything the moment the artwork changes —
+   and then fails for the one reason that is never a bug. It now samples the
+   launch image the app actually ships, down its left edge where the mark never
+   reaches, and asks the manifest to agree with it. */
+const launchGround = await page.evaluate((src) => new Promise((resolve) => {
+  const img = new Image()
+  img.onload = () => {
+    const c = document.createElement('canvas')
+    c.width = img.width
+    c.height = img.height
+    const ctx = c.getContext('2d')
+    ctx.drawImage(img, 0, 0)
+    const [r, g, b] = ctx.getImageData(4, Math.floor(img.height / 2), 1, 1).data
+    resolve(`#${[r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')}`)
+  }
+  img.onerror = () => resolve(null)
+  img.src = src
+}), new URL('./splash-750x1334.png', url).href)
+
+const near = (a, b) => a && b && [0, 1, 2].every((i) => {
+  const chan = (h, n) => parseInt(h.slice(1 + n * 2, 3 + n * 2), 16)
+  return Math.abs(chan(a, i) - chan(b, i)) <= 2
+})
+check('the launch colour matches the launch image',
+  near(manifest.background_color?.toLowerCase(), launchGround),
+  `manifest ${manifest.background_color} vs image ${launchGround}`)
 
 /* the worker installs and precaches this build's assets */
 await page.waitForFunction(() => navigator.serviceWorker.controller !== null, null, { timeout: 20000 })

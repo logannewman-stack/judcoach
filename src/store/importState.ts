@@ -365,6 +365,12 @@ export function guardPersistedShape(persisted: unknown): unknown {
 
 /* --------------------------------- entry --------------------------------- */
 
+/** Every key an export is spelled with, for telling one from any other JSON. */
+const EXPORT_KEYS = [
+  'profile', 'settings', 'programStartDate', 'blockStartedOn', 'blockNumber',
+  'weighIns', 'measurements', 'photos', 'logs', 'checkIns', 'nutrition',
+] as const
+
 /**
  * Read an imported export into state the app can render. Returns `ok: false`
  * only when the file is not a GRIT export at all; a file that is one but has
@@ -372,13 +378,14 @@ export function guardPersistedShape(persisted: unknown): unknown {
  */
 export function validateImport(raw: unknown): ImportResult {
   const dropped: Record<string, number> = {}
-  if (!isObject(raw)) return { ok: false, reason: "That file isn't a GRIT backup.", dropped }
+  const notOurs = { ok: false, reason: "That file isn't a GRIT backup.", dropped }
+  if (!isObject(raw)) return notOurs
 
-  // Every export carries at least one of these. Nothing else identifies the
-  // file, and accepting a bare {} would silently wipe the client's history.
-  const recognised = ['profile', 'weighIns', 'logs', 'measurements', 'checkIns', 'nutrition']
-    .some((key) => key in raw)
-  if (!recognised) return { ok: false, reason: "That file isn't a GRIT backup.", dropped }
+  // What this app stamps on everything it writes. A file that says so is one of
+  // ours whatever is left in it — restoring a backup of an emptied phone is a
+  // real thing to want, and `app` is not a key anything else produces by chance.
+  const declared = raw.app === 'GRIT'
+  if (!declared && !EXPORT_KEYS.some((key) => key in raw)) return notOurs
 
   const weighIns = collect(raw.weighIns, readWeighIn)
   const measurements = collect(raw.measurements, readMeasurement)
@@ -393,6 +400,18 @@ export function validateImport(raw: unknown): ImportResult {
   if (logs.dropped) dropped.workouts = logs.dropped
   if (checkIns.dropped) dropped['check-ins'] = checkIns.dropped
   if (nutrition.dropped) dropped.days = nutrition.dropped
+
+  /* An undeclared file has to hold something a GRIT backup holds, not merely a
+     key one is spelled with. `{"profile":{"name":"Bob"}}` satisfied the old test
+     and imported cleanly: nineteen workouts and sixty-three weigh-ins gone, an
+     empty history left sitting under a stranger's name — and, because the
+     profile merges field by field, still carrying the old client's 465 lb
+     deadlift. A file that carries no record is not a backup of anything. */
+  const records = weighIns.out.length + measurements.out.length + photos.out.length
+    + logs.out.length + checkIns.out.length + Object.keys(nutrition.out).length
+  if (!declared && records === 0) {
+    return { ok: false, reason: "That file has no GRIT records in it.", dropped }
+  }
 
   /* Oldest first, which is the order every writer in the store keeps and every
      reader assumes: the Weigh-In screen takes the last entry as the latest

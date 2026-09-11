@@ -33,9 +33,40 @@ export const useSheetLayer = create<SheetLayerState>((set) => ({
 export const registerSheetLayer = (el: HTMLElement | null) =>
   useSheetLayer.getState().setElement(el)
 
+/* ---------------------------- freezing the app ---------------------------- */
+
 /**
- * Portals overlay content into the sheet layer and, while `recede` is set,
- * counts toward pushing the app back.
+ * What UIKit gives a presented view controller for free and a portalled div
+ * does not: the app behind it stops scrolling, stops taking taps, and stops
+ * existing for VoiceOver.
+ *
+ * It lives here rather than in Sheet.tsx because *every* overlay comes through
+ * this layer, and only some of them are sheets. The photo viewer is not, so it
+ * took none of this: a screen reader could still walk the whole of Today
+ * underneath a full-screen photograph, and it had no way to say otherwise
+ * without reaching into an element another module owned. Counted, because a
+ * sheet can present another one over it.
+ */
+let overlays = 0
+
+function applyOverlayLock() {
+  const el = document.querySelector<HTMLElement>('.app-content')
+  if (!el) return
+  if (overlays > 0) {
+    el.dataset.overlay = 'true'
+    el.setAttribute('inert', '')
+    el.setAttribute('aria-hidden', 'true')
+  } else {
+    delete el.dataset.overlay
+    el.removeAttribute('inert')
+    el.removeAttribute('aria-hidden')
+  }
+}
+
+/**
+ * Portals overlay content into the sheet layer, freezes the app behind it, and
+ * — while `recede` is set — counts toward pushing that app back into the
+ * display. Receding is the sheet's own look; the freeze is every overlay's.
  */
 export function SheetPortal({
   children,
@@ -49,6 +80,16 @@ export function SheetPortal({
   const target = useSheetLayer((s) => s.element)
   const push = useSheetLayer((s) => s.push)
   const pop = useSheetLayer((s) => s.pop)
+
+  useEffect(() => {
+    if (!active) return
+    overlays += 1
+    applyOverlayLock()
+    return () => {
+      overlays -= 1
+      applyOverlayLock()
+    }
+  }, [active])
 
   useEffect(() => {
     if (!active || !recede) return

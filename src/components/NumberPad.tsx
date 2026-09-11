@@ -26,6 +26,13 @@ export function NumberPad({
   /** Quick ± chips, e.g. plate jumps. */
   steps = [],
   allowDecimal = true,
+  /**
+   * Smallest value the confirm will accept. A pad that cannot mean zero — a
+   * bodyweight, a tape reading, a working max — sets one and the button goes
+   * dim, which is what iOS does; the alternative is taking the number and
+   * apologising for it afterwards in a toast.
+   */
+  min,
   max,
   hint,
   submitLabel = 'Done',
@@ -38,6 +45,7 @@ export function NumberPad({
   unit?: string
   steps?: number[]
   allowDecimal?: boolean
+  min?: number
   max?: number
   hint?: string
   submitLabel?: string
@@ -84,8 +92,16 @@ export function NumberPad({
     })
   }
 
+  // What the confirm would actually submit — the typed figure, or the one the
+  // pad opened with when nothing has been typed. A pad seeded at zero, which is
+  // every pad a client with no history opens, is below any minimum until they
+  // type something.
+  const submitting = touched ? value : initial
+  const short = min != null && submitting < min
+
   const submit = () => {
-    onSubmit(touched ? value : initial)
+    if (short) return
+    onSubmit(submitting)
     onClose()
   }
 
@@ -95,7 +111,7 @@ export function NumberPad({
       onClose={onClose}
       title={title}
       left={{ label: 'Cancel', onPress: onClose }}
-      right={{ label: submitLabel, onPress: submit, strong: true }}
+      right={{ label: submitLabel, onPress: submit, strong: true, disabled: short }}
       detent={0.78}
     >
       <div style={{ padding: '4px 16px 0' }}>

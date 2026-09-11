@@ -1,7 +1,7 @@
 // Generates the GRIT app icons with zero dependencies.
 // Supersampled SDF rendering -> raw RGBA -> PNG via node:zlib.
 import { deflateSync } from 'node:zlib'
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { Buffer } from 'node:buffer'
 
 const SS = 4 // supersampling factor per axis
@@ -369,6 +369,23 @@ function renderSplash(w, h, theme) {
 }
 
 const THEMES = [['light', ''], ['dark', '-dark']]
+
+/* The manifest's background_color is the flat colour a launcher paints before
+   the image arrives, so it has to be the image's own midpoint or the splash
+   jumps. Written from the same ramp that draws the picture, because the two
+   drifting apart is exactly what a hand-typed value did. Light, because that is
+   what an install with no stated appearance gets. */
+const hex = (c) => `#${c.map((v) => Math.round(clamp01(v) * 255).toString(16).padStart(2, '0')).join('')}`
+const LAUNCH = hex(GROUND.light[0].map((top, i) => mix(top, GROUND.light[1][i], 0.5)))
+{
+  const path = new URL('../public/manifest.webmanifest', import.meta.url)
+  const manifest = JSON.parse(readFileSync(path, 'utf8'))
+  if (manifest.background_color !== LAUNCH.toUpperCase()) {
+    manifest.background_color = LAUNCH.toUpperCase()
+    writeFileSync(path, `${JSON.stringify(manifest, null, 2)}\n`)
+    console.log(`public/manifest.webmanifest background_color -> ${LAUNCH.toUpperCase()}`)
+  }
+}
 
 for (const [cw, ch, dpr] of DEVICES) {
   const w = cw * dpr

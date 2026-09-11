@@ -104,6 +104,16 @@ export interface Program {
   coach: string
   /** ISO date (yyyy-mm-dd) of week 1, day 1. */
   startDate: string
+  /**
+   * ISO date the client actually rolled into this block, when it is known.
+   *
+   * `startDate` is the Monday the eight weeks hang off; a client rolls over on
+   * whatever day they tap the button. Session ids repeat block to block, so the
+   * day the block began — not the Monday before it — is what separates this
+   * block's `w1-lowerA` from the last one's. Optional because only the store
+   * knows it: `buildProgram` is handed a calendar, not a history.
+   */
+  blockStartedOn?: string
   daysPerWeek: number
   weeks: WeekTemplate[]
 }

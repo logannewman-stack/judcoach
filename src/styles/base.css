@@ -272,9 +272,14 @@ img { max-width: 100%; display: block; }
 }
 .set-chip-rpe { color: var(--rpe); font-weight: 700; }
 .set-chip-unit { color: var(--label-2); font-weight: 500; }
+/* A record is gold everywhere else in the app — the runner's banner, the
+   records board, the seal this chip already draws — so it is gold here too.
+   It rings the chip rather than filling it: the fill is the ramp saying how
+   hard the set was, which a record does not stop being. The old rule painted
+   both in --rpe-10, which in light is byte-identical to --red and so turned
+   every record into an RPE 10. */
 .set-chip[data-pr='true'] {
-  background: color-mix(in srgb, var(--rpe-10) 18%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rpe-10) 45%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--yellow) 55%, transparent);
 }
 
 .rounded-font { font-family: var(--font-rounded); }

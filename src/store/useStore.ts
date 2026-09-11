@@ -126,11 +126,25 @@ export const emptyDay = (date: string): DayNutrition => ({
 /** As far back as the Meals day strip reaches. */
 const SEED_NUTRITION_DAYS = 14
 
-/** Same date, same demo, every launch — the seed is a story, not a lottery. */
+/**
+ * Same date, same demo, every launch — the seed is a story, not a lottery.
+ *
+ * The story only works if consecutive days land in different places, and a
+ * string hash does the opposite: one day apart is one character apart, so
+ * `h % 997` crept by about a thousandth a day and a fortnight sampled a 2%
+ * slice of the range. Whether the demo had a single imperfect day was then a
+ * property of the calendar — today's fortnight ran 0.26 to 0.47, so every meal
+ * of all fourteen days was eaten to the gram, while a window in March sat above
+ * 0.84 for four days running and left the last item on every plate of each. The
+ * avalanche step off `rng` in data/seed.ts is what makes one day's number tell
+ * you nothing about the next one's.
+ */
 function dayNoise(date: string): number {
   let h = 0
-  for (let i = 0; i < date.length; i++) h = (h * 31 + date.charCodeAt(i)) >>> 0
-  return (h % 997) / 997
+  for (let i = 0; i < date.length; i++) h = (Math.imul(h, 31) + date.charCodeAt(i)) >>> 0
+  let t = Math.imul(h ^ (h >>> 15), 1 | h)
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296
 }
 
 /**
@@ -329,6 +343,10 @@ export const useStore = create<AppState>()(
         const converted = convertUnits(state, next)
         if (!converted) return false
         set(() => converted)
+        // Jud's thread hangs figures off these same records — an estimated max
+        // on a session, a rate on a weigh-in — and they are numbers, not prose,
+        // so they move with the history rather than keeping the old unit's name.
+        useCoach.getState().restateFigures(next)
         return true
       },
       setTrainingMax: (exerciseId, value) =>
@@ -463,7 +481,9 @@ export const useStore = create<AppState>()(
           // resolved from the programme — falling back to the block id would
           // write "w5-lowerA-b0" where "back-squat" belongs, which silently
           // orphans the set from history, records and volume.
-          const session = getProgram(s.programStartDate, s.blockNumber)
+          // Units too, so this shares the one cached programme the screens are
+          // reading rather than building a second copy under another key.
+          const session = getProgram(s.programStartDate, s.blockNumber, s.profile.units)
             .weeks.find((w) => w.index === active.weekIndex)
             ?.sessions.find((x) => x.id === active.sessionId)
 
@@ -609,6 +629,7 @@ export const useStore = create<AppState>()(
         const result = validateImport(raw)
         if (!result.ok || !result.state) return result
         const next = result.state
+        const wasIn = get().profile.units
         set(() => ({
           profile: { ...get().profile, ...next.profile },
           settings: {
@@ -636,6 +657,11 @@ export const useStore = create<AppState>()(
           restTimer: null,
           onboarded: true,
         }))
+        // A backup carries its own unit, and the file it came from does not
+        // carry the conversation — so the thread's figures are restated here
+        // too, for the same reason `setUnits` restates them.
+        const nowIn = get().profile.units
+        if (nowIn !== wasIn) useCoach.getState().restateFigures(nowIn)
         return result
       },
     }),

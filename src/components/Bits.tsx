@@ -211,6 +211,12 @@ export function EmptyState({
  * behind everything it asks you to do.
  */
 export function CoachAvatar({ size = 34, name = 'Jud' }: { size?: number; name?: string }) {
+  // A default only stands in for `undefined`, so an empty name — a client who
+  // has not filled theirs in — indexed nothing and drew the word "undefined"
+  // inside a solid accent disc. An unnamed person gets a blank mark, the same
+  // answer `Monogram` gives: the badge stands in for whoever is on the other
+  // side of the conversation, and the coach's initial is not free to borrow.
+  const initial = name.trim()[0] ?? ''
   return (
     <span
       aria-hidden="true"
@@ -229,7 +235,7 @@ export function CoachAvatar({ size = 34, name = 'Jud' }: { size?: number; name?:
         lineHeight: 1,
       }}
     >
-      {name[0]}
+      {initial}
     </span>
   )
 }

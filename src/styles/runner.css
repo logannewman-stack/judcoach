@@ -1,5 +1,5 @@
 /* ============================================================================
-   Workout runner — and the workout's chrome wherever it follows the client.
+   Workout runner.
 
    Press states key off `data-pressed`, not `:active` — see lib/press.ts. On
    touch the browser withholds `:active` until it knows the gesture is not a
@@ -11,19 +11,16 @@
    of ceremony an hour under a bar has earned.
 
    Two hues run through the whole file and neither is decoration. `--tint` is
-   forced to Train's orange on every surface that belongs to the workout, so the
-   rest timer still reads as *this* app's workout when it is floating over the
-   blue of Today. And `--rpe-solid` — the intensity ramp, DESIGN.md §2 — paints
+   forced to Train's orange, so the runner reads as *this* app's workout however
+   it was reached. And `--rpe-solid` — the intensity ramp, DESIGN.md §2 — paints
    the target, the trace, the effort control and every logged set, so the shape
    of a session is legible as colour from arm's length, half out of breath,
    without reading a single number.
    ========================================================================== */
 
-/* Every surface the workout owns takes Train's hue, wherever it is mounted.
-   The runner is presented over whichever tab the client was on, and the timer
-   lives outside the stack entirely, so neither can inherit the right one. */
-.runner-screen,
-.runner-float {
+/* The runner takes Train's hue wherever it is mounted: it is presented over
+   whichever tab the client was on, so it can never inherit the right one. */
+.runner-screen {
   --tint: var(--tint-train);
 }
 
@@ -350,27 +347,6 @@ h1.runner-title {
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
 }
-
-/* ------------------------------- the barbell ----------------------------- */
-
-/* A plate's own colour, borrowed by the per-side readout so "2×45" is written
-   in the blue of a 45. The value is set on the element by Barbell.tsx, which is
-   exempt from the colour rule for the reason stated at the top of that file. */
-.plate-chip {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 1px;
-  padding: 3px 9px 4px;
-  border-radius: var(--r-pill);
-  font-size: 15px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  color: #fff;
-  background: var(--plate, var(--gray));
-  background-image: linear-gradient(180deg, color-mix(in srgb, #fff 26%, transparent), transparent 60%);
-  box-shadow: 0 1px 4px color-mix(in srgb, var(--plate, var(--gray)) 45%, transparent);
-}
-.plate-chip-x { font-weight: 600; opacity: 0.72; }
 
 /* -------------------------------- the ramp ------------------------------- */
 
@@ -773,229 +749,3 @@ h1.runner-title {
   background: color-mix(in srgb, var(--tint) 12%, var(--grouped-2));
 }
 .runner-tile-value { font-size: 21px; line-height: 24px; margin-top: 2px; }
-
-/* ================================ keypad ================================= */
-
-/* The pad is the workout's, but it is also how a weight, a measurement and a
-   training max are typed everywhere else in the app, so this stylesheet travels
-   with the component rather than with the screen. Keys are real objects: a
-   raised surface, a soft shadow, and a squeeze under the finger. */
-.pad-display {
-  display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 7px;
-  min-height: 74px;
-}
-.pad-figure { font-size: 60px; line-height: 70px; }
-.pad-unit { font-size: 21px; }
-
-.pad-steps {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  flex-wrap: wrap;
-  margin: 12px 0 4px;
-}
-.pad-step {
-  min-height: 38px;
-  padding: 0 16px;
-  border-radius: var(--r-pill);
-  font-family: var(--font-data);
-  font-variant-numeric: tabular-nums;
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--accent);
-  background: var(--accent-soft);
-  transition: transform var(--dur-state) var(--ease-spring);
-}
-.pad-step[data-pressed] { transform: scale(0.9); transition-duration: 0s; }
-
-.pad-keys {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  margin-top: 14px;
-}
-.pad-key {
-  height: 58px;
-  display: grid;
-  place-items: center;
-  border-radius: var(--r-btn);
-  font-family: var(--font-data);
-  font-variant-numeric: tabular-nums;
-  font-size: 26px;
-  font-weight: 600;
-  color: var(--label);
-  background: var(--elevated);
-  box-shadow: var(--shadow-sm);
-  transition:
-    background var(--dur-state) var(--ease-ios),
-    transform var(--dur-state) var(--ease-spring);
-}
-.pad-key[data-pressed] { background: var(--fill-3); transform: scale(0.92); transition-duration: 0s; }
-.pad-key[data-role='del'] { background: var(--fill-4); box-shadow: none; color: var(--label-2); }
-.pad-key:disabled { opacity: 0.3; }
-
-/* -------------------------------- rpe picker ----------------------------- */
-
-/* Nine steps of a scale that runs cool to hot, so the picker *is* that scale:
-   every step wears its own place on the ramp rather than nine identical grey
-   chips that only differ once one is chosen. The chosen one is filled solid and
-   lifted; the one Jud asked for keeps a dashed ring. */
-.rpe-scale {
-  display: flex;
-  gap: 7px;
-  overflow-x: auto;
-  padding: 4px 2px 8px;
-  scrollbar-width: none;
-}
-.rpe-scale::-webkit-scrollbar { width: 0; height: 0; }
-.rpe-step {
-  flex: 1 0 auto;
-  min-width: 56px;
-  min-height: 58px;
-  padding: 9px 6px 8px;
-  border-radius: var(--r-inset);
-  background: var(--rpe-fill);
-  color: var(--rpe);
-  box-shadow: inset 0 0 0 2px transparent;
-  transition:
-    background var(--dur-state) var(--ease-ios),
-    color var(--dur-state) var(--ease-ios),
-    box-shadow var(--dur-state) var(--ease-ios),
-    transform var(--dur-state) var(--ease-spring);
-}
-.rpe-step[data-target='true'] { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--rpe-solid) 55%, transparent); }
-.rpe-step[data-selected='true'] {
-  background: var(--rpe-solid);
-  background-image: linear-gradient(180deg, color-mix(in srgb, #fff 26%, transparent), transparent 58%);
-  /* The ramp's middle is systemYellow, where white type measures 1.5:1. Ink on
-     a bright fill is the pairing iOS itself uses for a chip like this. */
-  color: #000;
-  box-shadow: 0 3px 12px color-mix(in srgb, var(--rpe-solid) 50%, transparent);
-  transform: scale(1.04);
-}
-.rpe-step[data-pressed] { transform: scale(0.94); transition-duration: 0s; }
-.rpe-step-value { font-size: 18px; line-height: 21px; font-weight: 800; }
-.rpe-step-rir { font-size: 10px; line-height: 13px; font-weight: 700; opacity: 0.74; }
-
-/* =========================== the workout's chrome ======================== */
-
-/* The rest timer and the resume banner: the workout as it follows the client
-   around the app. Both are floating materials in the workout's own hue, so
-   neither is mistaken for part of the screen it happens to be over. */
-.runner-float {
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  z-index: 70;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border-radius: var(--r-sheet);
-  box-shadow: var(--shadow-float);
-}
-
-.rest-bar {
-  padding: 9px 9px 9px 11px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--tint) 16%, transparent), color-mix(in srgb, var(--tint) 7%, transparent)),
-    var(--chrome-solid);
-  -webkit-backdrop-filter: blur(24px);
-  backdrop-filter: blur(24px);
-}
-/* Time is up: the whole bar turns over to green and breathes once a second
-   until it is dismissed, which is what a client half a room away will notice. */
-.rest-bar[data-finished='true'] {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--green) 20%, transparent), color-mix(in srgb, var(--green) 9%, transparent)),
-    var(--chrome-solid);
-  animation: rest-breathe 1.9s var(--ease-ios) infinite;
-}
-@keyframes rest-breathe {
-  0%, 100% { box-shadow: var(--shadow-float); }
-  50% { box-shadow: var(--shadow-float), 0 0 0 4px color-mix(in srgb, var(--green) 26%, transparent); }
-}
-
-.rest-dial { position: relative; flex: none; display: grid; place-items: center; }
-/* The countdown lives inside its own ring, which is what makes the timer worth
-   looking at rather than worth reading. */
-.rest-dial-time {
-  position: absolute;
-  font-size: 14px;
-  line-height: 14px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-}
-.rest-label { flex: 1; min-width: 0; text-align: left; align-self: stretch; }
-.rest-title { font-size: 18px; line-height: 22px; font-weight: 800; letter-spacing: -0.02em; }
-.rest-title[data-finished='true'] { color: var(--green-text); }
-
-.rest-step {
-  flex: none;
-  min-width: 44px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  border-radius: var(--r-pill);
-  font-family: var(--font-data);
-  font-variant-numeric: tabular-nums;
-  font-size: 14px;
-  font-weight: 700;
-  background: var(--fill-3);
-  color: var(--label);
-  transition: transform var(--dur-state) var(--ease-spring);
-}
-.rest-step[data-pressed] { transform: scale(0.88); transition-duration: 0s; }
-
-.rest-skip {
-  flex: none;
-  width: 38px;
-  height: 38px;
-  display: grid;
-  place-items: center;
-  border-radius: var(--r-pill);
-  color: #fff;
-  background: var(--tint);
-  background-image: linear-gradient(180deg, color-mix(in srgb, #fff 26%, transparent), transparent 60%);
-  box-shadow: 0 3px 12px color-mix(in srgb, var(--tint) 46%, transparent);
-  transition:
-    background var(--dur-state) var(--ease-ios),
-    transform var(--dur-state) var(--ease-spring);
-}
-.rest-skip[data-finished='true'] {
-  background: var(--green);
-  background-image: linear-gradient(180deg, color-mix(in srgb, #fff 26%, transparent), transparent 60%);
-  box-shadow: 0 3px 12px color-mix(in srgb, var(--green) 46%, transparent);
-}
-.rest-skip[data-pressed] { transform: scale(0.88); transition-duration: 0s; }
-
-/* ---- the resume banner ---- */
-
-.resume-bar {
-  padding: 10px 11px 10px 14px;
-  color: #fff;
-  background: var(--tint);
-  background-image: linear-gradient(150deg, color-mix(in srgb, #fff 24%, transparent), transparent 62%);
-  box-shadow: var(--shadow-float), 0 6px 22px color-mix(in srgb, var(--tint) 42%, transparent);
-  text-align: left;
-  transition: transform var(--dur-state) var(--ease-spring);
-}
-.resume-bar[data-pressed] { transform: scale(0.975); transition-duration: 0s; }
-.resume-dot {
-  flex: none;
-  width: 9px;
-  height: 9px;
-  border-radius: var(--r-pill);
-  background: #fff;
-}
-.resume-chev {
-  flex: none;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--r-pill);
-  display: grid;
-  place-items: center;
-  background: color-mix(in srgb, #fff 24%, transparent);
-}

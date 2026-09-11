@@ -46,7 +46,11 @@ export function SettingsHome() {
             chevron
             onPress={() => push('profileSettings')}
             ariaLabel={profile.name ? `Profile, ${profile.name}` : 'Set up your profile'}
-            style={{ padding: '13px var(--gutter)' }}
+            /* Only the block padding: the shorthand also narrowed the row's own
+               gutter to 16, which left the monogram 2px inside every icon below
+               it and the separator 2px outside the text `rowSepInset` measured
+               from the standard 18. */
+            style={{ paddingBlock: 13 }}
           />
         </ListSection>
 
@@ -66,7 +70,7 @@ export function SettingsHome() {
             sepInset={rowSepInset(52)}
             chevron
             onPress={() => push('coach')}
-            style={{ padding: '11px var(--gutter)' }}
+            style={{ paddingBlock: 11 }}
           />
           <Row
             title="Messages"
@@ -164,10 +168,10 @@ export function SettingsHome() {
           />
           {/* The same destination as Train's Reference row, so the same glyph in
               the same colour — a client learns a row by its tile, and this one
-              was purple here and orange there. (Train's subtitle is not copied
-              across: at 393pt it already ellipsises where it lives.) */}
+              was purple here and orange there. */}
           <Row
             title="RPE & RIR chart"
+            subtitle="What each number means, in percentages"
             icon="target"
             iconColor="var(--orange)"
             chevron

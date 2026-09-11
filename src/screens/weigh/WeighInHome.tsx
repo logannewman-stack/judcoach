@@ -201,7 +201,6 @@ export function WeighInHome() {
           open={logging}
           onClose={() => setLogging(false)}
           initial={profile.startWeight}
-          units={profile.units}
           onSave={(w) => saveWeighIn({ date: today, weight: w })}
         />
       </Screen>
@@ -629,7 +628,6 @@ export function WeighInHome() {
         open={logging}
         onClose={() => setLogging(false)}
         initial={seedWeight}
-        units={profile.units}
         onSave={(w) => {
           saveWeighIn({ date: today, weight: w })
           toast(`${fixed(w, decimals)} ${profile.units} logged`, { icon: 'scale', tone: 'good' })
@@ -720,15 +718,21 @@ function LegendKey({ label, color, dash }: { label: string; color?: string; dash
   )
 }
 
-function LogSheet({
-  open, onClose, initial, units, onSave,
+/**
+ * The one way a bodyweight is typed, wherever the client is standing: this tab,
+ * its empty state, and Today's hero. The unit comes from the store rather than
+ * from the caller because there is only ever one right answer to it, and a pad
+ * that names the wrong one is how a kilo gets filed as a pound.
+ */
+export function LogSheet({
+  open, onClose, initial, onSave,
 }: {
   open: boolean
   onClose: () => void
   initial: number
-  units: string
   onSave: (weight: number) => void
 }) {
+  const units = useStore((s) => s.profile.units)
   return (
     <NumberPad
       open={open}

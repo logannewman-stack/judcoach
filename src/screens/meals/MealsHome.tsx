@@ -15,7 +15,7 @@ import '../../styles/fuel.css'
 import type { DayNutrition, FoodItem, MacroTargets, Meal } from '../../domain/types'
 import type { MacroTotals } from '../../domain/nutrition'
 import {
-  adherencePercent, consumedTotals, foodTotals, plannedMealTotals, portionOf, proteinStatus, scaleFood,
+  adherencePercent, consumedTotals, plannedMealTotals, portionOf, proteinStatus, scaleFood,
 } from '../../domain/nutrition'
 import { FuelReadout, kcalStanding } from './fuel'
 import {
@@ -609,4 +609,3 @@ function QuickAddSheet({ open, onClose, date }: { open: boolean; onClose: () => 
   )
 }
 
-export { foodTotals }

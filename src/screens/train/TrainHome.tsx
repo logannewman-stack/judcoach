@@ -203,7 +203,7 @@ export function TrainHome() {
           />
           <Row
             title="RPE & RIR chart"
-            subtitle="What each number means, and the percentages behind it"
+            subtitle="What each number means, in percentages"
             icon="target"
             iconColor="var(--orange)"
             chevron

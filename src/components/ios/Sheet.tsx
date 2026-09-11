@@ -39,36 +39,11 @@ const UP_GIVE = 0.06
    div does not: what's behind it stops scrolling, stops taking taps and stops
    existing for VoiceOver; focus moves in and comes back out; Tab cannot walk
    out of it; and Escape (a hardware keyboard's swipe-down) dismisses it.
+
+   The first of those belongs to `SheetPortal`, because every overlay in the app
+   goes through that layer and not every overlay is a sheet. The other three are
+   here, keyed to the overlay's own element.
    ========================================================================== */
-
-/* Counted, because a sheet can present another one over it. */
-let overlays = 0
-
-function applyOverlayLock() {
-  const el = document.querySelector<HTMLElement>('.app-content')
-  if (!el) return
-  if (overlays > 0) {
-    el.dataset.overlay = 'true'
-    el.setAttribute('inert', '')
-    el.setAttribute('aria-hidden', 'true')
-  } else {
-    delete el.dataset.overlay
-    el.removeAttribute('inert')
-    el.removeAttribute('aria-hidden')
-  }
-}
-
-function useOverlayLock(open: boolean) {
-  useEffect(() => {
-    if (!open) return
-    overlays += 1
-    applyOverlayLock()
-    return () => {
-      overlays -= 1
-      applyOverlayLock()
-    }
-  }, [open])
-}
 
 const FOCUSABLE =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
@@ -278,10 +253,14 @@ function useSheetDrag(onDismiss: () => void, ref: RefObject<HTMLElement>) {
   return { y, onPointerDown }
 }
 
-/** The whole presentation contract, keyed to the overlay's own element. */
-function usePresentation(open: boolean, onDismiss: () => void) {
+/**
+ * Focus, Tab and Escape, keyed to the overlay's own element. Exported because a
+ * full-screen overlay that is not a sheet — the photo viewer — owes the client
+ * exactly the same contract, and had grown its own copy of it. The fourth part,
+ * freezing the app behind, comes with `SheetPortal`.
+ */
+export function usePresentation(open: boolean, onDismiss: () => void) {
   const ref = useRef<HTMLDivElement>(null)
-  useOverlayLock(open)
   useModalFocus(open, ref)
   useEscape(open, onDismiss)
   return ref

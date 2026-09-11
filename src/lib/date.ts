@@ -147,13 +147,29 @@ export function formatMinutes(totalSeconds: number): string {
   return `${Math.floor(m / 60)}h ${m % 60}m`
 }
 
-/** "7:30 AM" from "07:30". */
+/** The app's one wording for a time of day, however it was handed the time. */
+const clock12 = (hours: number, minutes: number): string =>
+  `${hours % 12 === 0 ? 12 : hours % 12}:${String(minutes).padStart(2, '0')} `
+  + `${hours >= 12 ? 'PM' : 'AM'}`
+
+/** "7:30 AM" from "07:30" — a scheduled time, which carries no date. */
 export function formatClock(hhmm: string): string {
   const [hStr, mStr] = hhmm.split(':')
-  const h = Number(hStr)
-  const suffix = h >= 12 ? 'PM' : 'AM'
-  const h12 = h % 12 === 0 ? 12 : h % 12
-  return `${h12}:${mStr} ${suffix}`
+  return clock12(Number(hStr), Number(mStr))
+}
+
+/**
+ * "7:05 AM" from a timestamp.
+ *
+ * `formatClock` splits an "HH:MM" string and cannot take one, so a caller with
+ * an instant reached for `toLocaleTimeString` instead — which is the device's
+ * wording, not this app's, and prints a message sent at 19:05 as "19:05" on a
+ * phone set to British English while the meal plan two tabs away says "7:05 PM".
+ * Local, because the clock a message was sent by is the reader's own.
+ */
+export function formatTimeOfDay(iso: string): string {
+  const d = new Date(iso)
+  return Number.isFinite(d.getTime()) ? clock12(d.getHours(), d.getMinutes()) : ''
 }
 
 export function timeOfDayGreeting(d = new Date()): string {
