@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Screen } from '../../components/ios/Screen'
 import { ListSection, Row } from '../../components/ios/List'
 import { Segmented } from '../../components/ios/Controls'
@@ -7,11 +7,26 @@ import { Alert, Sheet } from '../../components/ios/Sheet'
 import { useStore } from '../../store/useStore'
 import { lengthUnit } from '../../domain/units'
 import type { Units } from '../../domain/types'
-import { fixed, num, pluralize } from '../../lib/format'
+import { fixed, num, pluralize, signed } from '../../lib/format'
 import { useNav } from '../../nav/nav'
 import { toast } from '../../components/ios/Toast'
 
 type Field = 'startWeight' | 'goalWeight' | 'weeklyRateTarget' | 'heightIn' | 'birthYear' | null
+
+/**
+ * What the front page calls this client's goal.
+ *
+ * One rule, used here and by the setup flow, because the label is a sentence
+ * about the rate: written once at setup and then never again, it went on saying
+ * "Lean gain" over a client who had since told the app they were cutting.
+ */
+export function goalLabelFor(weeklyRateTarget: number, units: Units): string {
+  if (Math.abs(weeklyRateTarget) < 0.05) return 'Maintaining'
+  return `${weeklyRateTarget > 0 ? 'Lean gain' : 'Cut'} · ${num(Math.abs(weeklyRateTarget), 2)} ${units} / week`
+}
+
+/** A weight the client has not given yet asks for itself rather than stating 0. */
+const AddValue = <span className="t-subhead semibold tint">Add</span>
 
 export function ProfileSettings() {
   const pop = useNav((s) => s.pop)
@@ -21,6 +36,7 @@ export function ProfileSettings() {
   const [field, setField] = useState<Field>(null)
   const [naming, setNaming] = useState(false)
   const [nameDraft, setNameDraft] = useState(profile.name)
+  const nameField = useRef<HTMLInputElement>(null)
   const [switchingTo, setSwitchingTo] = useState<Units | null>(null)
   // Select primitives, not a fresh object — zustand v5 snapshots must be stable.
   const weighInCount = useStore((s) => s.weighIns.length)
@@ -58,15 +74,62 @@ export function ProfileSettings() {
     })
   }
 
-  const heightText = `${Math.floor(profile.heightIn / 12)}′ ${Math.round(profile.heightIn % 12)}″`
-  const age = new Date().getFullYear() - profile.birthYear
+  /**
+   * The three numbers of a bodyweight goal move together: the rate's direction
+   * is a fact about the two weights, not something the keypad can be asked for,
+   * and the label is a sentence about the rate. Written one at a time they
+   * drift — and because NumberPad submits its `initial` when nothing was typed,
+   * opening the rate pad on `Math.abs(rate)` and tapping Done was enough to
+   * turn a client's cut into a bulk and have the Weigh-In screen tell them they
+   * were moving the wrong way.
+   */
+  const setGoal = (patch: { startWeight?: number; goalWeight?: number; rate?: number }) => {
+    const startWeight = patch.startWeight ?? profile.startWeight
+    const goalWeight = patch.goalWeight ?? profile.goalWeight
+    const magnitude = Math.abs(patch.rate ?? profile.weeklyRateTarget)
+    const weeklyRateTarget = goalWeight > 0 && goalWeight < startWeight ? -magnitude : magnitude
+    updateProfile({
+      startWeight,
+      goalWeight,
+      weeklyRateTarget,
+      goalLabel: goalLabelFor(weeklyRateTarget, profile.units),
+    })
+  }
+
+  const saveName = () => {
+    if (nameDraft.trim()) updateProfile({ name: nameDraft.trim() })
+    setNaming(false)
+  }
+
+  // The sheet deliberately takes focus itself on the next frame, so the keyboard
+  // cannot rise over a panel that is still sliding (Sheet.tsx). `autoFocus` lost
+  // that race and never fired at all, leaving the client to tap the one field on
+  // a sheet they opened to type in; this asks for focus once the panel has
+  // landed instead.
+  useEffect(() => {
+    if (!naming) return
+    const id = window.setTimeout(() => nameField.current?.focus(), 380)
+    return () => window.clearTimeout(id)
+  }, [naming])
+
+  // Nothing on file is not a measurement of nothing: a height of 0′ 0″ and an
+  // age of 2026 are both what an unset field looks like once it is formatted.
+  const heightText = profile.heightIn > 0
+    ? `${Math.floor(profile.heightIn / 12)}′ ${Math.round(profile.heightIn % 12)}″`
+    : 'Not set'
+  const age = profile.birthYear > 0 ? String(new Date().getFullYear() - profile.birthYear) : 'Not set'
 
   return (
-    <Screen title="Profile" back={{ label: 'Settings', onPress: pop }}>
+    <Screen title="Profile" back={{ onPress: pop }}>
       <ListSection header="You">
-        <Row title="Name" value={profile.name} chevron onPress={() => setNaming(true)} />
+        <Row
+          title="Name"
+          value={profile.name || AddValue}
+          chevron
+          onPress={() => { setNameDraft(profile.name); setNaming(true) }}
+        />
         <Row title="Height" value={heightText} chevron onPress={() => setField('heightIn')} />
-        <Row title="Age" value={`${age}`} chevron onPress={() => setField('birthYear')} />
+        <Row title="Age" value={age} chevron onPress={() => setField('birthYear')} />
         <Row
           title="Sex"
           trailing={
@@ -107,29 +170,32 @@ export function ProfileSettings() {
       >
         <Row
           title="Starting weight"
-          value={`${fixed(profile.startWeight, 1)} ${profile.units}`}
+          value={profile.startWeight > 0 ? `${fixed(profile.startWeight, 1)} ${profile.units}` : AddValue}
           chevron
           onPress={() => setField('startWeight')}
         />
         <Row
           title="Goal weight"
-          value={`${fixed(profile.goalWeight, 1)} ${profile.units}`}
+          value={profile.goalWeight > 0 ? `${fixed(profile.goalWeight, 1)} ${profile.units}` : AddValue}
           chevron
           onPress={() => setField('goalWeight')}
         />
+        {/* `signed` — the app's own, which prefixes a true minus sign. Spelling
+            the sign out here printed an ASCII hyphen next to the U+2212 the
+            Weigh-In pill uses for the very same number. */}
         <Row
           title="Target rate"
-          value={`${profile.weeklyRateTarget > 0 ? '+' : ''}${num(profile.weeklyRateTarget, 2)} ${profile.units}/wk`}
+          value={`${signed(profile.weeklyRateTarget, 2)} ${profile.units}/wk`}
           chevron
           onPress={() => setField('weeklyRateTarget')}
         />
-        <Row title="Goal label" value={profile.goalLabel} />
+        <Row title="Goal label" value={profile.goalLabel || 'Not set'} />
       </ListSection>
 
       <NumberPad
         open={field === 'startWeight'}
         onClose={() => setField(null)}
-        onSubmit={(v) => updateProfile({ startWeight: v })}
+        onSubmit={(v) => setGoal({ startWeight: v })}
         title="Starting weight"
         initial={profile.startWeight}
         unit={profile.units}
@@ -138,7 +204,7 @@ export function ProfileSettings() {
       <NumberPad
         open={field === 'goalWeight'}
         onClose={() => setField(null)}
-        onSubmit={(v) => updateProfile({ goalWeight: v })}
+        onSubmit={(v) => setGoal({ goalWeight: v })}
         title="Goal weight"
         initial={profile.goalWeight}
         unit={profile.units}
@@ -147,7 +213,7 @@ export function ProfileSettings() {
       <NumberPad
         open={field === 'weeklyRateTarget'}
         onClose={() => setField(null)}
-        onSubmit={(v) => updateProfile({ weeklyRateTarget: v })}
+        onSubmit={(v) => setGoal({ rate: v })}
         title="Weekly rate"
         initial={Math.abs(profile.weeklyRateTarget)}
         unit={`${profile.units}/wk`}
@@ -180,24 +246,24 @@ export function ProfileSettings() {
         onClose={() => setNaming(false)}
         title="Name"
         left={{ label: 'Cancel', onPress: () => setNaming(false) }}
-        right={{
-          label: 'Save',
-          strong: true,
-          onPress: () => {
-            if (nameDraft.trim()) updateProfile({ name: nameDraft.trim() })
-            setNaming(false)
-          },
-        }}
+        right={{ label: 'Save', strong: true, disabled: !nameDraft.trim(), onPress: saveName }}
         detent={0.4}
       >
         <div style={{ padding: '8px 16px 16px' }}>
           <input
+            ref={nameField}
             value={nameDraft}
             onChange={(e) => setNameDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') saveName() }}
             placeholder="Your name"
-            autoFocus
+            aria-label="Your name"
+            autoComplete="name"
+            autoCapitalize="words"
+            // The key commits, so it says so — and a single-line field takes the
+            // field radius, not the capsule a button wears.
+            enterKeyHint="done"
             style={{
-              width: '100%', padding: '12px 14px', borderRadius: 'var(--r-btn)',
+              width: '100%', padding: '12px 14px', borderRadius: 'var(--r-field)',
               border: 'none', background: 'var(--fill-3)',
             }}
           />

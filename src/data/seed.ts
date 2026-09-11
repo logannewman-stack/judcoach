@@ -214,11 +214,18 @@ export function seedWorkoutLogs(today = todayISO(), startDate = seedStartDate(to
           const weight =
             resolved.targetWeight ?? accessoryLoad(block.exerciseId, week.index, !!week.deload, jitter)
 
-          // Reps land on target; AMRAP sets over-deliver, and a rare hard set
-          // comes up one short.
+          // Reps land on target, and a rare hard set comes up one short.
+          //
+          // An AMRAP beats its minimum but is still a prescription: `repsMax` is
+          // where Jud's own note tells the client to stop, so the replayed set
+          // stops there too. Running past it logged ten deadlifts under a note
+          // reading "Stop at eight", and the e1RM off that set then dragged the
+          // PR board and the suggested working max up with it.
           let reps = prescription.reps
-          if (prescription.amrap) reps = prescription.reps + Math.floor(rand() * 5) + 2
-          else if (rand() < 0.06 && (prescription.rpe ?? 0) >= 8.5) reps = Math.max(1, reps - 1)
+          if (prescription.amrap) {
+            const cap = Math.max(prescription.reps + 1, prescription.repsMax ?? prescription.reps + 4)
+            reps = prescription.reps + 1 + Math.floor(rand() * (cap - prescription.reps))
+          } else if (rand() < 0.06 && (prescription.rpe ?? 0) >= 8.5) reps = Math.max(1, reps - 1)
 
           const targetRpe = prescription.rpe ?? 8
           const rpe = Math.min(10, Math.max(6, Math.round((targetRpe + (rand() - 0.45)) * 2) / 2))

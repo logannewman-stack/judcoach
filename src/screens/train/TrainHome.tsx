@@ -9,7 +9,7 @@ import { flushSection } from './parts'
 import { resolvePrescription, topPrescribedSet } from './prescription'
 import { useStore } from '../../store/useStore'
 import {
-  currentWeekIndex, getWeek, logSetCount, useProgram, weekSchedule,
+  currentWeekIndex, findSessionLog, getWeek, logSetCount, useProgram, weekSchedule,
 } from '../../store/selectors'
 import type { Profile, Program, SessionTemplate, WorkoutLog } from '../../domain/types'
 import { EXERCISES, MAIN_LIFTS, getExercise } from '../../data/exercises'
@@ -313,7 +313,10 @@ function blockShape(program: Program, logs: WorkoutLog[], profile: Profile): Wee
       label: week.label.split(' — ')[1] ?? week.label,
       percent,
       rpe,
-      done: week.sessions.filter((s) => logs.some((l) => l.sessionId === s.id)).length,
+      // Session ids repeat from block to block, so a bare id match counted the
+      // last block's workouts against this one — week 1 of a fresh block painted
+      // itself green under a correct "0/4 done".
+      done: week.sessions.filter((s) => findSessionLog(program, logs, s.id) != null).length,
       total: week.sessions.length,
     }
   })

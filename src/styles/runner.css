@@ -324,6 +324,15 @@ h1.runner-title {
 }
 .runner-target-line .rpe-tag { margin-left: auto; align-self: center; }
 
+/* What the figure above is a figure of, where it is not a load: the share of a
+   working max nobody has set, or a lift with no history to borrow one from. A
+   sentence, so it is set in SF rather than in the rounded face. */
+.runner-target-said {
+  margin-top: 6px;
+  line-height: calc(16 * var(--pt));
+  color: var(--label-2);
+}
+
 .runner-target-pills {
   display: flex;
   gap: 6px;
@@ -506,6 +515,15 @@ h1.runner-title {
   padding-left: 4px;
 }
 
+/* Why Log set will not take this one. Amber rather than red: a field nobody has
+   filled in yet is not an error, it is a question. */
+.runner-blocked {
+  margin-top: 9px;
+  padding-left: 4px;
+  line-height: calc(16 * var(--pt));
+  color: var(--orange-text);
+}
+
 /* --------------------------- the nudge, after a set ---------------------- */
 
 /* Whether the last set says to put more on the bar or take some off. It is
@@ -552,6 +570,13 @@ h1.runner-title {
   box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--rpe-solid) 30%, transparent);
 }
 .runner-set-rpe { color: var(--rpe); font-weight: 800; }
+/* Gold, not `--rpe-10`. In light mode that value is byte-identical to `--red`,
+   which is the colour this app deletes things in — so the best set of the block
+   and the Delete action wore the same fill. Gold is what the app already marks a
+   record in (Train's records row), it is nobody's destructive colour, and it
+   leaves the ramp's top step to mean what it says: a maximal grind, which is a
+   fact about effort and not a verdict. Near-black ink because white on gold is
+   1.7:1; it is the colour of type on a fill, not a theme colour. */
 .runner-set-pr {
   flex: none;
   display: inline-flex;
@@ -560,15 +585,15 @@ h1.runner-title {
   padding: 4px 9px 5px;
   border-radius: var(--r-pill);
   font-family: var(--font-data);
-  font-size: 11px;
-  line-height: 14px;
+  font-size: calc(11 * var(--pt));
+  line-height: calc(14 * var(--pt));
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #fff;
-  background: var(--rpe-10);
-  background-image: linear-gradient(180deg, color-mix(in srgb, #fff 28%, transparent), transparent 60%);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--rpe-10) 45%, transparent);
+  color: #000;
+  background: var(--yellow);
+  background-image: linear-gradient(180deg, color-mix(in srgb, #fff 34%, transparent), transparent 60%);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--yellow) 50%, transparent);
 }
 
 /* --------------------------------- a best -------------------------------- */
@@ -584,19 +609,19 @@ h1.runner-title {
   gap: 13px;
   padding: 12px 15px 13px;
   border-radius: var(--r-card);
-  color: var(--rpe-10-text);
+  color: var(--yellow-text);
   background:
     linear-gradient(
       120deg,
-      color-mix(in srgb, var(--rpe-10) 24%, transparent),
-      color-mix(in srgb, var(--rpe-9) 15%, transparent) 70%,
-      color-mix(in srgb, var(--rpe-9) 9%, transparent)
+      color-mix(in srgb, var(--yellow) 32%, transparent),
+      color-mix(in srgb, var(--yellow) 16%, transparent) 70%,
+      color-mix(in srgb, var(--yellow) 9%, transparent)
     ),
     var(--grouped-2);
   box-shadow:
-    inset 0 0 0 1.5px color-mix(in srgb, var(--rpe-10) 34%, transparent),
-    0 3px 10px color-mix(in srgb, var(--rpe-10) 14%, transparent),
-    0 16px 34px color-mix(in srgb, var(--rpe-10) 16%, transparent);
+    inset 0 0 0 1.5px color-mix(in srgb, var(--yellow) 44%, transparent),
+    0 3px 10px color-mix(in srgb, var(--yellow) 18%, transparent),
+    0 16px 34px color-mix(in srgb, var(--yellow) 20%, transparent);
 }
 .runner-pr-seal {
   position: relative;
@@ -606,17 +631,17 @@ h1.runner-title {
   border-radius: var(--r-pill);
   display: grid;
   place-items: center;
-  color: #fff;
-  background: var(--rpe-10);
-  background-image: linear-gradient(180deg, color-mix(in srgb, #fff 26%, transparent), transparent 62%);
-  box-shadow: 0 3px 12px color-mix(in srgb, var(--rpe-10) 50%, transparent);
+  color: #000;
+  background: var(--yellow);
+  background-image: linear-gradient(180deg, color-mix(in srgb, #fff 30%, transparent), transparent 62%);
+  box-shadow: 0 3px 12px color-mix(in srgb, var(--yellow) 55%, transparent);
 }
 .runner-pr-halo {
   position: absolute;
   inset: 0;
   border-radius: var(--r-pill);
   pointer-events: none;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--rpe-10) 60%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--yellow) 65%, transparent);
 }
 .runner-pr-figure { font-size: 27px; line-height: 29px; }
 .runner-pr-unit { font-size: 14px; color: inherit; opacity: 0.8; }
@@ -624,10 +649,10 @@ h1.runner-title {
   margin-left: auto;
   padding: 3px 9px 4px;
   border-radius: var(--r-pill);
-  font-size: 13px;
+  font-size: calc(13 * var(--pt));
   font-weight: 800;
-  color: #fff;
-  background: color-mix(in srgb, var(--rpe-10) 88%, transparent);
+  color: #000;
+  background: color-mix(in srgb, var(--yellow) 92%, transparent);
 }
 
 /* ------------------------------- the ending ------------------------------ */

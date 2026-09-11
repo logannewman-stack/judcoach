@@ -86,3 +86,22 @@
   text-align: left;
   align-items: flex-start;
 }
+
+/* A step in a push has to be opaque and has to cast the stack's own edge
+   shadow: `.onboarding` paints the ground, and while the steps only cross-faded
+   a transparent page was all they needed. Sliding one over another, the page
+   behind showed straight through it. */
+.onboarding .onboarding-page {
+  background: var(--grouped);
+  box-shadow: var(--shadow-push);
+}
+
+/* Above both pages, which now carry a stacking order of their own so the
+   arriving step can pass over the receding one — and faded rather than mounted,
+   so the row does not appear at full strength over a page still sliding. */
+.onboarding .onboarding-dots {
+  z-index: 3;
+  opacity: 0;
+  transition: opacity var(--dur-push) var(--ease-ios);
+}
+.onboarding .onboarding-dots[data-visible='true'] { opacity: 1; }

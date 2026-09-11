@@ -3,8 +3,9 @@ import { ListSection, Row } from '../../components/ios/List'
 import { Card, CoachNote, SectionHeader } from '../../components/Bits'
 import { Icon } from '../../components/Icon'
 import { MEAL_PLAN } from '../../data/mealPlan'
-import { kcalFromMacros, macroSplitPercent } from '../../domain/nutrition'
+import { kcalFromMacros } from '../../domain/nutrition'
 import { MACRO_COLORS } from '../../components/Rings'
+import { MacroSplit } from './fuel'
 import { useNav } from '../../nav/nav'
 import { useStore } from '../../store/useStore'
 import { num } from '../../lib/format'
@@ -15,7 +16,6 @@ export function Guidelines() {
   const weighIns = useStore((s) => s.weighIns)
   const training = MEAL_PLAN.targets
   const rest = MEAL_PLAN.restDayTargets ?? MEAL_PLAN.targets
-  const split = macroSplitPercent(training)
   // Against what the client actually weighs now, falling back to the weight
   // they started at. `Math.max(1, …)` used to stand in for a missing body-
   // weight, which printed the whole protein target as a per-pound ratio: a
@@ -48,16 +48,7 @@ export function Guidelines() {
         <div>
           <SectionHeader title="Where the calories come from" />
           <Card>
-            <div style={{ display: 'flex', height: 12, borderRadius: 'var(--r-pill)', overflow: 'hidden' }}>
-              <div style={{ width: `${split.protein}%`, background: MACRO_COLORS.protein }} />
-              <div style={{ width: `${split.carbs}%`, background: MACRO_COLORS.carbs }} />
-              <div style={{ width: `${split.fat}%`, background: MACRO_COLORS.fat }} />
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12, gap: 8 }}>
-              <SplitLegend label="Protein" pct={split.protein} grams={training.protein} color={MACRO_COLORS.protein} />
-              <SplitLegend label="Carbs" pct={split.carbs} grams={training.carbs} color={MACRO_COLORS.carbs} />
-              <SplitLegend label="Fat" pct={split.fat} grams={training.fat} color={MACRO_COLORS.fat} />
-            </div>
+            <MacroSplit macros={training} />
             <div className="t-caption1 dim" style={{ marginTop: 12 }}>
               {proteinPerUnit > 0 ? (
                 <>
@@ -83,12 +74,15 @@ export function Guidelines() {
             footer={<>Macros total <span className="data">{kcalFromMacros(training)} kcal</span>.</>}
             style={{ marginBottom: 0 }}
           >
-            <Row title="Calories" value={<Amount value={training.kcal} unit="kcal" />} />
-            <Row title="Protein" value={<Amount value={training.protein} unit="g" />} />
-            <Row title="Carbohydrate" value={<Amount value={training.carbs} unit="g" />} />
-            <Row title="Fat" value={<Amount value={training.fat} unit="g" />} />
-            <Row title="Fibre" value={<Amount value={training.fiber} unit="g" />} />
-            <Row title="Water" value={<Amount value={training.waterOz} unit="oz" />} />
+            {/* Each target in its own colour, so the list reads as the six
+                different things it is rather than as six rules of a table. The
+                three macros take the hues they are drawn in everywhere else. */}
+            <Row icon="flame.fill" iconColor="var(--orange)" title="Calories" value={<Amount value={training.kcal} unit="kcal" />} />
+            <Row icon="bolt.fill" iconColor={MACRO_COLORS.protein} title="Protein" value={<Amount value={training.protein} unit="g" />} />
+            <Row icon="fork.fill" iconColor={MACRO_COLORS.carbs} title="Carbohydrate" value={<Amount value={training.carbs} unit="g" />} />
+            <Row icon="drop.fill" iconColor={MACRO_COLORS.fat} title="Fat" value={<Amount value={training.fat} unit="g" />} />
+            <Row icon="heart.fill" iconColor="var(--mint)" title="Fibre" value={<Amount value={training.fiber} unit="g" />} />
+            <Row icon="drop.fill" iconColor={MACRO_COLORS.water} title="Water" value={<Amount value={training.waterOz} unit="oz" />} />
           </ListSection>
         </div>
 
@@ -103,10 +97,10 @@ export function Guidelines() {
             }
             style={{ marginBottom: 0 }}
           >
-            <Row title="Calories" value={<Amount value={rest.kcal} unit="kcal" />} />
-            <Row title="Protein" value={<Amount value={rest.protein} unit="g" />} />
-            <Row title="Carbohydrate" value={<Amount value={rest.carbs} unit="g" />} />
-            <Row title="Fat" value={<Amount value={rest.fat} unit="g" />} />
+            <Row icon="flame.fill" iconColor="var(--orange)" title="Calories" value={<Amount value={rest.kcal} unit="kcal" />} />
+            <Row icon="bolt.fill" iconColor={MACRO_COLORS.protein} title="Protein" value={<Amount value={rest.protein} unit="g" />} />
+            <Row icon="fork.fill" iconColor={MACRO_COLORS.carbs} title="Carbohydrate" value={<Amount value={rest.carbs} unit="g" />} />
+            <Row icon="drop.fill" iconColor={MACRO_COLORS.fat} title="Fat" value={<Amount value={rest.fat} unit="g" />} />
           </ListSection>
         </div>
 
@@ -124,7 +118,9 @@ export function Guidelines() {
                   alignItems: 'flex-start',
                 }}
               >
-                <Icon name="check" size={15} weight={2.8} color="var(--accent)" style={{ marginTop: 3 }} />
+                {/* The tab's own green: a rule is what this section is, not
+                    something to tap. */}
+                <Icon name="check" size={15} weight={2.8} color="var(--tint)" style={{ marginTop: 3 }} />
                 <span className="t-subhead" style={{ lineHeight: '20px' }}>{rule}</span>
               </div>
             ))}
@@ -142,27 +138,5 @@ function Amount({ value, unit }: { value: number; unit: string }) {
       {value}
       <span className="data-unit"> {unit}</span>
     </span>
-  )
-}
-
-function SplitLegend({
-  label, pct, grams, color,
-}: {
-  label: string
-  pct: number
-  grams: number
-  color: string
-}) {
-  return (
-    <div style={{ minWidth: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-        <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flex: 'none' }} />
-        <span className="eyebrow truncate">{label}</span>
-      </div>
-      <div className="data" style={{ fontSize: 17, lineHeight: '22px', fontWeight: 700 }}>{pct}%</div>
-      <div className="data" style={{ fontSize: 12, lineHeight: '16px', color: 'var(--label-2)' }}>
-        {grams} g
-      </div>
-    </div>
   )
 }

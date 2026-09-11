@@ -15,20 +15,45 @@ import {
 import { EQUIPMENT_LABELS, EXERCISES, MUSCLE_LABELS, getExercise } from '../../data/exercises'
 import type { MuscleGroup } from '../../domain/types'
 import { bestE1RM, snapRpe, topSet } from '../../domain/strength'
-import { formatShortDate, relativeDay, todayISO } from '../../lib/date'
+import { formatDuration, formatShortDate, relativeDay, relativeTime, todayISO } from '../../lib/date'
 import { num, pluralize, signed } from '../../lib/format'
 import { useNav } from '../../nav/nav'
 import '../../styles/log.css'
 
 /* ------------------------------ the library ----------------------------- */
 
-const GROUPS: { key: string; label: string; muscles: MuscleGroup[] }[] = [
-  { key: 'all', label: 'All', muscles: [] },
-  { key: 'legs', label: 'Legs', muscles: ['quads', 'hamstrings', 'glutes', 'calves', 'adductors'] },
-  { key: 'push', label: 'Push', muscles: ['chest', 'shoulders', 'triceps'] },
-  { key: 'pull', label: 'Pull', muscles: ['back', 'lats', 'biceps', 'traps', 'forearms'] },
-  { key: 'core', label: 'Core', muscles: ['core'] },
+const GROUPS: { key: string; label: string; muscles: MuscleGroup[]; tint: string }[] = [
+  { key: 'all', label: 'All', muscles: [], tint: 'var(--gray)' },
+  {
+    key: 'legs',
+    label: 'Legs',
+    muscles: ['quads', 'hamstrings', 'glutes', 'calves', 'adductors'],
+    tint: 'var(--indigo)',
+  },
+  { key: 'push', label: 'Push', muscles: ['chest', 'shoulders', 'triceps'], tint: 'var(--pink)' },
+  {
+    key: 'pull',
+    label: 'Pull',
+    muscles: ['back', 'lats', 'biceps', 'traps', 'forearms'],
+    tint: 'var(--teal)',
+  },
+  { key: 'core', label: 'Core', muscles: ['core'], tint: 'var(--purple)' },
 ]
+
+/**
+ * The colour a movement wears in the list: the one its own filter would find it
+ * under, taken from what it trains first.
+ *
+ * Fifty-five rows of grey text is a page you search rather than browse, and the
+ * four families are already named in the control directly above it — so the
+ * tile is the legend, and "where are the pulls" is answered without reading a
+ * word. A movement in none of the four keeps the neutral tile rather than being
+ * filed somewhere it does not belong.
+ */
+function groupTint(primary: MuscleGroup[]): string {
+  const first = primary[0]
+  return GROUPS.find((g) => first && g.muscles.includes(first))?.tint ?? 'var(--gray)'
+}
 
 export function ExerciseLibrary() {
   const pop = useNav((s) => s.pop)
@@ -115,6 +140,8 @@ export function ExerciseLibrary() {
                   key={exercise.id}
                   title={exercise.name}
                   subtitle={`${exercise.primary.map((m) => MUSCLE_LABELS[m]).join(', ')} · ${EQUIPMENT_LABELS[exercise.equipment]}`}
+                  icon="dumbbell"
+                  iconColor={groupTint(exercise.primary)}
                   trailing={heaviest > 0 ? <span className="lib-best">{num(heaviest, 0)}</span> : undefined}
                   ariaLabel={
                     heaviest > 0
@@ -135,13 +162,10 @@ export function ExerciseLibrary() {
 
 /* ----------------------------- exercise detail --------------------------- */
 
-/**
- * "today" / "on Monday" / "on Sep 17" — `relativeDay` returns a mix of adverbs
- * and proper nouns, and lower-casing the lot gave "monday" and "sep 17".
- */
+/** "today" / "on Monday" / "on Sep 17", mid-sentence. */
 function whenPhrase(date: string): string {
-  const when = relativeDay(date)
-  return when === 'Today' || when === 'Tomorrow' ? when.toLowerCase() : `on ${when}`
+  const { label, lower, kind } = relativeTime(date)
+  return kind === 'adverb' ? lower : `on ${label}`
 }
 
 /** "Back Squat and Front Squat" — a list a person reads, not a CSV. */
@@ -325,9 +349,13 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
                 <span className="t-subhead" style={{ lineHeight: '20px' }}>{cue}</span>
               </div>
             ))}
+            {/* The rest the app actually times, not a range worked out from it:
+                rounding the floor up and adding a minute to the ceiling had this
+                page asking for three to four minutes on a movement whose timer
+                starts at 2:30. */}
             <div className="t-caption1 dim" style={{ marginTop: 10 }}>
-              Rest {Math.round(exercise.defaultRestSec / 60)}–{Math.ceil(exercise.defaultRestSec / 60) + 1} minutes
-              between working sets.
+              Rest <span className="data">{formatDuration(exercise.defaultRestSec)}</span> between
+              working sets — what the timer starts when you log one.
             </div>
           </Card>
         </div>
@@ -345,6 +373,10 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
                     key={id}
                     title={sub.name}
                     subtitle={`${sub.primary.map((m) => MUSCLE_LABELS[m]).join(', ')} · ${EQUIPMENT_LABELS[sub.equipment]}`}
+                    // The same tile it wears in the library, so a substitute is
+                    // recognisably the thing you would have found by browsing.
+                    icon="dumbbell"
+                    iconColor={groupTint(sub.primary)}
                     chevron
                     onPress={() => push('exerciseDetail', { exerciseId: id })}
                   />

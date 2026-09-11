@@ -2,14 +2,48 @@ import { Icon } from '../../components/Icon'
 import type { IconName } from '../../components/Icon'
 import { useStore } from '../../store/useStore'
 import { ANCHOR_LABEL } from '../../domain/coach'
-import type { AnchorKind, NoteAnchor } from '../../domain/coach'
+import type { AnchorKind, CoachAuthor, NoteAnchor } from '../../domain/coach'
 import { getExercise } from '../../data/exercises'
+import { COACH } from '../../data/seed'
 import { formatMediumDate } from '../../lib/date'
+import { num } from '../../lib/format'
 import { useNav } from '../../nav/nav'
 
 /* ============================================================================
-   What a message is attached to, resolved into something you can name and open.
+   What a message is attached to, resolved into something you can name and open
+   — and who the two people talking about it are.
    ========================================================================== */
+
+/* ------------------------------- who is who ------------------------------- */
+
+/**
+ * The other side of the conversation, from the seat the app is currently in.
+ *
+ * `short` is what a byline or a placeholder says; `full` is how a header
+ * introduces someone. They are separate because the full form also feeds
+ * `CoachAvatar`, which draws the first letter of whatever it is handed — a
+ * client with no name on file left a blank accent disc under an empty headline.
+ */
+export function otherParty(viewAs: CoachAuthor, clientName: string): { short: string; full: string } {
+  if (viewAs === 'client') return { short: COACH.name, full: COACH.fullName }
+  const named = clientName.trim()
+  return { short: named.split(' ')[0] || 'your client', full: named || 'Your client' }
+}
+
+/**
+ * What to call a message's author.
+ *
+ * Keyed off the author, not off the seat: `author === viewAs ? 'You' : COACH.name`
+ * collapsed two people into one, so in Jud's seat every message the client had
+ * written came out over Jud's name.
+ */
+export function authorName(author: CoachAuthor, viewAs: CoachAuthor, clientName: string): string {
+  if (author === viewAs) return 'You'
+  if (author === 'coach') return COACH.name
+  return clientName.trim().split(' ')[0] || 'Client'
+}
+
+/* -------------------------------- anchors -------------------------------- */
 
 export const ANCHOR_ICON: Record<AnchorKind, IconName> = {
   thread: 'message',
@@ -53,7 +87,7 @@ export function useAnchorTarget(anchor: NoteAnchor): AnchorTarget {
     return {
       ...base,
       title: entry
-        ? `${entry.weight} ${units} · ${formatMediumDate(entry.date)}`
+        ? `${num(entry.weight, 1)} ${units} · ${formatMediumDate(entry.date)}`
         : formatMediumDate(anchor.id),
       open: () => switchTab('weigh'),
     }

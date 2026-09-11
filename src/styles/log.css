@@ -2,13 +2,21 @@
    The record: history, a session's log page, the records board, the RPE guide
    and the movement library.
 
-   These five screens are the app's written record, and the artefact they are
-   modelled on is the log book: ruled columns, one line per set, numbers in a
-   face chosen for numbers, and the eye reading *down* a column rather than
-   across a paragraph. Everything here exists to make a column scannable.
+   These five screens are what the client has actually done, and the thing they
+   have to do is compare: this session against the last one, this week against
+   the floor, this lift against the best it has ever been. So the sets still
+   line up on shared verticals — a column of loads is read down, and a stack of
+   wrapped chips never could be — but the surfaces around them are the app's
+   own: rounded, washed in the colour of the thing they hold, and ruled only
+   where a rule is carrying a column. DESIGN.md §0 and §7: the instrument look
+   was a wrong turn, and a hairline is not a substitute for a card.
+
+   Every type size here is in `--pt`. All twenty-one were hard px while the
+   `.eyebrow` labels naming them scaled with the client's text setting, which
+   inverted the hierarchy and overran the cells they sat in.
 
    Kept out of base.css because none of it is a shared primitive — a set table
-   and a records board belong to the log, not to the app.
+   and a records board belong to the record, not to the app.
 
    Press states key off `data-pressed`, not `:active` — see lib/press.ts. Every
    colour comes from tokens.css, so the three theme states are inherited rather
@@ -17,60 +25,65 @@
 
 /* ================================ ledger ================================= */
 
-/* A rule of figures under a screen title: totals, a session's summary, a
-   movement's best. Three or four tiles would say the same thing in three or
-   four boxes; one ruled strip says it in one, and the hairlines do the work a
-   card outline was doing.
+/* A strip of figures under a screen title: totals, a session's summary, a
+   movement's best. One tile per figure, each on its own surface — they were
+   four cells of one box with hairlines between them, which is the ruled table
+   §7 bans, and the rules were also load-bearing: a cell was a fixed quarter of
+   the strip, so at the client's larger text "SESSIONS" painted straight over
+   the hairline and into the cell next to it.
 
-   `minmax(0, 1fr)` rather than `1fr`: an auto minimum let the widest figure
-   claim a wider column, which left the last cell's label wrapping while the
-   first sat in space it wasn't using. */
+   Flex rather than grid so the strip can reflow. A tile is never narrower than
+   the label it holds — a label is the name of the number under it and cannot be
+   clipped to fit — so when four no longer fit across, the strip wraps instead
+   of overrunning. */
 .ledger {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
   margin: 0 var(--gutter);
-  border-radius: var(--r-inset);
-  background: var(--grouped-2);
-  overflow: hidden;
 }
 
 .ledger-cell {
   position: relative;
+  /* Basis `auto`, not a percentage: flex breaks a line on the hypothetical
+     sizes, so a quarter-width basis reserved a quarter for "Sets" and pushed
+     the fourth tile onto a row of its own while three sat in space they were
+     not using. From content, the four fit across at default text and fall into
+     a tidy two-by-two when the client's text outgrows one row. */
+  flex: 1 1 auto;
+  min-width: fit-content;
   display: flex;
   flex-direction: column;
   gap: 3px;
-  min-width: 0;
-  padding: 9px 9px 10px;
+  padding: 9px 12px 10px;
+  border-radius: var(--r-inset);
+  background: var(--grouped-2);
   text-align: left;
 }
-/* The divider belongs to the cell on its right, the way a list's separator
-   belongs to the row below the join. Drawn rather than gapped: a fractional
-   grid gap gets snapped away on some tracks and kept on others, so half the
-   rules in a four-cell strip simply did not appear. */
-.ledger-cell + .ledger-cell::before {
-  content: '';
-  position: absolute;
-  top: 8px;
-  bottom: 8px;
-  left: 0;
-  width: var(--hairline);
-  background: var(--sep);
+/* The one tile that carries a verdict rather than a total takes the ramp it is
+   measured on, so the strip says how hard the block has been as well as how
+   much of it there was. */
+.ledger-cell[data-rpe] {
+  background: var(--rpe-fill);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--rpe-solid) 32%, transparent);
 }
 
 .ledger-figure {
-  /* Four figures across a 320pt phone leave 54pt of cell, and "405.9k" does
-     not fit that at 21. */
-  font-size: clamp(17px, 5.1vw, 21px);
-  line-height: 24px;
-  /* The cells stretch to the tallest label, so the figures stay on one
-     baseline however many lines the eyebrow above them takes. */
+  /* Four figures across a 320pt phone leave 54pt of tile, and "405.9k" does not
+     fit that at 21 — so the viewport still sets the ceiling. The floor is in
+     --pt: as a px clamp this measured 20.04px at every text setting, while the
+     eyebrow naming it grew to 15.8, and a label nearly the size of its own
+     figure is the hierarchy upside down. */
+  font-size: clamp(calc(17 * var(--pt)), 5.1vw, calc(21 * var(--pt)));
+  line-height: calc(24 * var(--pt));
+  /* The tiles stretch to the tallest label, so the figures stay on one baseline
+     however many lines the eyebrow above them takes. */
   margin-top: auto;
   white-space: nowrap;
 }
 
 .ledger-unit {
-  font-size: 12px;
+  font-size: calc(12 * var(--pt));
   font-weight: 600;
   letter-spacing: 0;
   color: var(--label-2);
@@ -80,20 +93,23 @@
 
 /* A session's verdict, stamped. The number alone carries the effort because
    the ramp behind it already says how hard: a page of these read as a column
-   of temperature, which is the whole point of the scale having a colour. */
+   of temperature, which is the whole point of the scale having a colour. The
+   ring is what makes that true at a wash's alpha — a 20% fill on white is a
+   tinted grey at arm's length, and a column of tinted greys says nothing. */
 .rpe-stamp {
   display: inline-grid;
   place-items: center;
-  min-width: 34px;
-  height: 30px;
-  padding: 0 7px;
+  min-width: calc(34 * var(--pt));
+  height: calc(30 * var(--pt));
+  padding: 0 calc(7 * var(--pt));
   border-radius: var(--r-chip);
   background: var(--rpe-fill);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--rpe-solid) 40%, transparent);
   color: var(--rpe);
   font-family: var(--font-data);
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' 1;
-  font-size: 15px;
+  font-size: calc(15 * var(--pt));
   font-weight: 700;
   line-height: 1;
 }
@@ -112,9 +128,9 @@
   font-family: var(--font-data);
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' 1;
-  font-size: 12px;
+  font-size: calc(12 * var(--pt));
   font-weight: 600;
-  line-height: 16px;
+  line-height: calc(16 * var(--pt));
   letter-spacing: 0.01em;
   color: var(--label-2);
 }
@@ -136,7 +152,8 @@
      vertical: right-aligning "× 4" against "× 10" holds the digits still and
      swings the sign a character's width between rows. */
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) 20px 30px 46px;
+  grid-template-columns:
+    calc(44 * var(--pt)) minmax(0, 1fr) calc(20 * var(--pt)) calc(30 * var(--pt)) calc(46 * var(--pt));
   align-items: center;
   row-gap: 3px;
 }
@@ -145,13 +162,13 @@
   font-family: var(--font-data);
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' 1;
-  font-size: 15px;
+  font-size: calc(15 * var(--pt));
   font-weight: 600;
-  line-height: 19px;
+  line-height: calc(19 * var(--pt));
   text-align: right;
   white-space: nowrap;
 }
-.set-cell .unit { font-size: 12px; font-weight: 500; color: var(--label-2); }
+.set-cell .unit { font-size: calc(12 * var(--pt)); font-weight: 500; color: var(--label-2); }
 .set-times { color: var(--label-2); font-weight: 500; text-align: center; }
 
 /* The set's ordinal, and on the reference line the date it came from. */
@@ -159,9 +176,9 @@
   font-family: var(--font-data);
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' 1;
-  font-size: 12px;
+  font-size: calc(12 * var(--pt));
   font-weight: 600;
-  line-height: 19px;
+  line-height: calc(19 * var(--pt));
   color: var(--label-2);
   white-space: nowrap;
 }
@@ -171,7 +188,7 @@
    grind — before a single number has been read. */
 .set-rpe {
   justify-self: end;
-  min-width: 34px;
+  min-width: calc(34 * var(--pt));
   padding: 1px 6px 2px;
   border-radius: var(--r-chip);
   background: var(--rpe-fill);
@@ -179,14 +196,25 @@
   font-family: var(--font-data);
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' 1;
-  font-size: 13px;
+  font-size: calc(13 * var(--pt));
   font-weight: 700;
-  line-height: 17px;
+  line-height: calc(17 * var(--pt));
   text-align: center;
 }
 /* The same movement last time, in the same columns. A lifter comparing two
    sessions is comparing two loads, and here they are one above the other. */
 .set-prev { color: var(--label-2); }
+/* The reference line is a day that is over, and `color` is all that reaches it
+   — it is set on a `display: contents` wrapper. The effort chip inherits
+   neither its fill nor its ink, so it was drawn at exactly the saturation of
+   the sets above it, in the one column this page is read down. It keeps the
+   ramp's ink, because that is the information; it gives up the wash behind it,
+   because that is the emphasis. */
+.set-prev .set-rpe {
+  background: none;
+  box-shadow: none;
+  font-weight: 600;
+}
 .set-prev-rule {
   grid-column: 1 / -1;
   height: var(--hairline);
@@ -237,7 +265,7 @@
   color: var(--label-2);
   font-family: var(--font-data);
   font-variant-numeric: tabular-nums;
-  font-size: 12px;
+  font-size: calc(12 * var(--pt));
   font-weight: 700;
 }
 
@@ -246,7 +274,7 @@
   font-family: var(--font-data);
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' 1;
-  font-size: 13px;
+  font-size: calc(13 * var(--pt));
   font-weight: 600;
   color: var(--label-2);
   white-space: nowrap;
@@ -258,25 +286,30 @@
 
 .log-note {
   padding: 8px 0 2px;
-  font-size: 13px;
-  line-height: 18px;
+  font-size: calc(13 * var(--pt));
+  line-height: calc(18 * var(--pt));
   letter-spacing: -0.08px;
   color: var(--label-2);
 }
 
 /* ============================ records board ==============================
-   The four lifts the block is written around, at the size they deserve — one
-   surface ruled into quarters rather than four cards adrift. Empty, it is
-   still the board: four headings waiting for a number is what a records board
-   looks like before anyone has lifted.
+   The four lifts the block is written around, at the size they deserve. It was
+   one surface ruled into quarters, which is the hairline table §7 bans and
+   which also made a record and an untested lift the same object — the whole
+   point of a board is that some of it has been won. So a lift with a record on
+   it gets a card washed in the app's record colour, a seal on it, and the lifts
+   still waiting keep the plain surface. Empty, it is still the board: four
+   headings waiting for a number is what a records board looks like before
+   anyone has lifted.
+
+   Gold, not the ramp: a best is a verdict about a lift, not about how hard a
+   set felt, and the app already marks its records in this colour on Train.
    ---------------------------------------------------------------------- */
 .board {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  gap: 9px;
   margin: 0 var(--gutter);
-  border-radius: var(--r-card);
-  background: var(--grouped-2);
-  overflow: hidden;
 }
 
 .board-cell {
@@ -285,29 +318,46 @@
   flex-direction: column;
   gap: 2px;
   min-width: 0;
-  /* A board of four untested lifts has no 30px figure to set the row height,
-     and four name-and-status cells collapsed to half the height of the board
-     they were the day before. This is the height a filled cell comes to, so
-     the board is the same object whatever is in it. */
-  min-height: 85px;
+  /* A board of four untested lifts has no figure to set the row height, and
+     four name-and-status cells collapsed to half the height of the board they
+     were the day before. This floor is roughly what a cell with a figure comes
+     to, so the board stays the same object whatever is in it. */
+  min-height: calc(88 * var(--pt));
   padding: 11px 13px 12px;
+  border-radius: var(--r-card);
+  background: var(--grouped-2);
   text-align: left;
+  --surface-lift: var(--shadow-card);
 }
-/* Ruled rather than gapped, for the reason the ledger is. */
-.board-cell:nth-child(even)::before,
-.board-cell:nth-child(n + 3)::after,
-.board-total::before {
-  content: '';
-  position: absolute;
-  background: var(--sep);
+
+/* A lift that has been beaten. The wash is a two-stop fall within the one hue,
+   as DESIGN.md §2 allows a hero card — the colour is strongest where the seal
+   and the name are and gone by the set it was worked back from. */
+.board-cell[data-record] {
+  background:
+    linear-gradient(
+      158deg,
+      color-mix(in srgb, var(--yellow) 30%, transparent),
+      color-mix(in srgb, var(--yellow) 9%, transparent) 64%,
+      transparent
+    ),
+    var(--grouped-2);
+  --surface-ring: inset 0 0 0 1.5px color-mix(in srgb, var(--yellow) 40%, transparent);
+  --surface-lift:
+    0 2px 7px color-mix(in srgb, var(--yellow) 16%, transparent),
+    0 14px 30px color-mix(in srgb, var(--yellow) 18%, transparent);
 }
-.board-cell:nth-child(even)::before { top: 10px; bottom: 10px; left: 0; width: var(--hairline); }
-.board-cell:nth-child(n + 3)::after { left: 13px; right: 0; top: 0; height: var(--hairline); }
-.board-total::before { left: 13px; right: 0; top: 0; height: var(--hairline); }
+/* The seal sits with the lift's name rather than over the figure: the number is
+   the thing being celebrated and nothing goes on top of it. */
+.board-seal {
+  color: var(--yellow-text);
+  vertical-align: -1px;
+  margin-right: 4px;
+}
 
 .board-figure {
-  font-size: 27px;
-  line-height: 30px;
+  font-size: calc(27 * var(--pt));
+  line-height: calc(30 * var(--pt));
   margin-top: 2px;
   white-space: nowrap;
 }
@@ -326,7 +376,7 @@
    cells keeps less height than a row of figures, because it is holding less;
    a mixed row still takes the filled cell's. */
 .board-cell[data-open] {
-  min-height: 62px;
+  min-height: calc(64 * var(--pt));
 }
 .board-cell[data-open] .board-source { margin-top: auto; }
 
@@ -338,22 +388,24 @@
   font-family: var(--font-data);
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' 1;
-  font-size: 11px;
+  font-size: calc(11 * var(--pt));
   font-weight: 600;
-  line-height: 15px;
+  line-height: calc(15 * var(--pt));
   color: var(--label-2);
 }
-/* The same line when it carries words rather than a set. Archivo is the data
-   face and "Nothing logged" is not data — DESIGN.md §1, never a sentence. */
+/* The same line when it carries words rather than a set. `--font-data` is the
+   rounded face the app sets every number in, and "Nothing logged" is not a
+   number — DESIGN.md §4, never a sentence in it. */
 .board-source.said {
   font-family: inherit;
-  font-size: 12px;
+  font-size: calc(12 * var(--pt));
   font-weight: 500;
   letter-spacing: -0.05px;
 }
 
 /* Powerlifting's one comparable number, and the only place on this screen
-   where adding two lifts together means anything. */
+   where adding two lifts together means anything. It is the board's own total,
+   so it takes the board's colour and the full width under it. */
 .board-total {
   position: relative;
   grid-column: 1 / -1;
@@ -361,33 +413,81 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 13px 11px;
+  padding: 11px 15px 12px;
+  border-radius: var(--r-card);
+  background:
+    linear-gradient(
+      100deg,
+      color-mix(in srgb, var(--yellow) 34%, transparent),
+      color-mix(in srgb, var(--yellow) 12%, transparent) 70%,
+      transparent
+    ),
+    var(--grouped-2);
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in srgb, var(--yellow) 40%, transparent),
+    var(--shadow-card);
 }
-.board-total-figure { font-size: 19px; line-height: 22px; }
+.board-total-figure { font-size: calc(19 * var(--pt)); line-height: calc(22 * var(--pt)); }
 
 /* =============================== rpe guide ===============================
    The one screen that explains the scale, so it has to *be* the scale: the
    chips here are the chips on every logged set, in the same colours, which is
    what turns reading this page into being able to read the app.
+
+   The ramp runs in five bands, not nine — base.css pairs each whole step with
+   its half — so the page leads with the ramp itself, at full strength and with
+   nothing on top of it, and the nine rows under it are read against that. A
+   page that listed nine rows in five colours and called them nine was teaching
+   the one thing on it that isn't true.
    ---------------------------------------------------------------------- */
+
+/* The scale as one object: cool at six, hot at ten. This is `--rpe-solid`'s
+   whole purpose — a bar where the colour is the point and nothing sits on it. */
+.scale-ramp {
+  display: flex;
+  gap: 3px;
+  margin-bottom: 4px;
+}
+.scale-band {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: center;
+}
+.scale-band-swatch {
+  width: 100%;
+  height: calc(16 * var(--pt));
+  border-radius: var(--r-pill);
+  background: var(--rpe-solid);
+}
+.scale-band-key {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: calc(12 * var(--pt));
+  font-weight: 700;
+  color: var(--rpe);
+}
+
 .scale-row {
   display: grid;
-  grid-template-columns: 44px 52px minmax(0, 1fr);
+  grid-template-columns: calc(44 * var(--pt)) calc(52 * var(--pt)) minmax(0, 1fr);
   align-items: center;
   gap: 12px;
   padding: 6px 0;
 }
 
 .scale-step {
-  height: 30px;
+  height: calc(30 * var(--pt));
   border-radius: var(--r-chip);
   display: grid;
   place-items: center;
   background: var(--rpe-fill);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--rpe-solid) 38%, transparent);
   color: var(--rpe);
   font-family: var(--font-data);
   font-variant-numeric: tabular-nums;
-  font-size: 15px;
+  font-size: calc(15 * var(--pt));
   font-weight: 700;
   line-height: 1;
 }
@@ -396,7 +496,7 @@
   font-family: var(--font-data);
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' 1;
-  font-size: 13px;
+  font-size: calc(13 * var(--pt));
   font-weight: 600;
   color: var(--label-2);
   white-space: nowrap;
@@ -417,7 +517,7 @@
 .rpe-table th,
 .rpe-table td { padding: 6px 4px; text-align: center; }
 .rpe-table thead th {
-  font-size: 11px;
+  font-size: calc(11 * var(--pt));
   font-weight: 700;
   font-stretch: 112%;
   letter-spacing: 0.06em;
@@ -425,7 +525,7 @@
   border-bottom: var(--hairline) solid var(--sep);
 }
 .rpe-table tbody td {
-  font-size: 13px;
+  font-size: calc(13 * var(--pt));
   font-weight: 600;
   color: var(--label);
   border-bottom: var(--hairline) solid var(--sep);
@@ -440,7 +540,7 @@
   z-index: 1;
   padding-left: 14px;
   text-align: left;
-  font-size: 13px;
+  font-size: calc(13 * var(--pt));
   font-weight: 700;
   color: var(--rpe);
   background: var(--grouped-2);
@@ -476,7 +576,7 @@
   font-family: var(--font-data);
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' 1;
-  font-size: 15px;
+  font-size: calc(15 * var(--pt));
   font-weight: 600;
   color: var(--label-2);
   white-space: nowrap;

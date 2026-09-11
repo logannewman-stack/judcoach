@@ -1,9 +1,12 @@
-import { useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Screen } from '../../components/ios/Screen'
+import { ListSection, Row } from '../../components/ios/List'
 import { EmptyState, SectionHeader } from '../../components/Bits'
 import { Icon } from '../../components/Icon'
 import { Button, Segmented } from '../../components/ios/Controls'
 import { ActionSheet } from '../../components/ios/Sheet'
+import { SheetPortal } from '../../components/ios/SheetLayer'
 import { toast } from '../../components/ios/Toast'
 import { useStore } from '../../store/useStore'
 import type { PhotoPose, ProgressPhoto, Units } from '../../domain/types'
@@ -12,12 +15,13 @@ import { daysBetween, formatMediumDate, formatShortDate, todayISO } from '../../
 import { fixed } from '../../lib/format'
 import { uid } from '../../lib/id'
 import { useNav } from '../../nav/nav'
+import { IOS_PUSH } from '../../nav/Stack'
 import '../../styles/fuel.css'
 
-const POSES: { value: PhotoPose; label: string }[] = [
-  { value: 'front', label: 'Front' },
-  { value: 'side', label: 'Side' },
-  { value: 'back', label: 'Back' },
+const POSES: { value: PhotoPose; label: string; how: string }[] = [
+  { value: 'front', label: 'Front', how: 'Arms relaxed, feet hip-width.' },
+  { value: 'side', label: 'Side', how: 'Quarter turn, arms hanging, eyes up.' },
+  { value: 'back', label: 'Back', how: 'Same stance, hands in shot.' },
 ]
 
 /**
@@ -55,6 +59,8 @@ export function Photos() {
   const [thenId, setThenId] = useState<string | null>(null)
   const [picking, setPicking] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  // Stable, because the viewer keys its escape and focus handling off it.
+  const closeViewer = useCallback(() => setViewing(null), [])
 
   // Newest first for the grid; the pair below reads the two ends of the run.
   const filtered = useMemo(
@@ -205,6 +211,34 @@ export function Photos() {
           </div>
         )}
 
+        {/* Nobody is born knowing how to take these, and the segmented control
+            above is the only thing on the screen that says there are three of
+            them — so before the first shot exists, the poses are named, said
+            how to stand for, and each one opens the picker on itself. It goes
+            once there is anything to compare. */}
+        {photos.length === 0 && (
+          <ListSection
+            header="The three shots"
+            footer="Every four weeks is plenty — closer than that and you see the light change before you see anything else."
+            style={{ marginBottom: 0 }}
+          >
+            {POSES.map((p) => (
+              <Row
+                key={p.value}
+                title={p.label}
+                subtitle={p.how}
+                icon="camera"
+                iconColor="var(--tint)"
+                chevron
+                onPress={() => {
+                  setPose(p.value)
+                  inputRef.current?.click()
+                }}
+              />
+            ))}
+          </ListSection>
+        )}
+
         <div className="gutter">
           {/* The empty state already offers this, and the nav bar always does. */}
           {filtered.length > 0 && (
@@ -218,11 +252,15 @@ export function Photos() {
         </div>
       </div>
 
+      {/* No `capture`. Its presence takes the choice away on iOS: the tap opens
+          the rear camera outright instead of the Photo Library / Take Photo /
+          Choose File sheet, so a client who already shot their front, side and
+          back on a timer had no way to add them. Without it the system sheet
+          comes back and the camera is still one tap inside it. */}
       <input
         ref={inputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         style={{ display: 'none' }}
         onChange={(e) => {
           void onFile(e.target.files?.[0])
@@ -249,6 +287,10 @@ export function Photos() {
             destructive: true,
             onPress: () => {
               if (selected) deletePhoto(selected)
+              // The deleted shot may be the one being looked at, and a viewer
+              // left pointing at a photograph that no longer exists comes back
+              // blank the next time this screen is opened.
+              if (selected === viewing) setViewing(null)
               setSelected(null)
               toast('Photo deleted', { icon: 'trash', tone: 'bad' })
             },
@@ -256,25 +298,148 @@ export function Photos() {
         ]}
       />
 
-      {viewing && (
-        <button
-          type="button"
-          aria-label="Close photo"
-          onClick={() => setViewing(null)}
-          style={{
-            position: 'absolute', inset: 0, zIndex: 120,
-            background: 'rgba(0,0,0,0.92)',
-            display: 'grid', placeItems: 'center', padding: 16,
-          }}
-        >
-          <img
-            src={photos.find((p) => p.id === viewing)?.dataUrl}
-            alt="Progress photo"
-            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 12 }}
-          />
-        </button>
-      )}
+      <PhotoViewer photo={photos.find((p) => p.id === viewing)} onClose={closeViewer} />
     </Screen>
+  )
+}
+
+/**
+ * The full-screen viewer.
+ *
+ * It renders into the sheet layer, which is the one surface in this app that is
+ * in front of the shell. As a child of the screen it was clipped to the screen's
+ * own box — `.screen` is absolutely positioned and hidden inside the stack — so
+ * the overlay stopped 49px short of the bottom and the tab bar went on standing
+ * over the photograph at full brightness. Worse, it stayed tappable: a tap on
+ * Today took the app to another tab with the viewer still open, and coming back
+ * dropped the client straight into a lightbox they had never reopened.
+ *
+ * Presented rather than merely rendered, it also gets what a presentation owes
+ * the client: a named way out, Escape, focus that goes in and comes back, and a
+ * cross-dissolve instead of simply existing on the next frame.
+ */
+function PhotoViewer({ photo, onClose }: { photo?: ProgressPhoto; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const open = !!photo
+
+  useEffect(() => {
+    if (!open) return
+    const opener = document.activeElement as HTMLElement | null
+    const frame = requestAnimationFrame(() => ref.current?.focus({ preventScroll: true }))
+
+    const onKey = (e: KeyboardEvent) => {
+      const node = ref.current
+      if (!node) return
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        onClose()
+        return
+      }
+      if (e.key !== 'Tab') return
+      // Tab must not walk out into an app the photograph is covering.
+      const items = [...node.querySelectorAll<HTMLElement>('button')]
+      if (items.length === 0) return
+      const edge = e.shiftKey ? items[0] : items[items.length - 1]
+      if (document.activeElement === edge || !node.contains(document.activeElement)) {
+        e.preventDefault()
+        ;(e.shiftKey ? items[items.length - 1] : items[0])!.focus()
+      }
+    }
+    document.addEventListener('keydown', onKey, true)
+
+    return () => {
+      cancelAnimationFrame(frame)
+      document.removeEventListener('keydown', onKey, true)
+      // Skipped when the opener has gone with the photo it belonged to.
+      if (opener && opener !== document.body && opener.isConnected) {
+        opener.focus({ preventScroll: true })
+      }
+    }
+  }, [open, onClose])
+
+  return (
+    <SheetPortal active={open} recede={false}>
+      <AnimatePresence>
+        {photo && (
+          <motion.div
+            ref={ref}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={IOS_PUSH}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${photo.pose} photo from ${formatMediumDate(photo.date)}`}
+            tabIndex={-1}
+            style={{
+              position: 'absolute', inset: 0, zIndex: 101,
+              // Black in both appearances, as a photo viewer is on iOS: the
+              // point of it is that nothing but the photograph is lit.
+              background: '#000',
+              display: 'flex', flexDirection: 'column',
+            }}
+          >
+            {/* The way out a finger already knows, behind everything: a tap on
+                the photograph or the surround puts it away. */}
+            <button
+              type="button"
+              aria-label="Close photo"
+              onClick={onClose}
+              style={{ position: 'absolute', inset: 0 }}
+            />
+            <div
+              style={{
+                position: 'relative',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+                padding: 'calc(var(--sa-top) + 8px) var(--gutter) 8px',
+                pointerEvents: 'none',
+              }}
+            >
+              <span className="eyebrow" style={{ color: 'color-mix(in srgb, #fff 78%, transparent)' }}>
+                {photo.pose} &middot; {formatMediumDate(photo.date)}
+              </span>
+              <button
+                type="button"
+                className="pressable"
+                onClick={onClose}
+                style={{
+                  pointerEvents: 'auto',
+                  minHeight: 44, padding: '0 16px',
+                  borderRadius: 'var(--r-btn)',
+                  background: 'color-mix(in srgb, #fff 18%, transparent)',
+                  color: '#fff', fontSize: 17, fontWeight: 600,
+                }}
+              >
+                Done
+              </button>
+            </div>
+            {/* Transparent to touches, so the photograph itself is still part of
+                the way out rather than a hole in it. */}
+            <div
+              style={{
+                position: 'relative', flex: 1, minHeight: 0,
+                display: 'grid', placeItems: 'center',
+                padding: '0 var(--gutter) calc(var(--sa-bottom) + 24px)',
+                pointerEvents: 'none',
+              }}
+            >
+              <motion.img
+                key={photo.id}
+                src={photo.dataUrl}
+                alt="Progress photo"
+                initial={{ scale: 0.94 }}
+                animate={{ scale: 1 }}
+                transition={IOS_PUSH}
+                style={{
+                  maxWidth: '100%', maxHeight: '100%', objectFit: 'contain',
+                  borderRadius: 'var(--r-card)',
+                }}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </SheetPortal>
   )
 }
 

@@ -20,7 +20,7 @@ export function ProgramSettings() {
   return (
     <Screen
       title="Programme"
-      back={{ label: 'Settings', onPress: pop }}
+      back={{ onPress: pop }}
       titleAccessory={
         <div className="gutter" style={{ margin: '-2px 0 24px' }}>
           <div className="t-headline">{program.name}</div>

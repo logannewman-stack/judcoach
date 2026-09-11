@@ -4,11 +4,11 @@ import { Icon } from './Icon'
 import { useCoach, notesFor } from '../store/coach'
 import { useStore } from '../store/useStore'
 import type { NoteAnchor } from '../domain/coach'
-import { COACH } from '../data/seed'
-import { formatMediumDate } from '../lib/date'
+import { relativeTime } from '../lib/date'
 import { toast } from './ios/Toast'
 import { useNav } from '../nav/nav'
 import { Composer } from '../screens/coach/Composer'
+import { authorName, otherParty } from '../screens/coach/anchor'
 
 /* ============================================================================
    The conversation about one record, shown on the record itself.
@@ -17,14 +17,6 @@ import { Composer } from '../screens/coach/Composer'
    set sits under that set rather than twelve screens back. Replying from here
    lands in the thread, so there is still only one conversation.
    ========================================================================== */
-
-const relative = (iso: string) => {
-  const days = Math.floor((Date.now() - Date.parse(iso)) / 86_400_000)
-  if (days <= 0) return 'today'
-  if (days === 1) return 'yesterday'
-  if (days < 7) return `${days} days ago`
-  return formatMediumDate(iso.slice(0, 10))
-}
 
 export function CoachNotes({
   anchor,
@@ -52,7 +44,7 @@ export function CoachNotes({
   const strip = useRef<HTMLDivElement>(null)
 
   const key = anchor.kind === 'thread' ? 'thread' : anchor.id
-  const them = viewAs === 'client' ? COACH.name : (clientName.split(' ')[0] || 'your client')
+  const them = otherParty(viewAs, clientName).short
   const unread = notes.some((n) => n.author !== viewAs && !n.readAt)
 
   // Seeing a note is reading it, but only once the record is actually open —
@@ -75,10 +67,6 @@ export function CoachNotes({
     return () => window.clearTimeout(id)
   }, [spotlight])
 
-  const label = (author: string) => (author === viewAs
-    ? 'You'
-    : viewAs === 'client' ? COACH.name : (clientName.split(' ')[0] || 'Client'))
-
   if (notes.length === 0 && !empty) return null
 
   return (
@@ -90,10 +78,14 @@ export function CoachNotes({
           const mine = note.author === viewAs
           return (
             <div key={note.id} className="note" data-from={mine ? 'me' : 'them'}>
-              {!mine && <CoachAvatar size={30} name={label(note.author)} />}
+              {!mine && <CoachAvatar size={30} name={authorName(note.author, viewAs, clientName)} />}
               <div className="note-body">
+                {/* Mid-sentence after the name, so the lower-cased field of the
+                    one relative-time rule — not a second wording that counted
+                    elapsed milliseconds and called a card's own "Sep 4" header
+                    "6 days ago" two lines below it. */}
                 <div className="note-name">
-                  {label(note.author)} · {relative(note.sentAt)}
+                  {authorName(note.author, viewAs, clientName)} · {relativeTime(note.sentAt).lower}
                   {!mine && !note.readAt && <span className="note-unread" />}
                 </div>
                 {note.body}

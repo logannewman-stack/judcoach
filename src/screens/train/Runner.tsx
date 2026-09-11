@@ -15,8 +15,8 @@ import { bestHistoricalE1RM, findSession, lastPerformance, useProgram } from '..
 import { EXERCISES, getExercise } from '../../data/exercises'
 import type { ActiveSession, LoggedSet, SetPrescription } from '../../domain/types'
 import {
-  MAX_RPE, MIN_RPE, buildWarmup, describeReps, e1RM, formatRir, formatRpe, isEstimable, isMaxEffort,
-  resolveSet, rpeToRir, sessionTonnage, snapRpe, suggestNextLoad, topSet,
+  MAX_RPE, MIN_RPE, buildWarmup, describeReps, e1RM, formatRir, formatRpe, resolveSet, rpeToRir,
+  sessionTonnage, snapRpe, suggestNextLoad, supportsMaxEstimate, topSet,
 } from '../../domain/strength'
 import { formatDuration } from '../../lib/date'
 import { num } from '../../lib/format'
@@ -149,7 +149,7 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
   const historicalBest = bestHistoricalE1RM(logs, exerciseId)
   let runningBest = historicalBest
   const prFlags = logged.map((set) => {
-    const est = isMaxEffort(set) ? e1RM(set.weight, set.reps, set.rpe) : 0
+    const est = supportsMaxEstimate(set) ? e1RM(set.weight, set.reps, set.rpe) : 0
     // The very first qualifying set establishes the baseline; badging it — and
     // then every set after it — reads as broken rather than encouraging.
     const isPr = est > 0 && runningBest > 0 && est > runningBest + 0.01
@@ -188,6 +188,34 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
     : prescription.load.kind === 'rpe' && resolved.targetWeight == null
       ? anchorWeight != null ? 'Work up · last time' : 'Work up by feel'
       : undefined
+  // The hero figure, and what it is a figure of. Every branch prints something
+  // true: the load to hit, the load to work up from, the share of a working max
+  // nobody has set, or — where the programme leaves the load to the client and
+  // there is no history to borrow — the rep target itself. It used to fall
+  // through to a bare em dash, which at 42px is not a gap but a redaction: a
+  // black bar where the number goes, on the two states every new client meets
+  // on their first session. Measurements.tsx rejects the same rendering for the
+  // same reason. Where the figure is not a load, the line under the card says
+  // whose number is missing and what to do about it, because a client mid-set
+  // cannot go and find out.
+  const pendingMax = resolved.targetWeight == null && resolved.percent != null
+  const hero: { value: string; unit: string; withReps: boolean; reference?: boolean } =
+    bodyweight ? { value: describeReps(prescription), unit: 'reps', withReps: false }
+    : resolved.targetWeight != null
+      ? { value: num(resolved.targetWeight, 1), unit: profile.units, withReps: true }
+    : pendingMax
+      ? { value: num(resolved.percent!, 1), unit: '%', withReps: true }
+    : anchorWeight != null
+      ? { value: num(anchorWeight, 1), unit: profile.units, withReps: true, reference: true }
+      : { value: describeReps(prescription), unit: 'reps', withReps: false }
+  const unpriced = pendingMax
+    ? `of your ${exercise?.shortName ?? exercise?.name ?? 'working'} max, which has no number on it`
+      + ' yet — put a load on the bar and log what you lift.'
+    : !bodyweight && resolved.targetWeight == null && anchorWeight == null
+      ? `Nothing logged on this one yet, so the load is yours to pick: work up to ${
+        prescription.rpe != null ? formatRpe(prescription.rpe) : 'the rep target'
+      } and log what it took.`
+      : undefined
 
   const sessionComplete = session.blocks.every(
     (b) => (active.entries[b.id] ?? []).length >= b.sets.length,
@@ -223,7 +251,9 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
           </div>
           <div className="navbar-side right">
             <button className="nav-btn strong" type="button" onClick={() => setShowFinish(true)}>
-              Finish
+              {/* The label carries the ellipsis, so a bar button that outgrows
+                  its column truncates instead of painting over the title. */}
+              <span className="nav-btn-label">Finish</span>
             </button>
           </div>
         </div>
@@ -387,28 +417,17 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
                     // An autoregulated lift has no prescribed load, so the anchor
                     // comes from history and is shown as a reference rather than
                     // as an instruction.
-                    data-reference={
-                      !bodyweight && resolved.targetWeight == null && anchorWeight != null
-                        ? 'true'
-                        : undefined
-                    }
+                    data-reference={hero.reference ? 'true' : undefined}
                   >
-                    {bodyweight
-                      ? describeReps(prescription)
-                      : resolved.targetWeight != null
-                        ? num(resolved.targetWeight, 1)
-                        : anchorWeight != null
-                          ? num(anchorWeight, 1)
-                          : '—'}
+                    {hero.value}
                   </span>
-                  <span className="figure-unit runner-figure-unit">
-                    {bodyweight ? 'reps' : profile.units}
-                  </span>
-                  {!bodyweight && (
+                  <span className="figure-unit runner-figure-unit">{hero.unit}</span>
+                  {hero.withReps && (
                     <span className="data runner-figure-reps">×{describeReps(prescription)}</span>
                   )}
                   {prescription.rpe != null && <RpeTag rpe={prescription.rpe} kind="target" />}
                 </div>
+                {unpriced && <div className="runner-target-said t-caption1">{unpriced}</div>}
 
                 {(prescription.amrap || prescription.tempo || swapped) && (
                   <div className="runner-target-pills">
@@ -487,7 +506,7 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
               showRir={settings.showRir}
               bodyweight={bodyweight}
               lastSet={logged[logged.length - 1]}
-              previous={last?.sets[setIndex]}
+              anchorWeight={anchorWeight}
               pulse={pulse}
               onLog={(weight, reps, rpe) => logRawSet(prescription, weight, reps, rpe)}
             />
@@ -543,7 +562,7 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
                           {target
                             ? `Target ${describeReps(target)}${target.rpe ? ` @ ${formatRpe(target.rpe)}` : ''}`
                             : 'Extra set'}
-                          {isEstimable(s) && ` · e1RM ${num(e1RM(s.weight, s.reps, s.rpe), 0)}`}
+                          {supportsMaxEstimate(s) && ` · e1RM ${num(e1RM(s.weight, s.reps, s.rpe), 0)}`}
                         </span>
                       </span>
                       {pr && (
@@ -747,7 +766,7 @@ export function Runner({ weekIndex, sessionId }: { weekIndex: number; sessionId:
     // at RPE 8 used to clear `historicalBest`, which is built from near-maximal
     // work only, and announce a best the list below then refused to badge.
     const candidate: LoggedSet = { id: '', prescriptionId: set.id, weight, reps, rpe, completedAt: '' }
-    const est = isMaxEffort(candidate) ? e1RM(weight, reps, rpe) : 0
+    const est = supportsMaxEstimate(candidate) ? e1RM(weight, reps, rpe) : 0
     if (est > runningBest + 0.01 && historicalBest > 0) {
       haptic('heavy')
       setPr({ blockId: block.id, est, previous: runningBest })
@@ -917,7 +936,7 @@ function Burst({ count = 18 }: { count?: number }) {
 /* ---------------------------------- logger ------------------------------- */
 
 function SetLogger({
-  prescription, blockSets, resolved, units, increment, showRir, bodyweight, lastSet, previous,
+  prescription, blockSets, resolved, units, increment, showRir, bodyweight, lastSet, anchorWeight,
   pulse, onLog,
 }: {
   prescription: SetPrescription
@@ -930,13 +949,18 @@ function SetLogger({
   /** No load to hit, so the weight field is asking for anything *added*. */
   bodyweight: boolean
   lastSet?: LoggedSet
-  previous?: LoggedSet
+  /** The load the card is showing where the programme sets none — history, guarded. */
+  anchorWeight?: number
   /** Counts sets logged in this block. Non-zero means this mount followed one. */
   pulse: number
   onLog: (weight: number, reps: number, rpe?: number) => void
 }) {
-  // Seed from the target, then the previous set, then last time's number.
-  const seedWeight = resolved.targetWeight ?? lastSet?.weight ?? previous?.weight ?? 0
+  // The same number the card above is showing: the target, else the anchor the
+  // runner worked out of history. Seeding straight off `lastSet.weight` let a
+  // bodyweight zero — or no history at all — become the field's starting load,
+  // and four taps of Log set banked a zero-volume workout. The zero is still a
+  // legitimate state (nothing known), but it is not loggable: see `blocked`.
+  const seedWeight = resolved.targetWeight ?? anchorWeight ?? 0
   const [weight, setWeight] = useState(seedWeight)
   const [reps, setReps] = useState(prescription.reps)
   const [rpe, setRpe] = useState<number | undefined>(prescription.rpe)
@@ -976,6 +1000,12 @@ function SetLogger({
   const repsOff =
     reps < prescription.reps
     || (!prescription.amrap && reps > (prescription.repsMax ?? prescription.reps))
+
+  // A loaded lift at zero is not a set, it is an unanswered field — and once one
+  // is banked the next set seeds from it, so a whole workout goes in at nought
+  // and the log Jud reads says the client moved nothing. Nothing here guesses a
+  // load for them: the bar is not the answer on a lat pulldown.
+  const blocked = !bodyweight && weight <= 0
 
   return (
     <div className="gutter">
@@ -1032,7 +1062,7 @@ function SetLogger({
             step={increment}
             stepLabel={num(increment, 2)}
             atMin={weight <= 0}
-            off={resolved.targetWeight != null && weight !== resolved.targetWeight}
+            off={blocked || (resolved.targetWeight != null && weight !== resolved.targetWeight)}
           />
           <Quantity
             label="Reps"
@@ -1077,12 +1107,21 @@ function SetLogger({
           <Button
             icon="check"
             onPress={() => onLog(weight, reps, rpe)}
-            disabled={reps <= 0}
+            disabled={reps <= 0 || blocked}
             style={{ minHeight: 56, fontSize: 19 }}
           >
             Log set
           </Button>
         </div>
+
+        {/* Where the e1RM would be, so a blocked button is never the only thing
+            on the card that has changed. */}
+        {blocked && (
+          <div className="runner-blocked t-caption1">
+            Tap the weight to say what went on the bar — a set logged at nought
+            {' '}{units} is not a set.
+          </div>
+        )}
 
         {rpe != null && weight > 0 && reps > 0 && (
           <div className="runner-e1rm">
@@ -1163,6 +1202,12 @@ function Quantity({
   rpe?: number
 }) {
   const repeat = useRef<number | null>(null)
+  // Whether this press has already stepped on its own. The click that ends a
+  // hold is the release of a gesture that has already counted, not another step
+  // — without this, letting go of a held +5 added one more plate than the client
+  // watched go on, and the set was logged five pounds heavy. Controls.tsx's
+  // Stepper guards the same way.
+  const repeated = useRef(false)
   const stop = () => {
     if (repeat.current) window.clearTimeout(repeat.current)
     repeat.current = null
@@ -1170,8 +1215,10 @@ function Quantity({
   useEffect(() => stop, [])
 
   const start = (delta: number) => {
+    repeated.current = false
     let speed = 400
     const tick = () => {
+      repeated.current = true
       haptic('selection')
       onStep(delta)
       speed = Math.max(70, speed * 0.8)
@@ -1188,6 +1235,10 @@ function Quantity({
       aria-label={`${delta < 0 ? 'Decrease' : 'Increase'} ${label} by ${amount}`}
       disabled={disabled}
       onClick={() => {
+        if (repeated.current) {
+          repeated.current = false
+          return
+        }
         haptic('selection')
         onStep(delta)
       }}

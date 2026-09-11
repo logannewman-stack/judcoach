@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { CSSProperties } from 'react'
 import { motion } from 'framer-motion'
 import { Screen } from '../../components/ios/Screen'
 import { ListSection, Row } from '../../components/ios/List'
@@ -8,7 +7,7 @@ import { Icon } from '../../components/Icon'
 import { Pill, Segmented, Stepper } from '../../components/ios/Controls'
 import { Sheet } from '../../components/ios/Sheet'
 import { SwipeRow, useSwipeGroup } from '../../components/ios/SwipeRow'
-import { RingStack, MACRO_COLORS } from '../../components/Rings'
+import { MACRO_COLORS } from '../../components/Rings'
 import { toast } from '../../components/ios/Toast'
 import { useStore, emptyDay } from '../../store/useStore'
 import { MEAL_PLAN, QUICK_ADDS } from '../../data/mealPlan'
@@ -18,13 +17,14 @@ import type { MacroTotals } from '../../domain/nutrition'
 import {
   adherencePercent, consumedTotals, foodTotals, plannedMealTotals, portionOf, proteinStatus, scaleFood,
 } from '../../domain/nutrition'
+import { FuelReadout, kcalStanding } from './fuel'
 import {
   addDays, formatClock, formatMediumDate, fromISODate, relativeDay, todayISO, weekdayMin,
 } from '../../lib/date'
 import { num, unitFor } from '../../lib/format'
 import { haptic } from '../../lib/haptics'
 import { useNav } from '../../nav/nav'
-import { useDayMode, useDayOverrides } from './dayMode'
+import { useDayMode, useSetDayMode } from './dayMode'
 import type { DayMode } from './dayMode'
 
 export function MealsHome() {
@@ -40,7 +40,7 @@ export function MealsHome() {
   const day = nutrition[date] ?? emptyDay(date)
 
   const mode = useDayMode(date)
-  const setMode = useDayOverrides((s) => s.set)
+  const setMode = useSetDayMode()
   const restDay = mode === 'rest'
   const targets: MacroTargets =
     restDay && MEAL_PLAN.restDayTargets ? MEAL_PLAN.restDayTargets : MEAL_PLAN.targets
@@ -48,6 +48,7 @@ export function MealsHome() {
   const totals = consumedTotals(MEAL_PLAN, day, restDay)
   const adherence = adherencePercent(MEAL_PLAN, day, restDay)
   const protein = proteinStatus(targets, totals)
+  const kcal = kcalStanding(targets, totals)
   const [quickAdd, setQuickAdd] = useState(false)
   const swipe = useSwipeGroup()
 
@@ -91,35 +92,9 @@ export function MealsHome() {
 
         {/* -------------------------------- fuel ----------------------------- */}
         <Card>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-            {/* 10pt arcs on a 122pt stack leave a 48pt hole, which is what a
-                four-digit calorie count and its target need. At the 12pt the
-                rings used to be drawn at, both strings crossed the innermost
-                arc. */}
-            <RingStack
-              size={122}
-              thickness={10}
-              gap={3.5}
-              rings={[
-                { value: totals.protein, target: targets.protein, color: MACRO_COLORS.protein },
-                { value: totals.carbs, target: targets.carbs, color: MACRO_COLORS.carbs },
-                { value: totals.fat, target: targets.fat, color: MACRO_COLORS.fat },
-              ]}
-            >
-              <div style={{ lineHeight: 1 }}>
-                <div className="figure" style={{ fontSize: 20 }}>{Math.round(totals.kcal)}</div>
-                <div className="data" style={{ fontSize: 10, marginTop: 4, color: 'var(--label-2)' }}>
-                  of {targets.kcal}
-                </div>
-              </div>
-            </RingStack>
-
-            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 11 }}>
-              <MacroReadout label="Protein" value={totals.protein} target={targets.protein} color={MACRO_COLORS.protein} />
-              <MacroReadout label="Carbs" value={totals.carbs} target={targets.carbs} color={MACRO_COLORS.carbs} />
-              <MacroReadout label="Fat" value={totals.fat} target={targets.fat} color={MACRO_COLORS.fat} />
-            </div>
-          </div>
+          {/* The same component Today renders, so the two cards cannot reach
+              two verdicts on one day's three numbers. */}
+          <FuelReadout targets={targets} totals={totals} />
 
           <div style={{ display: 'flex', gap: 7, marginTop: 14, flexWrap: 'wrap' }}>
             {/* "Protein short" in red is a verdict, and at seven in the morning
@@ -137,13 +112,20 @@ export function MealsHome() {
                     {adherence}% of plan
                   </Pill>
                 )}
+                {/* Ticking the whole plan and then eating a day's worth on
+                    top of it is still a completed plan, so the overshoot gets
+                    its own pill rather than taking one away. Without it this
+                    row was two greens and a seal on a day 1200 kcal over, and
+                    the pills are what the card is read at a glance. The figure
+                    itself is in the line underneath; the pill is the verdict. */}
+                {kcal.state === 'over' && <Pill tone="warn">Over target</Pill>}
               </>
             )}
           </div>
 
           {/* What is still owed, in the two numbers the plan is actually judged
               on. The kcal pill this replaced repeated the ring's own centre. */}
-          <div className="t-footnote dim" style={{ marginTop: 9 }}>
+          <div className="t-footnote fuel-note" data-tone={kcal.state} style={{ marginTop: 9 }}>
             <Remaining
               targets={targets}
               totals={totals}
@@ -171,20 +153,23 @@ export function MealsHome() {
           <SectionHeader title="Water" />
           <Card>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <Icon
-                name="drop.fill"
-                size={22}
-                color={waterMet ? 'var(--fuel-hit)' : MACRO_COLORS.water}
-              />
+              <Icon name="drop.fill" size={22} color={MACRO_COLORS.water} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="data" style={{ fontSize: 17, lineHeight: '22px' }}>
+                <div className="data water-figure">
                   {day.waterOz}
                   <span className="data-unit"> / {targets.waterOz} oz</span>
+                  {/* A filled bar reports the target the way a closed ring
+                      does, and the tick is the affirmation that goes with it.
+                      The bar keeps the water's own blue either way: it used to
+                      flip to the hit green, which is protein's colour. */}
+                  {waterMet && (
+                    <Icon name="check.circle.fill" size={15} color="var(--fuel-hit)" />
+                  )}
                 </div>
-                <div className="macro-bar" style={{ height: 6, marginTop: 6 }}>
+                <div className="macro-bar" style={{ marginTop: 6 }}>
                   <motion.div
                     className="macro-fill"
-                    style={{ background: waterMet ? 'var(--fuel-hit)' : MACRO_COLORS.water }}
+                    style={{ background: MACRO_COLORS.water }}
                     initial={false}
                     animate={{ width: `${Math.min(100, (day.waterOz / targets.waterOz) * 100)}%` }}
                     transition={{ type: 'spring', stiffness: 140, damping: 20 }}
@@ -338,58 +323,13 @@ function DayStrip({
 }
 
 /**
- * One macro beside the rings. The name is an eyebrow, the figure and its target
- * are one object, and the bar carries the macro's own tone — which turns to the
- * hit colour the moment the target lands, so "protein is done" is legible
- * without reading a digit.
- */
-function MacroReadout({
-  label, value, target, color,
-}: {
-  label: string
-  value: number
-  target: number
-  color: string
-}) {
-  const pct = target > 0 ? Math.min((value / target) * 100, 100) : 0
-  const met = target > 0 && value >= target
-  return (
-    <div
-      className="macro-row"
-      data-met={met ? 'true' : undefined}
-      // Resolved here rather than in a rule keyed off data-met: an inline
-      // custom property outranks any stylesheet, so the met colour had to win
-      // in the same place the macro's own tone is set.
-      style={{ '--macro': met ? 'var(--fuel-hit)' : color } as CSSProperties}
-    >
-      <div className="macro-head">
-        <span className="eyebrow macro-name">{label}</span>
-        <span className="data macro-value">
-          {Math.round(value)}
-          <span className="macro-target">/{Math.round(target)} g</span>
-        </span>
-      </div>
-      <div className="macro-bar">
-        <motion.div
-          className="macro-fill"
-          initial={{ width: 0 }}
-          animate={{ width: `${pct}%` }}
-          transition={{ type: 'spring', stiffness: 120, damping: 20 }}
-        />
-      </div>
-    </div>
-  )
-}
-
-/**
  * What the day still owes, in the two numbers the plan is judged on.
  *
- * The slack is not politeness: the plan's own meals sum to 2921 kcal against a
- * 2920 kcal target, so a client who followed it exactly was being told they had
- * gone over.
+ * The tense is the day's, not the reader's: a Tuesday nine days ago cannot have
+ * anything "still to go" in it and nothing is "left today", so every branch
+ * here reads `past`. It used to be consulted only on a day with nothing logged,
+ * which left a fortnight of history telling the client to go and eat.
  */
-const KCAL_SLACK = 5
-
 function Remaining({
   targets, totals, started, past, complete, opening,
 }: {
@@ -404,7 +344,7 @@ function Remaining({
   /** The first meal of the plan, for a day that has not begun. */
   opening?: Meal
 }) {
-  const kcalLeft = Math.round(targets.kcal - totals.kcal)
+  const { left: kcalLeft, state } = kcalStanding(targets, totals)
   const proteinLeft = Math.round(targets.protein - totals.protein)
   // A plan waiting to be executed, stated as the plan rather than as a debt.
   // "2920 kcal still to go" before breakfast reads as arrears on a day the
@@ -420,25 +360,47 @@ function Remaining({
       {opening && <> {opening.name} at {formatClock(opening.time)} starts it.</>}
     </>
   }
-  if (kcalLeft < -KCAL_SLACK) {
+  if (state === 'over') {
     return <>
-      <span className="data">{-kcalLeft}</span> kcal over the day&rsquo;s target.
+      <span className="data">{-kcalLeft}</span> kcal over {past ? 'that' : 'the'} day&rsquo;s target.
     </>
   }
   if (proteinLeft > 0) {
-    return <>
-      <span className="data">{kcalLeft}</span> kcal and <span className="data">{proteinLeft} g</span>
-      {' '}of protein still to go.
-    </>
+    // Calories can land while protein has not — a day carried on carbohydrate.
+    // Naming the calorie figure here printed a negative one: three kcal past
+    // the target is inside the slack and is not "−3 kcal still to go".
+    if (state === 'met') {
+      return past
+        ? <>
+          Calories landed, but that day finished <span className="data">{proteinLeft} g</span>
+          {' '}of protein short.
+        </>
+        : <>
+          Calories are in. <span className="data">{proteinLeft} g</span> of protein still to go.
+        </>
+    }
+    return past
+      ? <>
+        That day finished <span className="data">{kcalLeft}</span> kcal and{' '}
+        <span className="data">{proteinLeft} g</span> of protein short.
+      </>
+      : <>
+        <span className="data">{kcalLeft}</span> kcal and <span className="data">{proteinLeft} g</span>
+        {' '}of protein still to go.
+      </>
   }
-  if (kcalLeft <= KCAL_SLACK) {
+  if (state === 'met') {
     return complete
       ? <>Every item ticked, protein and calories both landed. That is the day exactly as written.</>
-      : <>Protein and calories both landed. The day is on plan.</>
+      : <>Protein and calories both landed. The day {past ? 'came in' : 'is'} on plan.</>
   }
-  return <>
-    Protein is in. <span className="data">{kcalLeft}</span> kcal left today.
-  </>
+  return past
+    ? <>
+      Protein is in. That day came in <span className="data">{kcalLeft}</span> kcal under target.
+    </>
+    : <>
+      Protein is in. <span className="data">{kcalLeft}</span> kcal left today.
+    </>
 }
 
 /** A food's calories and macros, set as data with the letters as units. */

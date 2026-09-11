@@ -6,7 +6,7 @@ import { Card, CoachNote, SectionHeader } from '../components/Bits'
 import { Icon } from '../components/Icon'
 import type { IconName } from '../components/Icon'
 import { Pill } from '../components/ios/Controls'
-import { RingStack, MACRO_COLORS } from '../components/Rings'
+import { Alert } from '../components/ios/Sheet'
 import { Sparkline } from '../components/Charts'
 import { useStore, emptyDay } from '../store/useStore'
 import { useCoach } from '../store/coach'
@@ -18,7 +18,8 @@ import {
 import { topPrescribedSet } from './train/prescription'
 import { MEAL_PLAN } from '../data/mealPlan'
 import { useDayMode } from './meals/dayMode'
-import type { Profile, Units, WorkoutLog } from '../domain/types'
+import { FuelReadout, kcalStanding } from './meals/fuel'
+import type { ActiveSession, Profile, Units, WorkoutLog } from '../domain/types'
 import type { ResolvedSet } from '../domain/strength'
 import { MAIN_LIFTS, getExercise } from '../data/exercises'
 import { SEED_PROFILE } from '../data/seed'
@@ -26,7 +27,7 @@ import { consumedTotals } from '../domain/nutrition'
 import { formatRpe } from '../domain/strength'
 import { rateVerdict, rollingSeries, summarizeTrend, weighInsInLast } from '../domain/weight'
 import { formatLongDate, formatMinutes, relativeDay, timeOfDayGreeting, todayISO, addDays } from '../lib/date'
-import { compact, fixed, num, pluralize, signed } from '../lib/format'
+import { compact, fixed, num, pluralize, signed, weight } from '../lib/format'
 import { navPresent, navPush, navSwitchTab, useNav } from '../nav/nav'
 import { NumberPad } from '../components/NumberPad'
 import { toast } from '../components/ios/Toast'
@@ -34,6 +35,7 @@ import '../styles/today.css'
 
 export function TodayScreen() {
   const coachSeat = useCoach((s) => s.viewAs === 'coach')
+  const heard = useCoach((s) => s.notes.some((n) => n.author !== s.viewAs))
   const today = todayISO()
   const program = useProgram()
   const logs = useStore((s) => s.logs)
@@ -43,7 +45,12 @@ export function TodayScreen() {
   const active = useStore((s) => s.active)
   const push = useNav((s) => s.push)
   const saveWeighIn = useStore((s) => s.saveWeighIn)
+  // The Weigh-In screen reads every figure at the client's own precision; the
+  // same average shown here at a hard-coded one decimal read 185.1 beside its
+  // own 185.
+  const decimals = useStore((s) => s.settings.weightUnitDecimals)
   const [loggingWeight, setLoggingWeight] = useState(false)
+  const [rollingBlock, setRollingBlock] = useState(false)
 
   const weekIndex = currentWeekIndex(program, today)
   const week = getWeek(program, weekIndex)
@@ -66,7 +73,7 @@ export function TodayScreen() {
   const restDay = useDayMode(today) === 'rest'
   const totals = consumedTotals(MEAL_PLAN, day, restDay)
   const targets = restDay && MEAL_PLAN.restDayTargets ? MEAL_PLAN.restDayTargets : MEAL_PLAN.targets
-  const over = totals.kcal - targets.kcal
+  const kcal = kcalStanding(targets, totals)
 
   const trend = useMemo(() => summarizeTrend(weighIns, 28), [weighIns])
   const series = useMemo(() => rollingSeries(weighIns, 7).slice(-21), [weighIns])
@@ -104,7 +111,14 @@ export function TodayScreen() {
               program={program}
               logs={logs}
               units={profile.units}
+              // Rolling the block over clears the running session with it, and
+              // the card that offers it is the one the client taps once the
+              // block is complete — the Resume card is not even rendered in
+              // that state. So a workout with sets in it gets the same
+              // two-button warning the Runner's own discard gives; without it
+              // the sets went with no alert and no way back.
               onStart={() => {
+                if (active) { setRollingBlock(true); return }
                 startNextBlock()
                 toast('New block started', { icon: 'check.circle.fill', tone: 'good' })
               }}
@@ -196,36 +210,23 @@ export function TodayScreen() {
             action={{ label: 'Log meals', onPress: () => navSwitchTab('meals') }}
           />
           <Card onPress={() => navSwitchTab('meals')}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-              <RingStack
-                size={108}
-                thickness={11}
-                gap={3.5}
-                rings={[
-                  { value: totals.protein, target: targets.protein, color: MACRO_COLORS.protein },
-                  { value: totals.carbs, target: targets.carbs, color: MACRO_COLORS.carbs },
-                  { value: totals.fat, target: targets.fat, color: MACRO_COLORS.fat },
-                ]}
-              >
-                <div style={{ lineHeight: 1 }}>
-                  <div className="figure" style={{ fontSize: 'calc(23 * var(--pt))' }}>{Math.round(totals.kcal)}</div>
-                  <div className="eyebrow" style={{ marginTop: 4 }}>kcal</div>
-                </div>
-              </RingStack>
-              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 9 }}>
-                <MacroLine label="Protein" value={totals.protein} target={targets.protein} color={MACRO_COLORS.protein} />
-                <MacroLine label="Carbs" value={totals.carbs} target={targets.carbs} color={MACRO_COLORS.carbs} />
-                <MacroLine label="Fat" value={totals.fat} target={targets.fat} color={MACRO_COLORS.fat} />
-                {/* The figure is data; what it means is a sentence, and a
-                    sentence stays in SF. */}
-                <div
-                  className="t-caption1"
-                  style={{ marginTop: 1, color: over > 0 ? 'var(--orange-text)' : 'var(--label-2)' }}
-                >
-                  <span className="data">{Math.round(Math.abs(over))}</span>
-                  {' '}kcal {over > 0 ? 'over target' : 'left today'}
-                </div>
-              </div>
+            {/* The Meals screen's own card, rather than a second one drawn to
+                different measurements: two implementations gave the same three
+                numbers opposite verdicts thirty pixels apart. */}
+            <FuelReadout targets={targets} totals={totals} />
+            {/* The figure is data; what it means is a sentence, and a sentence
+                stays in SF. The slack comes with the card, so a day followed
+                exactly cannot read "1 kcal over target" here and "the day
+                exactly as written" on Meals. */}
+            <div className="t-caption1 fuel-note" data-tone={kcal.state} style={{ marginTop: 12 }}>
+              {kcal.state === 'met' ? (
+                <>Calories are on target.</>
+              ) : (
+                <>
+                  <span className="data">{Math.abs(kcal.left)}</span>
+                  {' '}kcal {kcal.state === 'over' ? 'over target' : 'left today'}
+                </>
+              )}
             </div>
           </Card>
         </Rise>
@@ -249,7 +250,7 @@ export function TodayScreen() {
                       : 'Last average'}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 6 }}>
-                    <span className="figure" style={{ fontSize: 'calc(38 * var(--pt))' }}>{fixed(trend.current, 1)}</span>
+                    <span className="figure" style={{ fontSize: 'calc(38 * var(--pt))' }}>{fixed(trend.current, decimals)}</span>
                     <span className="figure-unit" style={{ fontSize: 'calc(17 * var(--pt))' }}>{profile.units}</span>
                   </div>
                   <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
@@ -260,7 +261,11 @@ export function TodayScreen() {
                     ) : (
                       <Pill>Trend builds over a week</Pill>
                     )}
-                    {profile.goalWeight > 0 && <Pill>Goal {num(profile.goalWeight, 0)}</Pill>}
+                    {/* A weight with no unit beside one that has one reads as
+                        a different quantity altogether. */}
+                    {profile.goalWeight > 0 && (
+                      <Pill>Goal {weight(profile.goalWeight, profile.units, decimals)}</Pill>
+                    )}
                   </div>
                 </div>
                 {/* A sparkline of one point is an empty 92pt hole beside the
@@ -330,8 +335,16 @@ export function TodayScreen() {
 
         {/* ------------------------------- coach --------------------------- */}
         <Rise order={5} domain="coach">
+          {/* CoachCard falls back to a plain profile row when nothing has been
+              said, and "From Jud" over Jud's own name, title and credentials
+              headlines a message that does not exist. Same test as the card's,
+              so the heading and what is under it cannot disagree. */}
           <SectionHeader
-            title={<SecTitle icon="message.fill">{coachSeat ? 'From your client' : 'From Jud'}</SecTitle>}
+            title={
+              <SecTitle icon="message.fill">
+                {!heard ? 'Your coach' : coachSeat ? 'From your client' : 'From Jud'}
+              </SecTitle>
+            }
             action={{ label: 'Profile', onPress: () => navPush('coach') }}
           />
           <div className="gutter">
@@ -340,12 +353,37 @@ export function TodayScreen() {
         </Rise>
       </div>
 
+      <Alert
+        open={rollingBlock}
+        title="Finish the workout first?"
+        message={
+          activeSetCount(active) > 0
+            ? <>Starting the next block ends the session you have open. The{' '}
+              <span className="data">{activeSetCount(active)}</span> sets logged in it
+              will be deleted, and that cannot be undone.</>
+            : <>Starting the next block ends the session you have open. This cannot be undone.</>
+        }
+        onDismiss={() => setRollingBlock(false)}
+        actions={[
+          { label: 'Cancel', onPress: () => setRollingBlock(false) },
+          {
+            label: 'Start the next block',
+            destructive: true,
+            onPress: () => {
+              setRollingBlock(false)
+              startNextBlock()
+              toast('New block started', { icon: 'check.circle.fill', tone: 'good' })
+            },
+          },
+        ]}
+      />
+
       <NumberPad
         open={loggingWeight}
         onClose={() => setLoggingWeight(false)}
         onSubmit={(w) => {
           saveWeighIn({ date: today, weight: w })
-          toast(`${fixed(w, 1)} ${profile.units} logged`, { icon: 'scale', tone: 'good' })
+          toast(`${fixed(w, decimals)} ${profile.units} logged`, { icon: 'scale', tone: 'good' })
         }}
         title="Today's weight"
         initial={weighIns[weighIns.length - 1]?.weight ?? profile.startWeight}
@@ -455,33 +493,6 @@ function isSampleClient(profile: Profile, logs: WorkoutLog[]): boolean {
   return logs.length > 0
     && profile.name === SEED_PROFILE.name
     && profile.startWeight === SEED_PROFILE.startWeight
-}
-
-function MacroLine({ label, value, target, color }: { label: string; value: number; target: number; color: string }) {
-  const pct = target > 0 ? Math.min((value / target) * 100, 100) : 0
-  // Past the target the bar fills and the number turns, so an overshoot reads
-  // as an overshoot rather than as a completed goal.
-  const over = target > 0 && value > target * 1.02
-  return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-        <span className="t-caption1 semibold dim">{label}</span>
-        <span className="data" style={{ fontSize: 'calc(12 * var(--pt))', color: over ? 'var(--orange-text)' : undefined }}>
-          {Math.round(value)}
-          <span className="plan-unit">/{Math.round(target)}g</span>
-        </span>
-      </div>
-      <div className="track" style={{ height: 7, marginTop: 4 }}>
-        <motion.div
-          className="track-fill"
-          style={{ background: over ? 'var(--orange)' : color }}
-          initial={{ width: 0 }}
-          animate={{ width: `${pct}%` }}
-          transition={{ type: 'spring', stiffness: 120, damping: 20 }}
-        />
-      </div>
-    </div>
-  )
 }
 
 /**
@@ -764,7 +775,7 @@ function ResumeCard() {
   const found = program.weeks
     .find((w) => w.index === active.weekIndex)
     ?.sessions.find((s) => s.id === active.sessionId)
-  const done = Object.values(active.entries).reduce((n, sets) => n + sets.length, 0)
+  const done = activeSetCount(active)
   const total = found?.blocks.reduce((n, b) => n + b.sets.length, 0) ?? 0
 
   return (
@@ -960,6 +971,13 @@ function WeekStat({
       <span className="eyebrow today-stat-label truncate">{label}</span>
     </div>
   )
+}
+
+/** How much work the open session is holding: what the Resume card counts, and
+    what the warning before the block rolls over has to name. */
+function activeSetCount(active: ActiveSession | null): number {
+  if (!active) return 0
+  return Object.values(active.entries).reduce((n, sets) => n + sets.length, 0)
 }
 
 /** The short name of a session's main lift, for the top-set label. */

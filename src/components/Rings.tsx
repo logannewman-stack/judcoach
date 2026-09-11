@@ -1,15 +1,20 @@
 import { motion } from 'framer-motion'
 import type { ReactNode } from 'react'
-// The macro tones live here, and Today draws these rings without ever loading
+// The macro hues live here, and Today draws these rings without ever loading
 // the Meals screen's stylesheet.
 import '../styles/fuel.css'
 
 /* ============================================================================
    Progress rings.
 
-   The arcs are one material in three strengths rather than three hues — see
-   fuel.css for why — so the only colour in the stack is the one that reports a
-   target actually met.
+   Three macros, three hues — tokens.css says why. The hue says *which* macro
+   and nothing else, so no state ever repaints an arc: a ring that turned green
+   on completion made protein, carbohydrate and fat one colour at exactly the
+   moment a client was reading all three, and protein — already drawn in that
+   green — could never show the change at all. A ring reports itself by closing,
+   the way an Activity ring does. Only an overshoot takes a colour of its own,
+   and the caller resolves that, because how much past a target still counts as
+   hitting it is the Meals screen's rule and not this file's.
    ========================================================================== */
 
 export interface RingSpec {
@@ -54,9 +59,7 @@ export function ProgressRing({
         <motion.circle
           cx={size / 2} cy={size / 2} r={r}
           fill="none"
-          // A closed ring is the one event on this card worth a colour, and it
-          // is the same green a pill uses to say "you are on target".
-          stroke={pct >= 1 ? 'var(--fuel-hit)' : color}
+          stroke={color}
           strokeWidth={thickness} strokeLinecap="round"
           strokeDasharray={circumference}
           initial={{ strokeDashoffset: circumference }}
@@ -122,14 +125,19 @@ export function RingStack({
 }
 
 /**
- * Tone, not hue: protein is the darkest because the plan says it is the
- * non-negotiable, fat the faintest because it is what is left over. Water is
- * not a macro, so it borrows the middle tone rather than inventing a fourth.
+ * A hue each, ordered the way the plan orders them: protein in the Meals
+ * domain's own green because it is the number to protect, carbohydrate amber,
+ * fat violet.
+ *
+ * Water is not a macro and no longer borrows one's colour. Drawn in
+ * carbohydrate's amber it painted a droplet honey-coloured and gave the water
+ * card a bar that differed from the carbs bar above it by one pixel of height
+ * and nothing else, so the screen read as having four macros, one of which was
+ * water. It takes the blue the thing itself is.
  */
 export const MACRO_COLORS = {
-  kcal: 'var(--fuel-1)',
   protein: 'var(--fuel-1)',
   carbs: 'var(--fuel-2)',
   fat: 'var(--fuel-3)',
-  water: 'var(--fuel-2)',
+  water: 'var(--cyan)',
 } as const

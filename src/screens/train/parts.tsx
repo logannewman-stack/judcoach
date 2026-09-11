@@ -80,7 +80,9 @@ export function LoggedSetChip({
       data-rpe={set.rpe ?? undefined}
       data-pr={isPr ? 'true' : undefined}
     >
-      {isPr && <Icon name="seal.fill" size={11} color="var(--rpe-10-text)" />}
+      {/* Gold is the app's record colour; `--rpe-10` is the ramp's top step and,
+          in light, the same value as the colour rows are deleted in. */}
+      {isPr && <Icon name="seal.fill" size={11} color="var(--yellow-text)" />}
       {/* A bodyweight set carries no load, and "0 lb × 12" reads as a fault. */}
       {set.weight > 0 && (
         <>

@@ -19,7 +19,7 @@ import type { LoggedSet, WorkoutLog } from '../../domain/types'
 import { bestE1RM, snapRpe, topSet } from '../../domain/strength'
 import {
   addDays, formatMediumDate, formatMinutes, formatShortDate, fromISODate,
-  relativeDay, startOfWeek, todayISO,
+  relativeDay, relativeTime, startOfWeek, todayISO,
 } from '../../lib/date'
 import { compact, estimate, num } from '../../lib/format'
 import { useNav } from '../../nav/nav'
@@ -139,6 +139,9 @@ export function SetTable({
 }
 
 /* -------------------------------- history -------------------------------- */
+
+/** Hard sets per muscle group per week, under which Jud counts the week short. */
+const WEEKLY_SET_FLOOR = 10
 
 /** Sessions grouped into the months they were trained in, newest first. */
 function byMonth(logs: WorkoutLog[], today: string): { key: string; label: string; logs: WorkoutLog[] }[] {
@@ -302,13 +305,20 @@ export function History() {
               header="Hard sets this week"
               footer={
                 trainedThisWeek
-                  ? 'Dashed line marks ten hard sets — the weekly floor Jud aims for on each muscle group. Secondary involvement counts as half a set.'
+                  ? 'Green is at or past ten hard sets — the weekly floor Jud aims for on each muscle group. Amber is short of it. Secondary involvement counts as half a set.'
                   : 'Ten hard sets per muscle group is the weekly floor. The week resets on Monday, so this one is still all to play for.'
               }
               style={flushSection}
             >
               {trainedThisWeek ? (
                 <div style={{ padding: 16 }}>
+                  {/* Whether a muscle group cleared the floor is the entire
+                      verdict of this chart, and height against a grey dotted
+                      rule is not a way of saying it — eight bars in one colour
+                      made shoulders at nine look like glutes at twenty-one. So
+                      the bar carries the verdict in the app's own two words for
+                      it, and neither of them is the accent: what is on this
+                      chart is how the week went, not something to tap. */}
                   <BarChart
                     bars={Object.entries(weeklyVolume)
                       .sort((a, b) => b[1] - a[1])
@@ -316,7 +326,10 @@ export function History() {
                       .map(([muscle, sets]) => ({
                         label: (MUSCLE_LABELS[muscle] ?? muscle).slice(0, 5),
                         value: Math.round(sets),
-                        target: 10,
+                        target: WEEKLY_SET_FLOOR,
+                        color: Math.round(sets) >= WEEKLY_SET_FLOOR
+                          ? 'var(--green)'
+                          : 'var(--orange)',
                       }))}
                     height={170}
                   />
@@ -339,8 +352,11 @@ export function History() {
               }
             >
               <div style={{ padding: 16 }}>
+                {/* No floor to judge these against, so they carry no verdict —
+                    they are Train's own work in Train's own colour. */}
                 <BarChart
                   bars={lastFourWeeks.map((w) => ({ label: w.label, value: w.sets }))}
+                  color="var(--tint)"
                   height={150}
                   formatValue={(v) => String(v)}
                 />
@@ -545,7 +561,10 @@ export function PersonalRecordsScreen() {
                 <span className="data" style={{ color: 'var(--label)' }}>
                   {num(latest.hasEstimate ? latest.e1rm : latest.topWeight, 0)} {profile.units}
                 </span>
-                , {relativeDay(latest.date, today).toLowerCase()}.
+                {/* `lower` rather than lower-casing the phrase: only the app's
+                    own words change case, so a record set three weeks ago reads
+                    "Aug 20" and not "aug 20". */}
+                , {relativeTime(latest.date, today).lower}.
               </>
             ) : maxesSet > 0 ? (
               // The board is not blank in this state — it is holding the
@@ -704,10 +723,17 @@ function BoardCell({
     <button
       type="button"
       className="board-cell pressable"
+      // Won, rather than waiting: the cell takes the record wash and the seal.
+      // A board on which a beaten lift and an untested one are the same object
+      // is not a board, it is a table of four numbers.
+      data-record="true"
       onClick={onPress}
       aria-label={`${name}, ${num(value, 0)} ${units}, from ${num(pr.weight, 1)} by ${pr.reps} reps`}
     >
-      <span className="eyebrow">{name}</span>
+      <span className="eyebrow">
+        <Icon name="seal.fill" size={12} className="board-seal" style={{ display: 'inline-block' }} />
+        {name}
+      </span>
       <span className="figure board-figure">
         {num(value, 0)}
         <span className="ledger-unit"> {units}</span>

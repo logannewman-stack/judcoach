@@ -7,6 +7,7 @@ import { COACH } from '../../data/seed'
 import { useStore } from '../../store/useStore'
 import { useCoach } from '../../store/coach'
 import { byTime, unreadFrom } from '../../domain/coach'
+import { authorName } from '../coach/anchor'
 import { useProgram, currentWeekIndex } from '../../store/selectors'
 import { formatMediumDate, todayISO } from '../../lib/date'
 import { useNav } from '../../nav/nav'
@@ -16,6 +17,7 @@ export function Coach() {
   const push = useNav((s) => s.push)
   const program = useProgram()
   const checkIns = useStore((s) => s.checkIns)
+  const clientName = useStore((s) => s.profile.name)
   const week = currentWeekIndex(program, todayISO())
   const lastCheckIn = [...checkIns].sort((a, b) => b.date.localeCompare(a.date))[0]
   const notes = useCoach((s) => s.notes)
@@ -70,11 +72,11 @@ export function Coach() {
           title="Messages"
           subtitle={
             last
-              ? `${last.author === viewAs ? 'You' : COACH.name}: ${last.body}`
+              ? `${authorName(last.author, viewAs, clientName)}: ${last.body}`
               : 'Anything you want to ask, any time'
           }
           icon="message"
-          iconColor="var(--accent)"
+          iconColor="var(--pink)"
           trailing={unread > 0 ? <span className="tab-badge" style={{ position: 'static' }}>{unread > 9 ? '9+' : unread}</span> : undefined}
           chevron
           onPress={() => push('messages')}

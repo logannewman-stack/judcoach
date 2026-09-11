@@ -1,7 +1,10 @@
-import type { CheckIn, WeighIn, WorkoutLog } from '../domain/types'
+import type { CheckIn, Units, WeighIn, WorkoutLog } from '../domain/types'
 import type { CoachNote } from '../domain/coach'
 import { bestE1RM, topSet } from '../domain/strength'
+import { convertUnits } from '../domain/units'
 import { summarizeTrend } from '../domain/weight'
+import { signed, weight as formatWeight } from '../lib/format'
+import { SEED_PROFILE } from './seed'
 
 /* ============================================================================
    The demo conversation.
@@ -46,16 +49,40 @@ function headline(log: WorkoutLog): { name: string; weight: number; reps: number
   return best
 }
 
+/**
+ * The conversation, in the unit the client reads the rest of the app in.
+ *
+ * `highlight` is not prose in Jud's voice — it is a labelled figure drawn in the
+ * data face, next to the record it is about — so it has to be the same figure
+ * that record shows. The seeded history is written in the sample client's
+ * pounds and the app converts every pound of it the moment they switch to
+ * kilos, which left "Estimated max — 471 lb" pinned to a session whose own log
+ * detail read 213. Converting the history the same way the app does, rather
+ * than relabelling it, is what keeps the two agreeing.
+ *
+ * `units` defaults to the seed's own so a caller with no profile to hand still
+ * gets a thread that matches the sample client.
+ */
 export function seedCoachThread(
   logs: WorkoutLog[],
   weighIns: WeighIn[],
   checkIns: CheckIn[],
   today: string,
+  units: Units = SEED_PROFILE.units,
 ): CoachNote[] {
+  const converted = convertUnits(
+    { profile: SEED_PROFILE, weighIns, measurements: [], checkIns, logs, active: null },
+    units,
+  )
+  // A refused conversion leaves every figure in the unit it was written in, so
+  // the labels have to say so rather than rename numbers nobody converted.
+  const unit = converted ? units : SEED_PROFILE.units
+  const source = converted ?? { logs, weighIns }
+
   const notes: CoachNote[] = []
-  const recent = [...logs].sort((a, b) => b.date.localeCompare(a.date))
+  const recent = [...source.logs].sort((a, b) => b.date.localeCompare(a.date))
   const lastCheckIn = [...checkIns].sort((a, b) => b.date.localeCompare(a.date))[0]
-  const trend = summarizeTrend(weighIns)
+  const trend = summarizeTrend(source.weighIns)
   let n = 0
 
   const push = (note: Omit<CoachNote, 'id'>) => notes.push({ id: id(n++), ...note })
@@ -94,11 +121,12 @@ export function seedCoachThread(
       anchor: { kind: 'workout', id: heavy.id },
       author: 'coach',
       body:
-        `${top.weight} for ${top.reps} moved better than the RPE you gave it. Next time you `
-        + 'see that number, take one more rep before you rack it — you had it.',
+        `${formatWeight(top.weight, unit)} for ${top.reps} moved better than the RPE you gave it. `
+        + 'Next time you see that number, take one more rep before you rack it — you had it.',
       sentAt: at(heavy.date, '20:10'),
       readAt: at(heavy.date, '21:02'),
-      highlight: e1rm > 0 ? { label: 'Estimated max', value: `${Math.round(e1rm)} lb` } : undefined,
+      highlight:
+        e1rm > 0 ? { label: 'Estimated max', value: formatWeight(e1rm, unit, 0) } : undefined,
     })
     push({
       anchor: { kind: 'workout', id: heavy.id },
@@ -115,9 +143,11 @@ export function seedCoachThread(
   }
 
   /* --- a note on the weight trend ----------------------------------------- */
-  const anchorWeighIn = weighIns.find((w) => w.date < today)
+  const anchorWeighIn = source.weighIns.find((w) => w.date < today)
   if (anchorWeighIn) {
-    const rate = trend ? `${trend.perWeek > 0 ? '+' : ''}${trend.perWeek.toFixed(2)} lb/wk` : null
+    // The same shape Today and the Weigh-In screen give the rate, so the three
+    // of them read as one number rather than three opinions of it.
+    const rate = trend ? `${signed(trend.perWeek, 2)} ${unit}/wk` : null
     push({
       anchor: { kind: 'weighIn', id: anchorWeighIn.date },
       author: 'coach',

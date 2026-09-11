@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { GritMark, GritTile, Wordmark } from '../components/Logo'
 import { Icon } from '../components/Icon'
 import { Segmented } from '../components/ios/Controls'
 import { NumberPad } from '../components/NumberPad'
 import { Barbell } from '../components/Barbell'
 import { MaxCalculator } from './settings/TrainingMaxes'
+import { goalLabelFor } from './settings/ProfileSettings'
 import { useStore } from '../store/useStore'
 import { nextSession, useProgram } from '../store/selectors'
 import { MAIN_LIFTS } from '../data/exercises'
@@ -15,6 +16,7 @@ import type { Units } from '../domain/types'
 import { relativeDay, todayISO } from '../lib/date'
 import { fixed, num } from '../lib/format'
 import { haptic } from '../lib/haptics'
+import { IOS_PUSH } from '../nav/Stack'
 import '../styles/onboarding.css'
 
 /* ============================================================================
@@ -28,6 +30,23 @@ import '../styles/onboarding.css'
 type Step = 'welcome' | 'name' | 'units' | 'weight' | 'maxes' | 'ready'
 const FLOW: Step[] = ['welcome', 'name', 'units', 'weight', 'maxes', 'ready']
 
+/**
+ * A four-question setup flow is a navigation stack, so it moves like one.
+ *
+ * These were two 0.32s cross-fades run back to back — `mode="wait"` holds the
+ * incoming page until the outgoing one has finished leaving — with a window in
+ * the middle where the only mounted page was at zero opacity and the client was
+ * looking at bare ground. The values are the stack's own (nav/Stack.tsx): the
+ * arriving page comes in from the edge over the one behind it, and the one
+ * behind recedes 26% rather than standing still, which is what makes a push
+ * read as depth rather than as a slide.
+ */
+const PAGE = {
+  enter: (forward: number) => ({ x: forward > 0 ? '100%' : '-26%', zIndex: forward > 0 ? 2 : 1 }),
+  centre: (forward: number) => ({ x: '0%', zIndex: forward > 0 ? 2 : 1 }),
+  exit: (forward: number) => ({ x: forward > 0 ? '-26%' : '100%', zIndex: forward > 0 ? 1 : 2 }),
+}
+
 export function Onboarding() {
   const profile = useStore((s) => s.profile)
   const updateProfile = useStore((s) => s.updateProfile)
@@ -39,7 +58,9 @@ export function Onboarding() {
 
   const [step, setStep] = useState<Step>('welcome')
   const [direction, setDirection] = useState(1)
+  const still = useReducedMotion()
   const index = FLOW.indexOf(step)
+  const move = still ? { duration: 0 } : IOS_PUSH
 
   const go = (next: Step) => {
     setDirection(FLOW.indexOf(next) > index ? 1 : -1)
@@ -59,13 +80,9 @@ export function Onboarding() {
     haptic('success')
     // Seed today's weigh-in so the trend has somewhere to start from.
     if (profile.startWeight > 0) saveWeighIn({ date: todayISO(), weight: profile.startWeight })
-    const rate = profile.weeklyRateTarget
-    updateProfile({
-      goalLabel:
-        Math.abs(rate) < 0.05
-          ? 'Maintaining'
-          : `${rate > 0 ? 'Lean gain' : 'Cut'} · ${Math.abs(rate)} ${profile.units} / week`,
-    })
+    // The same rule Settings applies when the rate is edited later, so the two
+    // cannot disagree about whether this client is cutting.
+    updateProfile({ goalLabel: goalLabelFor(profile.weeklyRateTarget, profile.units) })
     completeOnboarding()
   }
 
@@ -85,14 +102,15 @@ export function Onboarding() {
 
   return (
     <div className="onboarding">
-      <AnimatePresence mode="wait" initial={false} custom={direction}>
+      <AnimatePresence initial={false} custom={direction}>
         <motion.div
           key={step}
           custom={direction}
-          initial={{ opacity: 0, x: direction * 28 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: direction * -28 }}
-          transition={{ duration: 0.32, ease: [0.32, 0.72, 0, 1] }}
+          variants={PAGE}
+          initial="enter"
+          animate="centre"
+          exit="exit"
+          transition={{ ...move, zIndex: { duration: 0 } }}
           className="onboarding-page"
         >
           {step === 'welcome' && <Welcome onStart={beginSetup} onDemo={exploreDemo} />}
@@ -113,14 +131,22 @@ export function Onboarding() {
 
       {/* One dot per question, and none on the summary: a fifth dot lit on a
           screen whose eyebrow says "Step 4 of 4" is the progress bar and the
-          counter disagreeing about the same flow. */}
-      {index > 0 && index < FLOW.length - 1 && (
-        <div className="onboarding-dots" aria-hidden="true">
-          {FLOW.slice(1, -1).map((s, i) => (
-            <span key={s} data-on={i <= index - 1} />
-          ))}
-        </div>
-      )}
+          counter disagreeing about the same flow.
+
+          Mounted throughout and faded in CSS, rather than added and removed: the
+          row used to appear at full opacity over pages that were still mid-move,
+          which is the one thing on the screen arriving without a transition. The
+          fade is a transition rather than an animation so that the row removing
+          a page from the stack behind it cannot interrupt it. */}
+      <div
+        className="onboarding-dots"
+        aria-hidden="true"
+        data-visible={index > 0 && index < FLOW.length - 1 ? 'true' : undefined}
+      >
+        {FLOW.slice(1, -1).map((s, i) => (
+          <span key={s} data-on={i <= index - 1} />
+        ))}
+      </div>
     </div>
   )
 }

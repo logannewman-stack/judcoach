@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Screen } from '../../components/ios/Screen'
-import { ListSection, Row } from '../../components/ios/List'
+import { ListSection, Row, rowSepInset } from '../../components/ios/List'
+import { Card } from '../../components/Bits'
 import { Segmented } from '../../components/ios/Controls'
 import { Icon } from '../../components/Icon'
 import { MEAL_PLAN } from '../../data/mealPlan'
-import { groceryList } from '../../domain/nutrition'
-import { num, unitFor } from '../../lib/format'
+import { foodTotals, groceryList } from '../../domain/nutrition'
+import { MacroSplit } from './fuel'
+import { compact, num, unitFor } from '../../lib/format'
 import { haptic } from '../../lib/haptics'
 import { useNav } from '../../nav/nav'
 
@@ -44,6 +46,19 @@ export function Grocery() {
 
   const lines = useMemo(() => groceryList(MEAL_PLAN, Number(days)), [days])
   const remaining = lines.filter((l) => !ticked[l.name]).length
+  // What is in the trolley, from the plan's own foods rather than from the
+  // day's targets: the list is built by multiplying those items up, and the two
+  // differ by the gram or so the plan rounds off.
+  const shop = useMemo(() => {
+    const perDay = foodTotals(MEAL_PLAN.meals.flatMap((m) => m.items))
+    const n = Number(days)
+    return {
+      kcal: perDay.kcal * n,
+      protein: perDay.protein * n,
+      carbs: perDay.carbs * n,
+      fat: perDay.fat * n,
+    }
+  }, [days])
 
   return (
     <Screen
@@ -83,6 +98,22 @@ export function Grocery() {
           />
         </div>
 
+        {/* What the trolley adds up to, in the hues the macros are drawn in on
+            every other Meals screen. A shopping list is the plan stated as
+            quantities, and it was the one screen in the tab that never said
+            what the quantities were for. */}
+        <Card>
+          <div className="meal-total">
+            <span className="figure">{compact(shop.kcal)}</span>
+            <span className="figure-unit"> kcal</span>
+            <span className="t-footnote dim">
+              <span className="data">{lines.length}</span> items ·{' '}
+              <span className="data">{days}</span> days
+            </span>
+          </div>
+          <MacroSplit macros={shop} />
+        </Card>
+
         <ListSection
           header="Shop"
           footer="Ticks stay put while the app is open — quantities assume you follow the plan exactly, so round up on the fresh stuff."
@@ -94,10 +125,13 @@ export function Grocery() {
               <Row
                 key={line.name}
                 title={
+                  /* Struck through, not faded out of legibility: --label-3 on a
+                     card measures near 2:1, which is not a state, it is a
+                     redaction. */
                   <span
                     style={{
                       textDecoration: done ? 'line-through' : 'none',
-                      color: done ? 'var(--label-3)' : undefined,
+                      color: done ? 'var(--label-2)' : undefined,
                     }}
                   >
                     {line.name}
@@ -109,21 +143,17 @@ export function Grocery() {
                     : undefined
                 }
                 value={
-                  <span className="data" style={{ color: done ? 'var(--label-3)' : undefined }}>
+                  <span className="data" style={{ color: done ? 'var(--label-2)' : undefined }}>
                     {num(line.qty, 0)}
                     <span className="data-unit"> {unitFor(line.qty, line.unit)}</span>
                   </span>
                 }
-                inset
+                /* The hairline starts where the text does. `inset` alone falls
+                   back to the 29px an icon tile is wide, which put the rule
+                   five pixels inside every item's name. */
+                sepInset={rowSepInset(24)}
                 leading={
-                  <span
-                    style={{
-                      width: 24, height: 24, borderRadius: '50%', flex: 'none',
-                      display: 'grid', placeItems: 'center',
-                      background: done ? 'var(--green)' : 'transparent',
-                      border: done ? 'none' : '1.8px solid var(--label-3)',
-                    }}
-                  >
+                  <span className="grocery-tick" data-done={done ? 'true' : undefined}>
                     {done && <Icon name="check" size={13} weight={3.2} color="#fff" />}
                   </span>
                 }

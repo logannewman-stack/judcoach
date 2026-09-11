@@ -7,7 +7,9 @@ import { LastTimeLine, LoggedSetChip, SupersetTag, WarmupList } from './parts'
 import { resolvePrescription, topPrescribedSet } from './prescription'
 import { Barbell } from '../../components/Barbell'
 import { useStore } from '../../store/useStore'
-import { findSession, lastPerformance, sessionDate, useProgram } from '../../store/selectors'
+import {
+  findSession, findSessionLog, lastPerformance, sessionDate, useProgram,
+} from '../../store/selectors'
 import { getExercise } from '../../data/exercises'
 import type { ResolvedSet } from '../../domain/strength'
 import type { Units } from '../../domain/types'
@@ -27,7 +29,10 @@ export function SessionDetail({ weekIndex, sessionId }: { weekIndex: number; ses
   const push = useNav((s) => s.push)
 
   const found = findSession(program, weekIndex, sessionId)
-  const log = logs.find((l) => l.sessionId === sessionId)
+  // Session ids repeat from block to block, so the log has to be the one inside
+  // this block: matching on the id alone showed block 3's workout on a block-4
+  // screen nobody had trained.
+  const log = findSessionLog(program, logs, sessionId)
   const date = found ? sessionDate(program, weekIndex, found.session.weekday) : todayISO()
 
   const totalSets = useMemo(
@@ -44,6 +49,12 @@ export function SessionDetail({ weekIndex, sessionId }: { weekIndex: number; ses
   }
 
   const { week, session } = found
+  // "Last" is the session *before* this one, and a session is not before
+  // itself: `lastPerformance` skips only what is logged after the date it is
+  // given, so on a completed session the first candidate it found was this
+  // session's own log, and the anchor quoted back the very sets printed under
+  // "What you did" two hundred pixels below it.
+  const history = log ? logs.filter((l) => l.id !== log.id) : logs
   const top = topPrescribedSet(session.blocks[0], profile)
   // Same rule as Today's hero: with no working max on file the load is a
   // percentage of nothing, and dropping it leaves "5 reps" reading as the whole
@@ -139,7 +150,7 @@ export function SessionDetail({ weekIndex, sessionId }: { weekIndex: number; ses
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {session.blocks.map((block, blockIndex) => {
               const exercise = getExercise(block.exerciseId)
-              const last = lastPerformance(logs, block.exerciseId, date)
+              const last = lastPerformance(history, block.exerciseId, date)
               const logged = log?.exercises.find((e) => e.exerciseId === block.exerciseId)
 
               const resolved = resolvePrescription(block, profile)
@@ -147,8 +158,15 @@ export function SessionDetail({ weekIndex, sessionId }: { weekIndex: number; ses
                 (best, r) => ((r.targetWeight ?? 0) > (best.targetWeight ?? 0) ? r : best),
                 resolved[0]!,
               )
-              const warmup = exercise?.barLoaded && heaviest.targetWeight
-                ? buildWarmup(heaviest.targetWeight, profile.barWeight, profile.roundingIncrement)
+              // A ramp leads to the set it is a ramp for, which is the first
+              // working set — `buildWarmup`'s own contract, and what the runner
+              // passes it. Anchored on the top set instead, this screen printed
+              // a different ladder from the one the client is handed in the gym,
+              // and on a session that opens light it called 88% of the first
+              // working set a warm-up single.
+              const firstWork = resolved[0]?.targetWeight
+              const warmup = exercise?.barLoaded && firstWork
+                ? buildWarmup(firstWork, profile.barWeight, profile.roundingIncrement)
                 : []
               const tempo = resolved[0]?.prescription.tempo
               const sharedTempo = tempo && resolved.every((r) => r.prescription.tempo === tempo)

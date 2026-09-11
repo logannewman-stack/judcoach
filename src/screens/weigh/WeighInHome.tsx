@@ -17,15 +17,20 @@ import {
   targetPace, weeksToGoal, weighInsInLast,
 } from '../../domain/weight'
 import { formatLength } from '../../domain/units'
-import { addDays, daysBetween, formatMediumDate, formatShortDate, relativeDay, todayISO } from '../../lib/date'
+import { addDays, daysBetween, formatMediumDate, formatShortDate, relativeDay, relativeTime, todayISO } from '../../lib/date'
 import { fixed, num, pluralize, signed } from '../../lib/format'
 import { useNav } from '../../nav/nav'
 import '../../styles/fuel.css'
 
 type Range = '30' | '90' | 'all'
 
-/** Below this the rolling average is one or two mornings, not an average. */
-const AVG_MIN_READINGS = 3
+/**
+ * Below this the rolling average is one or two mornings, not an average.
+ *
+ * Exported because it is the app's one rule for when a number may be called a
+ * seven-day average, and the check-in sheet was quietly using a looser one.
+ */
+export const AVG_MIN_READINGS = 3
 
 export function WeighInHome() {
   const today = todayISO()
@@ -93,7 +98,22 @@ export function WeighInHome() {
     // that "slow" is chasing noise. It was being computed and thrown away.
     ? rateVerdict(trend.perWeek, profile.weeklyRateTarget, trend.marginPerWeek, trend.current)
     : null
+  /* The verdict as type rather than as a fill: it is set on a white capsule on
+     the hero's wash, so it needs the deep end of its own hue. Not the `-text`
+     tokens — those converge on the bright value in dark mode, where the ground
+     is dark, and this capsule is white in both appearances. Mixed towards black
+     instead, as `--tint-ink` is, so the ink stays legible whichever way the
+     theme goes. */
+  const verdictInk = !verdict ? 'color-mix(in srgb, var(--tint) 62%, #000)'
+    : verdict.status === 'on-track' ? 'color-mix(in srgb, var(--green) 62%, #000)'
+    : verdict.status === 'wrong-way' ? 'color-mix(in srgb, var(--red) 62%, #000)'
+    : 'color-mix(in srgb, var(--orange) 62%, #000)'
+  // A goal equal to the start weight is not a journey, and the track under it
+  // draws an empty bar against a destination the client is already standing on.
+  // Setup seeds the goal field from today's weight, so this state is one
+  // untouched step away for everybody.
   const hasGoal = profile.goalWeight > 0 && profile.startWeight > 0
+    && profile.goalWeight !== profile.startWeight
   const progress = trend && hasGoal
     ? goalProgress(profile.startWeight, trend.current, profile.goalWeight)
     : 0
@@ -121,7 +141,9 @@ export function WeighInHome() {
     tiles.push({
       label: 'Since start',
       value: signed(trend.current - baseline, 1),
-      caption: `from ${num(baseline, 0)} ${profile.units}`,
+      // Same decimals as the figure it is the baseline for: "+3.5 from 182 lb"
+      // hid a rounding the same size as the change it captions.
+      caption: `from ${fixed(baseline, decimals)} ${profile.units}`,
       icon: trend.current >= baseline ? 'arrow.up' : 'arrow.down',
     })
   }
@@ -136,11 +158,13 @@ export function WeighInHome() {
   // A consecutive-day streak breaks on the first missed morning and then reads
   // as failure for a fortnight. Days out of seven is the same fact stated as
   // something a client can still fix today — and it is what decides whether the
-  // average above means anything.
+  // average above means anything. The window rolls back from this morning for
+  // exactly that reason, so the caption says so: it said "this week", which is
+  // Monday-to-Sunday everywhere else in the app.
   tiles.push({
     label: 'Logged',
     value: `${loggedDays}/7`,
-    caption: 'days this week',
+    caption: 'last 7 days',
     icon: 'flame.fill',
     tone: loggedDays >= 6 ? 'var(--orange)' : undefined,
   })
@@ -204,104 +228,123 @@ export function WeighInHome() {
             to zoom out rather than every time they open the tab.
             ----------------------------------------------------------------- */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <Card>
-            {/* The verdict is read before the number that produced it, and a
-                pill floated into the right margin is read after everything on
-                the left. So it gets the first line to itself. */}
-            <div style={{ marginBottom: 10 }}>
-              {verdict ? (
-                <Pill
-                  tone={
-                    verdict.status === 'on-track' ? 'good'
-                    : verdict.status === 'wrong-way' ? 'bad'
-                    : 'warn'
-                  }
-                >
-                  {verdict.label}
+          <Card pad={false}>
+            {/* The number the whole tab exists to show, on the tab's own hue —
+                DESIGN §2 allows a gradient exactly here, soft and within one
+                family, and Weigh-In owns purple and spent it on nothing but the
+                tab capsule. Same construction as Today's hero, so the two read
+                as the same app: white on a two-stop wash mixed towards black,
+                and the verdict as a white capsule on it the way iOS puts an
+                action on a coloured card. */}
+            <div
+              style={{
+                padding: '15px 18px 17px',
+                color: '#fff',
+                background: `linear-gradient(152deg,
+                  color-mix(in srgb, var(--tint) 84%, #000),
+                  color-mix(in srgb, var(--tint) 56%, #000))`,
+              }}
+            >
+              {/* The verdict is read before the number that produced it, and a
+                  pill floated into the right margin is read after everything on
+                  the left. So it gets the first line to itself. The tone lives
+                  in the ink rather than the fill: a green wash of its own would
+                  be a second colour on a coloured card, and green type on it is
+                  under three to one. */}
+              <div style={{ marginBottom: 10 }}>
+                <Pill style={{ background: '#fff', color: verdictInk }}>
+                  {verdict ? verdict.label : 'Building trend'}
                 </Pill>
-              ) : (
-                <Pill>Building trend</Pill>
+              </div>
+
+              <div className="eyebrow" style={{ color: 'inherit', opacity: 0.82 }}>
+                {averaged ? '7-day average' : 'Latest weigh-in'}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 3 }}>
+                {/* Under three mornings there is no average to show, and the
+                    rolling one is a two-day mean that agreed with neither the
+                    label above it nor the top row of the list below. */}
+                <span className="figure" style={{ fontSize: 42 }}>
+                  {averaged
+                    ? trend ? fixed(trend.current, decimals) : '—'
+                    : latest ? fixed(latest.weight, decimals) : '—'}
+                </span>
+                <span className="figure-unit" style={{ fontSize: 20, color: 'inherit', opacity: 0.78 }}>
+                  {profile.units}
+                </span>
+              </div>
+              {latest && averaged && (
+                <div className="t-footnote" style={{ marginTop: 4, color: 'inherit', opacity: 0.82 }}>
+                  Last scale reading{' '}
+                  <span className="data">{fixed(latest.weight, decimals)}</span>
+                  {' · '}{relativeDay(latest.date, today)}
+                </div>
+              )}
+              {latest && !averaged && (
+                <div className="t-footnote" style={{ marginTop: 4, color: 'inherit', opacity: 0.82 }}>
+                  {pluralize(readings, 'morning')} so far · the average starts at{' '}
+                  <span className="data">{AVG_MIN_READINGS}</span>
+                </div>
               )}
             </div>
 
-            <div className="eyebrow">{averaged ? '7-day average' : 'Latest weigh-in'}</div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 3 }}>
-              {/* Under three mornings there is no average to show, and the
-                  rolling one is a two-day mean that agreed with neither the
-                  label above it nor the top row of the list below. */}
-              <span className="figure" style={{ fontSize: 42 }}>
-                {averaged
-                  ? trend ? fixed(trend.current, decimals) : '—'
-                  : latest ? fixed(latest.weight, decimals) : '—'}
-              </span>
-              <span className="figure-unit" style={{ fontSize: 20 }}>{profile.units}</span>
-            </div>
-            {latest && averaged && (
-              <div className="t-footnote dim" style={{ marginTop: 4 }}>
-                Last scale reading{' '}
-                <span className="data">{fixed(latest.weight, decimals)}</span>
-                {' · '}{relativeDay(latest.date, today)}
-              </div>
-            )}
-            {latest && !averaged && (
-              <div className="t-footnote dim" style={{ marginTop: 4 }}>
-                {pluralize(readings, 'morning')} so far · the average starts at{' '}
-                <span className="data">{AVG_MIN_READINGS}</span>
-              </div>
-            )}
-
-            <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-              {trend?.reliable && (
-                <Pill tone="tinted">
-                  <span className="data">
-                    {signed(trend.perWeek, 2)}
-                    <span className="data-unit" style={{ color: 'inherit', opacity: 0.75 }}>
-                      {' '}{profile.units}/wk
-                    </span>
-                  </span>
-                </Pill>
-              )}
-              {/* `signed` drops the sign at zero, and "Target 0/wk" is not a
-                  target anyone was ever set. */}
-              <Pill>
-                {Math.abs(profile.weeklyRateTarget) < 0.05
-                  ? 'Target: hold steady'
-                  : (
-                    <>
-                      Target{' '}
-                      <span className="data">
-                        {signed(profile.weeklyRateTarget, 1)}
-                        <span className="data-unit" style={{ color: 'inherit', opacity: 0.75 }}>/wk</span>
+            <div style={{ padding: '13px 18px 16px' }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {trend?.reliable && (
+                  <Pill tone="tinted">
+                    <span className="data">
+                      {signed(trend.perWeek, 2)}
+                      <span className="data-unit" style={{ color: 'inherit', opacity: 0.75 }}>
+                        {' '}{profile.units}/wk
                       </span>
-                    </>
-                  )}
-              </Pill>
-            </div>
+                    </span>
+                  </Pill>
+                )}
+                {/* `signed` drops the sign at zero, and "Target 0/wk" is not a
+                    target anyone was ever set. Two decimals, because that is
+                    what the rate is stored and labelled at everywhere else: at
+                    one, a 0.18 kg/week target was being shown as 0.2 — the 25%
+                    error `domain/units.ts` keeps the second decimal to avoid. */}
+                <Pill>
+                  {Math.abs(profile.weeklyRateTarget) < 0.05
+                    ? 'Target: hold steady'
+                    : (
+                      <>
+                        Target{' '}
+                        <span className="data">
+                          {signed(profile.weeklyRateTarget, 2)}
+                          <span className="data-unit" style={{ color: 'inherit', opacity: 0.75 }}>/wk</span>
+                        </span>
+                      </>
+                    )}
+                </Pill>
+              </div>
 
-            {/* Why the number above can be trusted, or what is still missing
-                before it can be. Never a blank where a rate would go. */}
-            <div className="t-footnote dim" style={{ marginTop: 9 }}>
-              {trend?.reliable ? (
-                <>
-                  <span className="data">{trend.entries}</span>
-                  {' '}weigh-ins over <span className="data">{trend.sampleDays}</span> days · give or
-                  take <span className="data">{num(trend.marginPerWeek, 2)}/wk</span>
-                </>
-              // `stale` only means the recent window came up short. After a
-              // fortnight away that is a gap; on a first morning it is a
-              // beginning, and telling someone off for it on day one is the
-              // fastest way to lose them.
-              ) : trend?.stale && trend.sampleDays > TREND_MIN_DAYS ? (
-                'Too long a gap to call a rate. Weigh in daily and it comes back inside a fortnight.'
-              ) : (
-                <>
-                  A rate needs <span className="data">{TREND_MIN_ENTRIES}</span> weigh-ins across{' '}
-                  <span className="data">{TREND_MIN_DAYS}</span> days. You&rsquo;re at{' '}
-                  <span className="data">{trend?.entries ?? 0}</span> across{' '}
-                  <span className="data">{trend?.sampleDays ?? 0}</span>
-                  {(trend?.sampleDays ?? 0) === 1 ? ' day.' : ' days.'}
-                </>
-              )}
+              {/* Why the number above can be trusted, or what is still missing
+                  before it can be. Never a blank where a rate would go. */}
+              <div className="t-footnote dim" style={{ marginTop: 9 }}>
+                {trend?.reliable ? (
+                  <>
+                    <span className="data">{trend.entries}</span>
+                    {' '}weigh-ins over <span className="data">{trend.sampleDays}</span> days · give or
+                    take <span className="data">{num(trend.marginPerWeek, 2)}/wk</span>
+                  </>
+                // `stale` only means the recent window came up short. After a
+                // fortnight away that is a gap; on a first morning it is a
+                // beginning, and telling someone off for it on day one is the
+                // fastest way to lose them.
+                ) : trend?.stale && trend.sampleDays > TREND_MIN_DAYS ? (
+                  'Too long a gap to call a rate. Weigh in daily and it comes back inside a fortnight.'
+                ) : (
+                  <>
+                    A rate needs <span className="data">{TREND_MIN_ENTRIES}</span> weigh-ins across{' '}
+                    <span className="data">{TREND_MIN_DAYS}</span> days. You&rsquo;re at{' '}
+                    <span className="data">{trend?.entries ?? 0}</span> across{' '}
+                    <span className="data">{trend?.sampleDays ?? 0}</span>
+                    {(trend?.sampleDays ?? 0) === 1 ? ' day.' : ' days.'}
+                  </>
+                )}
+              </div>
             </div>
           </Card>
 
@@ -339,11 +382,15 @@ export function WeighInHome() {
             <Card>
               <div className="chart-legend" style={{ marginBottom: 4 }}>
                 <LegendKey label="Daily" />
-                {/* The blue line is a trailing mean over whatever mornings
+                {/* The trend line is a trailing mean over whatever mornings
                     exist. Calling two of them a seven-day average, while the
                     card above deliberately refuses to, is the app arguing with
-                    itself. */}
-                <LegendKey label={averaged ? '7-day average' : 'Running average'} color="var(--accent)" />
+                    itself.
+
+                    It is drawn in the domain's own hue, not the accent: DESIGN
+                    §2 keeps --accent for "this is the action", and a client's
+                    bodyweight is not something to press. */}
+                <LegendKey label={averaged ? '7-day average' : 'Running average'} color="var(--tint)" />
                 {pace.length > 1 && <LegendKey label="Target pace" dash />}
               </div>
               <LineChart
@@ -353,8 +400,11 @@ export function WeighInHome() {
                 height={190}
                 rawAsDots
                 color="var(--label-2)"
-                secondaryColor="var(--accent)"
-                goal={profile.goalWeight > 0 ? { value: profile.goalWeight, label: 'Goal' } : undefined}
+                secondaryColor="var(--tint)"
+                // The same test the bar below uses. A goal sitting on the start
+                // weight drew a flag across the chart labelled with a figure
+                // nobody had chosen to head for.
+                goal={hasGoal ? { value: profile.goalWeight, label: 'Goal' } : undefined}
                 formatValue={(v) => `${fixed(v, decimals)} ${profile.units}`}
                 formatLabel={(x) => formatShortDate(x)}
                 ariaLabel={
@@ -393,9 +443,16 @@ export function WeighInHome() {
           <div>
             <SectionHeader title="Toward the goal" />
             <Card>
+              {/* The same decimals every other screen writes these two at. At
+                  nought, a stored 181.6 read "START 182" — a rounding of the
+                  same size as the +3.5 this bar is drawn to show. */}
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
-                <span className="eyebrow">Start <span className="data">{num(profile.startWeight, 0)}</span></span>
-                <span className="eyebrow">Goal <span className="data">{num(profile.goalWeight, 0)}</span></span>
+                <span className="eyebrow">
+                  Start <span className="data">{fixed(profile.startWeight, decimals)}</span>
+                </span>
+                <span className="eyebrow">
+                  Goal <span className="data">{fixed(profile.goalWeight, decimals)}</span>
+                </span>
               </div>
               <div className="track" style={{ height: 8 }}>
                 <motion.div
@@ -443,10 +500,15 @@ export function WeighInHome() {
             footer="Jud steers by the gap between where you are and where you're going."
             style={{ marginBottom: 0 }}
           >
+            {/* A start weight on file with a goal sitting on top of it is a
+                goal never set, not a goal never started — so the row asks for
+                the half that is missing. */}
             <Row
-              title="Set a start and goal weight"
+              title={
+                profile.startWeight > 0 ? 'Set a goal weight' : 'Set a start and goal weight'
+              }
               icon="target"
-              iconColor="var(--accent)"
+              iconColor="var(--tint)"
               chevron
               onPress={() => push('profileSettings')}
             />
@@ -498,7 +560,7 @@ export function WeighInHome() {
             .map((entry, i, arr) => {
               const prev = arr[i + 1]
               const delta = prev ? entry.weight - prev.weight : 0
-              const title = relativeDay(entry.date, today)
+              const when = relativeTime(entry.date, today)
               return (
                 <SwipeRow
                   key={entry.date}
@@ -515,13 +577,9 @@ export function WeighInHome() {
                   ]}
                 >
                   <Row
-                    title={title}
+                    title={when.label}
                     // Older rows already read as a date — don't print it twice.
-                    subtitle={
-                      formatMediumDate(entry.date).endsWith(title)
-                        ? undefined
-                        : formatMediumDate(entry.date)
-                    }
+                    subtitle={when.kind === 'date' ? undefined : formatMediumDate(entry.date)}
                     onPress={() => setActing(entry.date)}
                     value={
                       <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 8 }}>
@@ -624,7 +682,11 @@ function TrackMoreSection({
             : 'Same light, same pose, same time'
         }
         icon="camera"
-        iconColor="var(--pink)"
+        // Was systemPink, a shade off the colour Jud's own tab wears, and the
+        // check-in below it was Meals' green — two other domains' identities
+        // printed inside this one. The photographs are this tab's, so the tile
+        // is this tab's colour; the two beside it take hues no domain owns.
+        iconColor="var(--tint)"
         chevron
         onPress={() => push('photos')}
       />
@@ -636,7 +698,7 @@ function TrackMoreSection({
             : 'What Jud reads before adjusting anything'
         }
         icon="note"
-        iconColor="var(--green)"
+        iconColor="var(--teal)"
         chevron
         onPress={() => push('checkIns')}
       />
@@ -671,7 +733,16 @@ function LogSheet({
     <NumberPad
       open={open}
       onClose={onClose}
-      onSubmit={onSave}
+      // Nobody weighs nothing. A client with no start weight on file opens this
+      // pad on a zero that reads as a placeholder, and the pad hands whatever it
+      // opened with straight back when Save is pressed untouched — so the first
+      // morning of the tab used to file a bodyweight of 0.0 and the hero read it
+      // out. There is no minimum on the pad itself to lean on, so the entry is
+      // refused here and the client is told what the screen is waiting for.
+      onSubmit={(weight) => {
+        if (weight > 0) onSave(weight)
+        else toast(`Type a weight in ${units} to save it`, { icon: 'scale' })
+      }}
       title="Today's weight"
       initial={initial}
       unit={units}

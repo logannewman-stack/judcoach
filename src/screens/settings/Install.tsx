@@ -22,7 +22,7 @@ export function Install() {
       || (window.navigator as Navigator & { standalone?: boolean }).standalone === true)
 
   return (
-    <Screen title="Home Screen" back={{ label: 'Settings', onPress: pop }} largeTitle={false} inlineTitle>
+    <Screen title="Home Screen" back={{ onPress: pop }} largeTitle={false} inlineTitle>
       {/* The logo hero is this screen's title treatment, so the bar keeps the
           pinned inline title instead of a large one. */}
       <div

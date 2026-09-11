@@ -3,7 +3,8 @@ import { Screen } from '../../components/ios/Screen'
 import { ListSection, Row } from '../../components/ios/List'
 import { Card, EmptyState } from '../../components/Bits'
 import { Button, Segmented } from '../../components/ios/Controls'
-import { Sheet } from '../../components/ios/Sheet'
+import { ActionSheet, Sheet } from '../../components/ios/Sheet'
+import { SwipeRow, useSwipeGroup } from '../../components/ios/SwipeRow'
 import { NumberPad } from '../../components/NumberPad'
 import { LineChart } from '../../components/Charts'
 import { toast } from '../../components/ios/Toast'
@@ -11,12 +12,23 @@ import { useStore } from '../../store/useStore'
 import type { MeasurementEntry, Units } from '../../domain/types'
 import { formatLength, lengthUnit, tapeSteps } from '../../domain/units'
 import { rollingSeries } from '../../domain/weight'
-import { formatMediumDate, formatShortDate, relativeDay, todayISO } from '../../lib/date'
+import { formatMediumDate, formatShortDate, relativeTime, todayISO } from '../../lib/date'
 import { num, pluralize, signed } from '../../lib/format'
 import { useNav } from '../../nav/nav'
 import '../../styles/fuel.css'
 
 type SiteKey = 'waist' | 'chest' | 'arm' | 'thigh' | 'hips' | 'neck'
+
+/**
+ * The mark `formatLength` writes after the number, with the separator it uses.
+ *
+ * A hero figure and a row's value set the number and its unit in separate spans
+ * (DESIGN §4), so neither can take `formatLength`'s joined string — and spelling
+ * the mark out again beside it is how one card came to read "33.5 in" on the
+ * left and "+0.3″" on the right, over a chart saying "33.5″". Taken from
+ * `formatLength` itself, the two cannot part company again.
+ */
+const lengthMark = (units: Units): string => formatLength(0, units).replace(/^[\d.]+/, '')
 
 const SITES: { key: SiteKey; label: string; hint: string }[] = [
   { key: 'waist', label: 'Waist', hint: 'At the navel, relaxed — do not suck in.' },
@@ -35,8 +47,18 @@ export function Measurements() {
   // The tape follows the weight unit, so the numbers and the label can never
   // disagree about which one they are in.
   const units = useStore((s) => s.profile.units)
+  const deleteMeasurement = useStore((s) => s.deleteMeasurement)
   const [site, setSite] = useState<SiteKey>('waist')
   const [adding, setAdding] = useState(false)
+  // Tapping a row opens the same action the swipe reveals, so deleting works
+  // for keyboard, Switch Control and VoiceOver — none of which can swipe.
+  const [acting, setActing] = useState<string | null>(null)
+  const swipe = useSwipeGroup()
+
+  const removeEntry = (date: string) => {
+    deleteMeasurement(date)
+    toast('Measurements deleted', { icon: 'trash', tone: 'bad' })
+  }
 
   const series = useMemo(
     () =>
@@ -49,6 +71,16 @@ export function Measurements() {
   const latest = series[series.length - 1]
   const first = series[0]
   const meta = SITES.find((s) => s.key === site)!
+
+  // An entry carrying no reading at all is not a measurement. An untouched
+  // sheet used to save one, and because the screen branched on how many entries
+  // there were, the empty state and its one call to action went for good —
+  // replaced by six tabs each saying nothing had been measured. So the branch
+  // asks whether anything was actually measured.
+  const measured = useMemo(
+    () => measurements.some((m) => SITES.some((s) => m[s.key] != null)),
+    [measurements],
+  )
 
   // What the scale was doing over the same stretch. A waist holding while
   // bodyweight climbs is the whole point of taking the tape out, and neither
@@ -76,7 +108,7 @@ export function Measurements() {
       {/* One 32px rhythm between groups — the same figure `.list-section`
           carries, so lists and cards space identically. */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-        {measurements.length === 0 ? (
+        {!measured ? (
           <EmptyState
             icon="ruler"
             title="Nothing measured yet"
@@ -95,63 +127,94 @@ export function Measurements() {
               />
             </div>
 
-            <Card>
-              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+            {/* The head is the tab's own hue, the way Today's hero is the
+                screen's (DESIGN §2 allows the gradient exactly here). Weigh-In
+                owns purple and had it only on the tab capsule: the reading a
+                client came to this screen for is the right thing to spend it
+                on, and it is white on the wash rather than grey on white. */}
+            <Card pad={false}>
+              <div
+                style={{
+                  display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12,
+                  padding: '15px 17px 16px',
+                  color: '#fff',
+                  background: `linear-gradient(152deg,
+                    color-mix(in srgb, var(--tint) 84%, #000),
+                    color-mix(in srgb, var(--tint) 56%, #000))`,
+                }}
+              >
                 <div>
-                  <div className="eyebrow">{meta.label}</div>
+                  <div className="eyebrow" style={{ color: 'inherit' }}>{meta.label}</div>
                   {/* A 34px em dash beside a live unit reads as a reading that
                       was taken and withheld. A site nobody has put a tape round
                       has no figure at all, so it gets none — the line below
                       says what is missing and the hint says how to take it. */}
-                  {latest && (
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 3 }}>
+                  {latest ? (
+                    <div style={{ display: 'flex', alignItems: 'baseline', marginTop: 3 }}>
                       <span className="figure" style={{ fontSize: 34 }}>{num(latest.y, 1)}</span>
-                      <span className="figure-unit" style={{ fontSize: 16 }}>{lengthUnit(units)}</span>
+                      {/* The prime hugs its number and the word does not, so the
+                          separator comes with the mark rather than from a gap
+                          this row would have to guess at. */}
+                      <span
+                        className="figure-unit"
+                        style={{ fontSize: 16, color: 'inherit', opacity: 0.75, whiteSpace: 'pre' }}
+                      >
+                        {lengthMark(units)}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="t-subhead" style={{ marginTop: 4, opacity: 0.85 }}>
+                      Nothing on file yet
                     </div>
                   )}
                 </div>
                 {first && latest && first !== latest && (
                   <div style={{ textAlign: 'right' }}>
-                    <div className="eyebrow">Since {formatShortDate(first.x)}</div>
+                    <div className="eyebrow" style={{ color: 'inherit', opacity: 0.8 }}>
+                      Since {formatShortDate(first.x)}
+                    </div>
                     {/* Left uncoloured on purpose. A bigger arm and a bigger
                         waist are the same arithmetic and opposite news, and the
                         app cannot tell which one this client wanted — a green
                         number here would be a verdict it has not earned. */}
                     <div className="data" style={{ fontSize: 20, lineHeight: '25px', marginTop: 3 }}>
                       {signed(latest.y - first.y, 1)}
-                      <span className="data-unit">{units === 'kg' ? ' cm' : '″'}</span>
+                      <span className="data-unit" style={{ color: 'inherit', opacity: 0.75 }}>
+                        {lengthMark(units)}
+                      </span>
                     </div>
                   </div>
                 )}
               </div>
-              {series.length > 1 ? (
-                <div style={{ marginTop: 10 }}>
+              <div style={{ padding: '14px 17px 16px' }}>
+                {series.length > 1 ? (
                   <LineChart
                     data={series}
                     height={160}
                     showDots
+                    color="var(--tint)"
                     formatValue={(v) => formatLength(v, units)}
                     formatLabel={(x) => formatShortDate(x)}
                     ariaLabel={`${meta.label} over time`}
                   />
-                </div>
-              ) : (
-                // An empty chart says nothing; say what's missing instead.
-                <div className="t-subhead dim" style={{ marginTop: latest ? 8 : 4 }}>
-                  {series.length === 0
-                    ? `No ${meta.label.toLowerCase()} reading on file — add it next time you take the tape out and it starts its own line.`
-                    : 'One reading so far. The line appears the second time you take it.'}
-                </div>
-              )}
-              {weightSpan != null && (
-                <div className="t-footnote dim" style={{ marginTop: 8 }}>
-                  Bodyweight over the same stretch:{' '}
-                  <span className="data">
-                    {signed(weightSpan, 1)}<span className="data-unit"> {units}</span>
-                  </span>
-                </div>
-              )}
-              <div className="t-caption1 dim" style={{ marginTop: 8 }}>{meta.hint}</div>
+                ) : (
+                  // An empty chart says nothing; say what's missing instead.
+                  <div className="t-subhead dim">
+                    {series.length === 0
+                      ? `No ${meta.label.toLowerCase()} reading on file — add it next time you take the tape out and it starts its own line.`
+                      : 'One reading so far. The line appears the second time you take it.'}
+                  </div>
+                )}
+                {weightSpan != null && (
+                  <div className="t-footnote dim" style={{ marginTop: 8 }}>
+                    Bodyweight over the same stretch:{' '}
+                    <span className="data">
+                      {signed(weightSpan, 1)}<span className="data-unit"> {units}</span>
+                    </span>
+                  </div>
+                )}
+                <div className="t-caption1 dim" style={{ marginTop: 8 }}>{meta.hint}</div>
+              </div>
             </Card>
 
             {/* The screen is one site at a time — the control picks it, the
@@ -165,30 +228,41 @@ export function Measurements() {
                 header={`${meta.label} history`}
                 footer={
                   measurements.length > series.length
-                    ? `${pluralize(measurements.length - series.length, 'other session')} carried no ${meta.label.toLowerCase()} reading.`
-                    : undefined
+                    ? `${pluralize(measurements.length - series.length, 'other session')} carried no ${meta.label.toLowerCase()} reading. Tap an entry for its options, or swipe it left to delete.`
+                    : 'Tap an entry for its options, or swipe it left to delete.'
                 }
                 style={{ marginBottom: 0 }}
               >
                 {[...series].reverse().map((point) => {
-                  const title = relativeDay(point.x)
+                  const when = relativeTime(point.x)
                   return (
-                    <Row
+                    <SwipeRow
                       key={point.x}
-                      title={title}
-                      // Older rows already read as a date — don't print it twice.
-                      subtitle={
-                        formatMediumDate(point.x).endsWith(title)
-                          ? undefined
-                          : formatMediumDate(point.x)
-                      }
-                      value={
-                        <span className="data">
-                          {num(point.y, 1)}
-                          <span className="data-unit"> {lengthUnit(units)}</span>
-                        </span>
-                      }
-                    />
+                      id={point.x}
+                      openId={swipe.openId}
+                      onOpenChange={swipe.onOpenChange}
+                      actions={[
+                        {
+                          label: 'Delete',
+                          icon: 'trash',
+                          destructive: true,
+                          onPress: () => removeEntry(point.x),
+                        },
+                      ]}
+                    >
+                      <Row
+                        title={when.label}
+                        // Older rows already read as a date — don't print it twice.
+                        subtitle={when.kind === 'date' ? undefined : formatMediumDate(point.x)}
+                        onPress={() => setActing(point.x)}
+                        value={
+                          <span className="data">
+                            {num(point.y, 1)}
+                            <span className="data-unit">{lengthMark(units)}</span>
+                          </span>
+                        }
+                      />
+                    </SwipeRow>
                   )
                 })}
               </ListSection>
@@ -196,6 +270,28 @@ export function Measurements() {
           </>
         )}
       </div>
+
+      {/* A tape session is one dated entry carrying every site taken that day,
+          so deleting it takes them all — said here rather than discovered. */}
+      <ActionSheet
+        open={!!acting}
+        onClose={() => setActing(null)}
+        title={acting ? relativeTime(acting).label : undefined}
+        message={
+          acting
+            ? `Removes every reading taken on ${formatMediumDate(acting)}.`
+            : undefined
+        }
+        items={[
+          {
+            label: 'Delete entry',
+            destructive: true,
+            onPress: () => {
+              if (acting) removeEntry(acting)
+            },
+          },
+        ]}
+      />
 
       <AddMeasurementSheet
         open={adding}
@@ -223,6 +319,11 @@ function AddMeasurementSheet({
   const [draft, setDraft] = useState<MeasurementEntry>({ date: todayISO() })
   const [editing, setEditing] = useState<SiteKey | null>(null)
 
+  // Nothing measured is nothing to save. Saving an untouched draft wrote an
+  // entry carrying no reading at all, toasted it as measurements, and took the
+  // screen's empty state with it.
+  const anyTaken = SITES.some((s) => draft[s.key] != null)
+
   return (
     <>
       <Sheet
@@ -233,7 +334,9 @@ function AddMeasurementSheet({
         right={{
           label: 'Save',
           strong: true,
+          disabled: !anyTaken,
           onPress: () => {
+            if (!anyTaken) return
             onSave({ ...draft, date: todayISO() })
             setDraft({ date: todayISO() })
             onClose()
@@ -272,7 +375,12 @@ function AddMeasurementSheet({
         <NumberPad
           open={!!editing}
           onClose={() => setEditing(null)}
-          onSubmit={(v) => setDraft((d) => ({ ...d, [editing]: v }))}
+          // The pad opens on zero where there is no previous reading to seed it
+          // from, and hands that zero back untouched. A tape never reads zero,
+          // so a site nobody typed a figure for stays unrecorded.
+          onSubmit={(v) => {
+            if (v > 0) setDraft((d) => ({ ...d, [editing]: v }))
+          }}
           title={SITES.find((s) => s.key === editing)!.label}
           initial={draft[editing] ?? latest?.[editing] ?? 0}
           unit={lengthUnit(units)}

@@ -5,9 +5,10 @@ import { Icon } from '../../components/Icon'
 import { Button, Segmented, Switch } from '../../components/ios/Controls'
 import { Alert, Sheet } from '../../components/ios/Sheet'
 import { toast } from '../../components/ios/Toast'
-import { describeDropped } from '../../store/importState'
+import { describeDropped, validateImport } from '../../store/importState'
 import { useStore, exportSnapshot } from '../../store/useStore'
 import type { AccentKey, ThemeMode } from '../../domain/types'
+import { pluralize } from '../../lib/format'
 import { haptic } from '../../lib/haptics'
 import { useNav } from '../../nav/nav'
 
@@ -37,7 +38,7 @@ export function Appearance() {
   const updateSettings = useStore((s) => s.updateSettings)
 
   return (
-    <Screen title="Appearance" back={{ label: 'Settings', onPress: pop }}>
+    <Screen title="Appearance" back={{ onPress: pop }}>
       <ListSection header="Theme" footer="Match iPhone follows your system appearance, including the automatic day/night schedule.">
         <div style={{ padding: '10px var(--gutter)' }}>
           <Segmented
@@ -75,12 +76,20 @@ export function Appearance() {
                   updateSettings({ accent: a.key })
                 }}
                 style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7,
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 9,
                   color: a.color,
                 }}
               >
-                <span className="swatch" data-on={on} style={{ background: a.color }}>
-                  {on && <Icon name="check" size={16} weight={3} color="#fff" />}
+                {/* The size Reminders and Calendar give a colour choice. At the
+                    34pt the class ships they were three dots on a page of white
+                    paper — the whole screen measured under 2% colour, which is
+                    the one thing an appearance screen cannot be. */}
+                <span
+                  className="swatch"
+                  data-on={on}
+                  style={{ background: a.color, width: 56, height: 56 }}
+                >
+                  {on && <Icon name="check" size={24} weight={3} color="#fff" />}
                 </span>
                 <span className="t-caption1" style={{ color: on ? 'var(--label)' : 'var(--label-2)' }}>
                   {a.label}
@@ -93,7 +102,7 @@ export function Appearance() {
 
       <ListSection
         header="Numbers"
-        footer="Decimals decide how every weight is written — logs, plate maths and weigh-ins."
+        footer="Decimals decide how your bodyweight is written, wherever GRIT shows it. Logged loads and plate maths keep their own precision — a load rounded to the nearest pound is not one you could put on the bar."
       >
         <Row
           title="Show RIR alongside RPE"
@@ -135,7 +144,7 @@ export function WorkoutSettings() {
   const updateSettings = useStore((s) => s.updateSettings)
 
   return (
-    <Screen title="Workout" back={{ label: 'Settings', onPress: pop }}>
+    <Screen title="Workout" back={{ onPress: pop }}>
       <ListSection header="Rest timer">
         <Row
           title="Start automatically"
@@ -198,7 +207,7 @@ export function Notifications() {
     updateSettings({ notifications: { ...settings.notifications, ...patch } })
 
   return (
-    <Screen title="Notifications" back={{ label: 'Settings', onPress: pop }}>
+    <Screen title="Notifications" back={{ onPress: pop }}>
       <ListSection
         header="Reminders"
         footer="Add GRIT to your Home Screen for these to fire like a native app's."
@@ -252,6 +261,28 @@ export function Notifications() {
 
 /* --------------------------------- data ---------------------------------- */
 
+interface PendingImport {
+  /** Held as parsed, not as validated state: the store revalidates on apply. */
+  raw: unknown
+  name: string
+  /** What the file holds once every record too damaged to read was dropped. */
+  holds: string
+}
+
+/**
+ * "63 weigh-ins, 19 workouts and 8 check-ins", skipping everything at zero.
+ *
+ * `describeDropped` reads almost the same, but it cannot agree a unit with its
+ * count — and "1 weigh-ins" is exactly the kind of thing a client reads twice in
+ * an alert about erasing their history.
+ */
+function countOf(parts: [number, string, string?][]): string {
+  const said = parts.filter(([n]) => n > 0).map(([n, one, many]) => pluralize(n, one, many))
+  if (said.length === 0) return ''
+  if (said.length === 1) return said[0]!
+  return `${said.slice(0, -1).join(', ')} and ${said.at(-1)}`
+}
+
 export function DataSettings() {
   const pop = useNav((s) => s.pop)
   const resetToSeed = useStore((s) => s.resetToSeed)
@@ -259,6 +290,7 @@ export function DataSettings() {
   const importState = useStore((s) => s.importState)
   const [confirm, setConfirm] = useState<'reset' | 'clear' | null>(null)
   const [exporting, setExporting] = useState(false)
+  const [pending, setPending] = useState<PendingImport | null>(null)
   // Rebuilt each time the sheet opens so the copy always matches current data.
   const snapshot = useMemo(() => (exporting ? exportSnapshot() : ''), [exporting])
   // Select primitives, not a fresh object — zustand v5 snapshots must be stable
@@ -284,10 +316,22 @@ export function DataSettings() {
       await navigator.clipboard.writeText(snapshot)
       toast('Copied to clipboard', { icon: 'check.circle.fill', tone: 'good' })
     } catch {
-      toast('Select the text below and copy it', { icon: 'info' })
+      toast("Couldn't reach the clipboard — save the file instead", { icon: 'info' })
     }
   }
 
+  /**
+   * Reading the file is not importing it.
+   *
+   * An import replaces every weigh-in, workout, check-in, photo and day of food
+   * on the device, and it used to run straight off the picker — no confirmation,
+   * no undo, while the two *less* destructive buttons below it each ask first.
+   * Worse, a file is a GRIT backup as far as `validateImport` is concerned if it
+   * merely has a `profile` key, so a truncated export carrying a name and
+   * nothing else wiped the lot and reported "Data restored". So the file is
+   * validated here, what it actually holds is counted, and the client is shown
+   * both halves of the trade before anything is written.
+   */
   const doImport = () => {
     const input = document.createElement('input')
     input.type = 'file'
@@ -296,17 +340,26 @@ export function DataSettings() {
       const file = input.files?.[0]
       if (!file) return
       try {
-        const result = importState(JSON.parse(await file.text()))
-        if (!result.ok) {
+        const raw = JSON.parse(await file.text())
+        const result = validateImport(raw)
+        if (!result.ok || !result.state) {
           toast(result.reason ?? "That file isn't a GRIT backup", {
             icon: 'xmark.circle.fill', tone: 'bad',
           })
           return
         }
-        const skipped = describeDropped(result.dropped)
-        toast(skipped ? `Restored — skipped ${skipped}` : 'Data restored', {
-          icon: 'check.circle.fill',
-          tone: skipped ? 'default' : 'good',
+        const { weighIns, logs, checkIns, measurements, photos, nutrition } = result.state
+        setPending({
+          raw,
+          name: file.name,
+          holds: countOf([
+            [weighIns.length, 'weigh-in'],
+            [logs.length, 'workout'],
+            [checkIns.length, 'check-in'],
+            [measurements.length, 'tape entry', 'tape entries'],
+            [photos.length, 'photo'],
+            [Object.keys(nutrition).length, 'day of food', 'days of food'],
+          ]),
         })
       } catch {
         toast("Couldn't read that file", { icon: 'xmark.circle.fill', tone: 'bad' })
@@ -315,10 +368,35 @@ export function DataSettings() {
     input.click()
   }
 
+  /** What an import would be replacing, in the same terms the file is read in. */
+  const here = countOf([
+    [weighInCount, 'weigh-in'],
+    [logCount, 'workout'],
+    [checkInCount, 'check-in'],
+    [photoCount, 'photo'],
+  ])
+
+  const applyImport = () => {
+    if (!pending) return
+    const result = importState(pending.raw)
+    setPending(null)
+    if (!result.ok) {
+      toast(result.reason ?? "That file isn't a GRIT backup", {
+        icon: 'xmark.circle.fill', tone: 'bad',
+      })
+      return
+    }
+    const skipped = describeDropped(result.dropped)
+    toast(skipped ? `Restored — skipped ${skipped}` : 'Data restored', {
+      icon: 'check.circle.fill',
+      tone: skipped ? 'default' : 'good',
+    })
+  }
+
   return (
     <Screen
       title="Data & privacy"
-      back={{ label: 'Settings', onPress: pop }}
+      back={{ onPress: pop }}
       titleAccessory={
         <div className="gutter t-subhead dim" style={{ margin: '-2px 0 24px', lineHeight: '21px' }}>
           Everything GRIT knows about you lives on this device. No account, no server, no analytics.
@@ -366,17 +444,23 @@ export function DataSettings() {
         />
       </ListSection>
 
+      {/* Save and Copy, and nothing else. The sheet used to hand the client the
+          whole export as raw JSON in a monospace face inside a 999px capsule —
+          the one face DESIGN.md §7 bans, in a shape meant for a button, with the
+          curve eating the first and last lines. No iOS app asks you to select a
+          blob by hand; the two buttons above it already did the job. */}
       <Sheet
         open={exporting}
         onClose={() => setExporting(false)}
         title="Export"
         left={{ label: 'Done', onPress: () => setExporting(false) }}
-        detent={0.82}
+        detent={0.42}
       >
-        <div style={{ padding: '4px 16px 16px' }}>
-          <div className="t-footnote dim" style={{ marginBottom: 14 }}>
-            {weighInCount} weigh-ins, {logCount} workouts, {checkInCount} check-ins and{' '}
-            {photoCount} photos — {(snapshot.length / 1024).toFixed(0)} KB of JSON.
+        <div style={{ padding: '4px 16px 18px' }}>
+          <div className="t-subhead dim" style={{ marginBottom: 16, lineHeight: '21px' }}>
+            One file holding {weighInCount} weigh-ins, {logCount} workouts, {checkInCount} check-ins
+            and {photoCount} photos — {(snapshot.length / 1024).toFixed(0)} KB. It is everything on
+            this device, and it is what Import reads back.
           </div>
 
           <div style={{ display: 'flex', gap: 9 }}>
@@ -387,29 +471,32 @@ export function DataSettings() {
               Copy
             </Button>
           </div>
-
-          <div className="eyebrow" style={{ margin: '18px 0 7px' }}>
-            Or select and copy it yourself
-          </div>
-          <textarea
-            readOnly
-            value={snapshot}
-            rows={9}
-            onFocus={(e) => e.currentTarget.select()}
-            aria-label="Export data"
-            style={{
-              width: '100%', padding: '11px 13px', borderRadius: 'var(--r-btn)', border: 'none',
-              background: 'var(--fill-3)', resize: 'none', lineHeight: '18px',
-              fontSize: 11, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-            }}
-          />
         </div>
       </Sheet>
 
       <Alert
+        open={pending != null}
+        title="Replace everything on this device?"
+        message={
+          pending && (
+            <>
+              {pending.name} holds{' '}
+              {pending.holds || 'no weigh-ins, workouts, check-ins, photos or days of food at all'}.
+              Importing replaces what is here now{here ? ` — ${here}` : ''}, and it cannot be undone.
+            </>
+          )
+        }
+        onDismiss={() => setPending(null)}
+        actions={[
+          { label: 'Cancel', onPress: () => setPending(null) },
+          { label: 'Replace', destructive: true, onPress: applyImport },
+        ]}
+      />
+
+      <Alert
         open={confirm === 'reset'}
         title="Reload demo data?"
-        message="Your current weigh-ins, workouts and check-ins will be replaced with the sample set."
+        message="Your current weigh-ins, workouts, photos and check-ins will be replaced with the sample set."
         onDismiss={() => setConfirm(null)}
         actions={[
           { label: 'Cancel', onPress: () => setConfirm(null) },
@@ -428,7 +515,7 @@ export function DataSettings() {
       <Alert
         open={confirm === 'clear'}
         title="Delete all data?"
-        message="Every weigh-in, workout, photo and check-in on this device will be erased."
+        message="Every weigh-in, workout, photo and check-in on this device will be erased, and your profile goes back to blank. Your units, bar and plate rack stay."
         onDismiss={() => setConfirm(null)}
         actions={[
           { label: 'Cancel', onPress: () => setConfirm(null) },

@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useCoach } from '../store/coach'
 import { useNav } from '../nav/nav'
 import { useStore } from '../store/useStore'
+import { otherParty } from '../screens/coach/anchor'
 import { COACH } from '../data/seed'
 
 /* ============================================================================
@@ -19,7 +20,9 @@ export function SeatBar() {
   const client = useStore((s) => s.profile.name)
   const switchTab = useNav((s) => s.switchTab)
   const popToRoot = useNav((s) => s.popToRoot)
-  const first = client.split(' ')[0] || 'your client'
+  // The same name the thread, the notes and the Settings previews use, so the
+  // seat bar cannot be the one place a nameless client is called something else.
+  const first = otherParty('coach', client).short
 
   return (
     <AnimatePresence initial={false}>

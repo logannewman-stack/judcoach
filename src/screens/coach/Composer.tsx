@@ -13,6 +13,7 @@ export function Composer({
   onSend,
   onCancel,
   autoFocus,
+  focusSignal,
   compact,
 }: {
   placeholder: string
@@ -20,6 +21,11 @@ export function Composer({
   /** Shown as a dismiss control where the box is opened on demand. */
   onCancel?: () => void
   autoFocus?: boolean
+  /**
+   * Any change puts the cursor in the box, for a screen whose empty state
+   * carries the call to action rather than the field itself.
+   */
+  focusSignal?: number
   compact?: boolean
 }) {
   const [draft, setDraft] = useState('')
@@ -34,6 +40,10 @@ export function Composer({
     el.style.height = `${el.scrollHeight}px`
   }
   useEffect(resize, [draft])
+
+  useEffect(() => {
+    if (focusSignal) field.current?.focus()
+  }, [focusSignal])
 
   const submit = () => {
     if (!ready) return
@@ -58,12 +68,14 @@ export function Composer({
         placeholder={placeholder}
         aria-label={placeholder}
         autoFocus={autoFocus}
+        // Return is a line break, and the button is how a message goes. The
+        // escape hatch used to be Shift+Return, which an iPhone's software
+        // keyboard has no way to type: every paragraph break a client tried to
+        // make sent the half-written message instead. iOS Messages does the
+        // same — the key says "return" and it returns.
+        enterKeyHint="enter"
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault()
-            submit()
-          }
           if (e.key === 'Escape' && onCancel) onCancel()
         }}
       />

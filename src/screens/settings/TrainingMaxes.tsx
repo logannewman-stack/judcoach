@@ -10,7 +10,7 @@ import { useStore } from '../../store/useStore'
 import { e1rmSeries } from '../../store/selectors'
 import { MAIN_LIFTS } from '../../data/exercises'
 import { e1RM, formatRpe, roundToIncrement } from '../../domain/strength'
-import { Sparkline } from '../../components/Charts'
+import { BarChart, Sparkline } from '../../components/Charts'
 import { fixed, num, signed } from '../../lib/format'
 import { useNav } from '../../nav/nav'
 
@@ -40,11 +40,12 @@ export function TrainingMaxes() {
   const stale = rows.filter((r) => r.suggested > 0 && r.gap >= profile.roundingIncrement * 2)
   const unset = rows.filter((r) => r.tm <= 0)
   const anyLogged = rows.some((r) => r.best > 0)
+  const anySet = rows.some((r) => r.tm > 0)
 
   return (
     <Screen
       title="Working maxes"
-      back={{ label: 'Settings', onPress: pop }}
+      back={{ onPress: pop }}
       titleAccessory={
         <div className="gutter t-subhead dim" style={{ margin: '-2px 0 24px', lineHeight: 1.4 }}>
           The most you can lift for one rep right now. Every percentage in the programme is a slice
@@ -91,11 +92,44 @@ export function TrainingMaxes() {
         </ListSection>
       ) : null}
 
+      {/* Four numbers that are only ever read against each other — which lift is
+          behind, and how far any of them is off what the logs support. A column
+          of rows says each one on its own; this says all four at once, which is
+          the question the screen is actually asked. */}
+      {anySet && (
+        <ListSection
+          header="Where they stand"
+          footer={
+            stale.length > 0
+              ? 'The dashed line is what your logged sets already support. A bar short of its line is a max with room left in it.'
+              : 'Every bar is a working max. A dashed line appears above one once your logged sets support more than it.'
+          }
+        >
+          <div style={{ padding: '16px var(--gutter) 8px' }}>
+            <BarChart
+              bars={rows.map((r) => ({
+                label: r.lift.shortName ?? r.lift.name,
+                value: r.tm,
+                target: r.gap >= profile.roundingIncrement * 2 ? r.suggested : undefined,
+              }))}
+              height={140}
+              // The rows below already say every number; a figure over each bar
+              // landed on top of the dashed line it is being compared with.
+              showValues={false}
+            />
+          </div>
+        </ListSection>
+      )}
+
+      {/* The footer states the estimated-max rule, and it is the only place in
+          the app that does. It named six reps at RPE 8, which is neither the
+          rule in force nor any rule this codebase has ever had; the one in
+          domain/strength.ts is eight reps or fewer at RPE 8 or above. */}
       <ListSection
         header="Main lifts"
         footer={
           anyLogged
-            ? 'Taken from your best near-maximal set — six reps or fewer at RPE 8 or above. Ordinary percentage work sits below a true max, so treat these as a floor; only a number above your working max means it is time to move.'
+            ? 'Taken from your best near-maximal set — eight reps or fewer at RPE 8 or above. Ordinary percentage work sits below a true max, so treat these as a floor; only a number above your working max means it is time to move.'
             : 'Enter what you can lift today. Jud moves these after your first heavy week, and a max that is a few pounds out costs you one warm-up set rather than the block.'
         }
       >

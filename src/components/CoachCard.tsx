@@ -3,8 +3,9 @@ import { Icon } from './Icon'
 import { useCoach } from '../store/coach'
 import { useStore } from '../store/useStore'
 import { byTime, unreadFrom } from '../domain/coach'
-import { ANCHOR_ICON, useAnchorTarget } from '../screens/coach/anchor'
+import { ANCHOR_ICON, otherParty, useAnchorTarget } from '../screens/coach/anchor'
 import { COACH } from '../data/seed'
+import { relativeTime } from '../lib/date'
 import { useNav } from '../nav/nav'
 
 /* ============================================================================
@@ -15,16 +16,6 @@ import { useNav } from '../nav/nav'
    newest one where it will be seen, and opens the record it is about rather
    than a conversation you then have to read backwards.
    ========================================================================== */
-
-const ago = (iso: string) => {
-  const mins = Math.floor((Date.now() - Date.parse(iso)) / 60_000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  return days === 1 ? 'yesterday' : `${days} days ago`
-}
 
 export function CoachCard() {
   const notes = useCoach((s) => s.notes)
@@ -37,8 +28,7 @@ export function CoachCard() {
   const newest = byTime(unread).at(-1) ?? byTime(notes.filter((n) => n.author !== viewAs)).at(-1)
   const target = useAnchorTarget(newest?.anchor ?? { kind: 'thread' })
 
-  const them = viewAs === 'client' ? COACH.name : (clientName.split(' ')[0] || 'your client')
-  const themFull = viewAs === 'client' ? COACH.fullName : clientName
+  const { short: them, full: themFull } = otherParty(viewAs, clientName)
 
   const openThread = () => { switchTab('settings'); push('messages') }
 
@@ -71,7 +61,9 @@ export function CoachCard() {
             {them}
             {unread.length > 0 && <span className="note-unread" />}
           </span>
-          <span className="t-caption1 dim">{ago(newest.sentAt)}</span>
+          {/* The app's one relative-time rule. The copy here counted in 24-hour
+              blocks, so a message sent thirty hours ago read "yesterday". */}
+          <span className="t-caption1 dim">{relativeTime(newest.sentAt).label}</span>
         </span>
         {unread.length > 1 && <span className="t-caption1 dim">{unread.length} new</span>}
         <Icon name="chevron.right" size={15} weight={2.6} color="var(--label-3)" />

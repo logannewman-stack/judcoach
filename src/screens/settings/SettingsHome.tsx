@@ -6,6 +6,7 @@ import { GritTile, Wordmark } from '../../components/Logo'
 import { useStore } from '../../store/useStore'
 import { useCoach } from '../../store/coach'
 import { byTime, unreadFrom } from '../../domain/coach'
+import { authorName } from '../coach/anchor'
 import { COACH } from '../../data/seed'
 import { useProgram, currentWeekIndex } from '../../store/selectors'
 import { todayISO } from '../../lib/date'
@@ -29,39 +30,53 @@ export function SettingsHome() {
         {/* ------------------------------ profile ---------------------------- */}
         {/* The Apple ID cell of this app: the client's name at heading size over
             one line saying what they are working on. Anything longer belongs on
-            the screen it opens. */}
+            the screen it opens.
+
+            A client with no name on file gets the invitation instead of an empty
+            headline over an empty monogram — this row is also the clearest route
+            back into naming yourself. */}
         <ListSection>
           <Row
-            title={<span className="t-title3">{profile.name}</span>}
-            subtitle={profile.goalLabel}
-            leading={<Monogram name={profile.name} size={54} />}
-            sepInset={rowSepInset(54)}
+            title={<span className="t-title3">{profile.name || 'Set up your profile'}</span>}
+            subtitle={profile.name ? profile.goalLabel : 'Name, units and your bodyweight goal'}
+            leading={profile.name ? <Monogram name={profile.name} size={54} /> : undefined}
+            icon={profile.name ? undefined : 'person'}
+            iconColor="var(--accent)"
+            sepInset={profile.name ? rowSepInset(54) : undefined}
             chevron
             onPress={() => push('profileSettings')}
-            ariaLabel={`Profile, ${profile.name}`}
+            ariaLabel={profile.name ? `Profile, ${profile.name}` : 'Set up your profile'}
             style={{ padding: '13px var(--gutter)' }}
           />
         </ListSection>
 
         {/* ------------------------------- coach ----------------------------- */}
+        {/* Coaching is pink, the way Train is orange: the coach domain owns a
+            hue (DESIGN.md §2) and the tab bar already tints itself with it.
+            Messages wore the accent, which is the same value as the blue on the
+            row below it, so the group came out as one blue block. */}
         <ListSection header="Coaching">
+          {/* The other person this app is about, at the size the first cell
+              gives the client. A 29pt disc under a 54pt monogram made the coach
+              a list item in his own coaching app. */}
           <Row
-            title={COACH.fullName}
+            title={<span className="t-headline">{COACH.fullName}</span>}
             subtitle={COACH.responseWindow}
-            leading={<CoachAvatar size={29} />}
+            leading={<CoachAvatar size={52} />}
+            sepInset={rowSepInset(52)}
             chevron
             onPress={() => push('coach')}
-            inset
+            style={{ padding: '11px var(--gutter)' }}
           />
           <Row
             title="Messages"
             subtitle={
               last
-                ? `${last.author === viewAs ? 'You' : COACH.name}: ${last.body}`
+                ? `${authorName(last.author, viewAs, profile.name)}: ${last.body}`
                 : `Ask ${COACH.name} anything`
             }
             icon="message"
-            iconColor="var(--accent)"
+            iconColor="var(--pink)"
             trailing={
               unread > 0
                 ? <span className="tab-badge" style={{ position: 'static' }}>{unread > 9 ? '9+' : unread}</span>
@@ -81,7 +96,7 @@ export function SettingsHome() {
           />
           <Row
             title="Working maxes"
-            subtitle="What every percentage is calculated from"
+            subtitle="Drives every percentage in the block"
             icon="chart.bar"
             iconColor="var(--blue)"
             chevron
@@ -95,7 +110,7 @@ export function SettingsHome() {
             title="Bar & plates"
             subtitle={`${profile.barWeight} ${profile.units} bar · rounds to ${profile.roundingIncrement} ${profile.units}`}
             icon="dumbbell"
-            iconColor="var(--gray)"
+            iconColor="var(--orange)"
             chevron
             onPress={() => push('equipment')}
           />
@@ -123,8 +138,9 @@ export function SettingsHome() {
           />
           <Row
             title="Notifications"
+            subtitle="Training days, weigh-ins, meals and Jud"
             icon="bell"
-            iconColor="var(--gray)"
+            iconColor="var(--red)"
             chevron
             onPress={() => push('notifications')}
           />
@@ -132,7 +148,7 @@ export function SettingsHome() {
             title="Data & privacy"
             subtitle="Export, import, reset"
             icon="lock"
-            iconColor="var(--gray)"
+            iconColor="var(--green)"
             chevron
             onPress={() => push('dataSettings')}
           />
@@ -146,10 +162,14 @@ export function SettingsHome() {
             chevron
             onPress={() => push('exerciseLibrary')}
           />
+          {/* The same destination as Train's Reference row, so the same glyph in
+              the same colour — a client learns a row by its tile, and this one
+              was purple here and orange there. (Train's subtitle is not copied
+              across: at 393pt it already ellipsises where it lives.) */}
           <Row
             title="RPE & RIR chart"
             icon="target"
-            iconColor="var(--purple)"
+            iconColor="var(--orange)"
             chevron
             onPress={() => push('rpeGuide')}
           />

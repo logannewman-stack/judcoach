@@ -1,19 +1,18 @@
 /* ============================================================================
    Fuel — the language the Meals screen and the macro rings are drawn in.
 
-   The macros used to be systemRed, systemOrange and systemYellow: three hues
-   picked because food charts are usually drawn that way, which on a chalk
-   ground came out pastel and on iron came out as sludge. They were also lying
-   twice over. Red is this app's destructive colour, and protein — the one
-   number the plan says to protect above all else — cannot be painted in the
-   colour that means "delete". Orange and yellow sit a hue apart from --rpe-9
-   and --rpe-8, so a carbohydrate bar and a grinding set read as the same idea.
+   Three macros, three hues: protein in the Meals domain's own green because it
+   is the number the plan says to protect, carbohydrate in amber, fat in violet.
+   tokens.css carries the values and the argument for them.
 
-   So the macros stop being three colours and become one material in three
-   strengths. Tone says *which* macro, ordered the way the plan orders them:
-   protein is the darkest because it is the non-negotiable, fat the faintest
-   because it is the remainder. Colour is kept back for the one thing worth
-   reporting — a target actually met.
+   The hue says *which* macro and never reports a state, because the one moment
+   the three have to stay apart is the moment they all land. An earlier pass had
+   each bar and arc turn to the hit green on completion — which is protein's own
+   colour, so protein could never show the change at all and the other two lost
+   their identity exactly when the client was reading them. A macro reports
+   itself by filling, its name turns green when it lands, and only a target
+   passed by more than the slack takes a colour of its own: the warning orange
+   the rest of the app uses for "further than the plan said".
 
    ========================================================================== */
 
@@ -33,15 +32,54 @@
   color: var(--label-2);
 }
 
-/* ------------------------------- macro rows -------------------------------
-   One row per macro beside the rings: the name as an eyebrow, the figure and
-   its target as one object, and a bar in the macro's own tone. A met macro
-   takes the hit colour in both the bar and the label, so "protein is done" is
-   legible without reading a digit.
+/* -------------------------------- the card --------------------------------
+   Rings and macro rows, rendered by Meals and by Today from one component. The
+   two screens drew it twice and to different measurements — a 7px bar on one
+   grey, a 5px bar on another, a space before the "g" on one of them only — and
+   then disagreed about what the numbers meant.
    ------------------------------------------------------------------------ */
 
-/* The fill colour is set inline by the readout, which resolves the met state
-   with it; an inline custom property outranks anything declared here. */
+.fuel-readout {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.fuel-macros {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 11px;
+}
+
+/* The hole in the middle of the stack is a fixed 48pt across, so the two
+   strings inside it follow Dynamic Type only as far as that hole allows: past
+   about 1.15x, "of 2920" starts crossing the innermost arc. Everything else on
+   the card scales the whole way. */
+.fuel-centre {
+  --fuel-pt: min(var(--pt), 1.15px);
+  line-height: 1;
+}
+.fuel-kcal { font-size: calc(19 * var(--fuel-pt)); }
+.fuel-kcal-target {
+  font-size: calc(10 * var(--fuel-pt));
+  margin-top: 4px;
+  color: var(--label-2);
+}
+
+/* The sentence under the rings, in the same voice on both screens. */
+.fuel-note { color: var(--label-2); }
+.fuel-note[data-tone='over'] { color: var(--orange-text); }
+
+/* ------------------------------- macro rows -------------------------------
+   One row per macro beside the rings: the name as an eyebrow, the figure and
+   its target as one object, and a bar in the macro's own hue.
+   ------------------------------------------------------------------------ */
+
+/* The fill colour is set inline by the row, which resolves the over state with
+   it; an inline custom property outranks anything declared here. */
 .macro-row {
   --macro: var(--fuel-2);
 }
@@ -56,8 +94,15 @@
 .macro-name {
   color: var(--label-2);
 }
-.macro-row[data-met='true'] .macro-name {
+/* The macro's name is where a landed target is reported, since the bar has to
+   go on saying which macro it is. */
+.macro-row[data-state='met'] .macro-name {
   color: var(--fuel-hit-text);
+}
+.macro-row[data-state='over'] .macro-name,
+.macro-row[data-state='over'] .macro-value,
+.macro-row[data-state='over'] .macro-target {
+  color: var(--orange-text);
 }
 
 .macro-value {
@@ -81,6 +126,88 @@
   height: 100%;
   border-radius: var(--r-pill);
   background: var(--macro);
+}
+
+/* ------------------------------ macro split -------------------------------
+   One bar in three hues, and the legend that says what they are. Used by the
+   guidelines, by a single meal and by the week's shop.
+   ------------------------------------------------------------------------ */
+
+.macro-split-bar {
+  display: flex;
+  height: 22px;
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+.macro-split-bar > span { display: block; }
+
+.macro-split-legend {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+}
+.macro-split-key { min-width: 0; }
+.macro-split-head {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.macro-split-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+.macro-split-pct {
+  font-size: calc(17 * var(--pt));
+  line-height: calc(22 * var(--pt));
+  font-weight: 700;
+}
+.macro-split-grams {
+  font-size: calc(12 * var(--pt));
+  line-height: calc(16 * var(--pt));
+  color: var(--label-2);
+}
+
+/* ------------------------------ grocery list ------------------------------
+   The same tick the meals and the foods carry, in the same green: it is one
+   gesture, and it was blue in one place and green in two others. Unticked it is
+   the tab's own ring, which is what iOS puts in front of a list item and what
+   keeps the shop from being forty grey rows.
+   ------------------------------------------------------------------------ */
+
+.grocery-tick {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--tint);
+  background: transparent;
+}
+.grocery-tick[data-done='true'] {
+  background: var(--fuel-hit);
+  border-color: transparent;
+}
+
+/* A meal's calories, over the split that makes them up. */
+.meal-total {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.meal-total .figure { font-size: calc(32 * var(--pt)); line-height: 1; }
+
+/* The ounces and, once they are drunk, the glyph that says so. */
+.water-figure {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: calc(17 * var(--pt));
+  line-height: calc(22 * var(--pt));
 }
 
 /* ----------------------------- baseline shot ------------------------------
@@ -180,6 +307,9 @@
 }
 .meal-card[data-state='open'] .meal-head { padding-bottom: 9px; }
 
+/* A ring in the tab's own colour rather than a grey one, which is what iOS
+   puts in front of a list item waiting to be ticked — and what stops six meal
+   cards and twenty-four food rows from being the greyest thing in the app. */
 .meal-check {
   width: 28px;
   height: 28px;
@@ -187,7 +317,7 @@
   flex: none;
   display: grid;
   place-items: center;
-  border: 2px solid var(--label-3);
+  border: 2px solid var(--tint);
   background: transparent;
 }
 .meal-card[data-state='done'] .meal-check {
@@ -241,11 +371,16 @@
   flex: none;
   display: grid;
   place-items: center;
-  border: 1.8px solid var(--label-3);
+  border: 1.8px solid var(--tint);
   background: transparent;
 }
+/* Green, not the accent: ticking a food off is the same gesture as ticking a
+   meal off and the same gesture as ticking a line off the shopping list, and
+   those two were already green. The accent means "this is the action" — it was
+   standing in for identity on the one tab with a strong identity colour of its
+   own, in the largest blue objects on the screen. */
 .food-line[data-checked='true'] .food-check {
-  background: var(--accent);
+  background: var(--fuel-hit);
   border-color: transparent;
 }
 
@@ -253,9 +388,12 @@
   flex: 1;
   min-width: 0;
 }
+/* --label-3 measured 2.03:1 light and 2.97:1 dark against the card, well under
+   anything iOS would ship for 15px type. A struck-through line already reads as
+   done; it does not also have to be unreadable. */
 .food-line[data-checked='true'] .food-name {
   text-decoration: line-through;
-  color: var(--label-3);
+  color: var(--label-2);
 }
 
 .food-qty { color: var(--label-2); }

@@ -6,6 +6,7 @@ import { Pill } from '../../components/ios/Controls'
 import { Sheet } from '../../components/ios/Sheet'
 import { toast } from '../../components/ios/Toast'
 import { FoodLine, MacroLine } from './MealsHome'
+import { MacroSplit } from './fuel'
 import { useDayMode } from './dayMode'
 import { useStore, emptyDay } from '../../store/useStore'
 import { MEAL_PLAN } from '../../data/mealPlan'
@@ -51,18 +52,26 @@ export function MealDetail({ mealId, date }: { mealId: string; date: string }) {
         <div className="gutter" style={{ marginTop: -6, marginBottom: 16 }}>
           <div className="t-subhead dim">{relativeDay(date)} · {formatClock(meal.time)}</div>
           {meal.note && <div className="t-subhead dim" style={{ marginTop: 2 }}>{meal.note}</div>}
-          <div style={{ display: 'flex', gap: 7, marginTop: 12, flexWrap: 'wrap' }}>
-            <Pill tone="tinted"><span className="data">{totals.kcal} kcal</span></Pill>
-            <Pill><span className="data">P {totals.protein}g</span></Pill>
-            <Pill><span className="data">C {totals.carbs}g</span></Pill>
-            <Pill><span className="data">F {totals.fat}g</span></Pill>
-          </div>
         </div>
       }
     >
       {/* One 32px rhythm between groups — the same figure `.list-section`
           carries, so lists and cards space identically. */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+        {/* What the meal is made of, in the hues the macros are drawn in
+            everywhere else. Four grey pills reading "P 43g C 55g F 18g" stated
+            the same three numbers in the register of a nutrition label, and on
+            a screen of white rows and hairlines they were the only thing that
+            could have carried a colour. */}
+        <Card>
+          <div className="meal-total">
+            <span className="figure">{totals.kcal}</span>
+            <span className="figure-unit"> kcal</span>
+            {skipped && <Pill>Skipped today</Pill>}
+          </div>
+          <MacroSplit macros={totals} />
+        </Card>
+
         <div>
           <SectionHeader title="Foods" />
           {/* No extra padding around the rows: FoodLine owns the 44pt pitch

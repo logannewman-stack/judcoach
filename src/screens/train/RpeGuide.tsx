@@ -12,6 +12,9 @@ import '../../styles/log.css'
 
 const REPS = [1, 2, 3, 4, 5, 6, 8, 10, 12]
 const RPES = ['10', '9.5', '9', '8.5', '8', '7.5', '7', '6.5', '6']
+/* The ramp's own stops, cool to hot — the five base.css actually paints, not
+   the nine steps the scale is read in. */
+const BANDS = ['6', '7', '8', '9', '10']
 
 export function RpeGuide() {
   const pop = useNav((s) => s.pop)
@@ -47,12 +50,26 @@ export function RpeGuide() {
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
         {/* ------------------------------ the scale ---------------------------
-            Nine steps in the nine colours the app gives them. Reading this page
-            is what makes every logged set on every other screen legible without
-            a number being read, so the chips here are the chips there. */}
+            Nine steps in the five colours the app gives them: base.css pairs
+            each whole point with its half, so 8 and 8.5 are one band. The ramp
+            leads the card at full strength because reading this page is what
+            makes every logged set on every other screen legible without a
+            number being read — and a page that drew nine rows in five colours
+            while calling them nine taught the opposite. */}
         <div>
           <SectionHeader title="What each number means" />
           <Card>
+            <div className="scale-ramp" role="img" aria-label="The effort ramp, cool at six to hot at ten">
+              {BANDS.map((band) => (
+                <span key={band} className="scale-band" data-rpe={band}>
+                  <span className="scale-band-swatch" />
+                  <span className="scale-band-key">{band}</span>
+                </span>
+              ))}
+            </div>
+            <div className="t-caption1 dim" style={{ marginBottom: 10 }}>
+              Five colours, cool to hot. Each one covers a whole point and the half above it.
+            </div>
             {RPES.map((rpe) => (
               <div key={rpe} className="scale-row" data-rpe={rpe}>
                 <span className="scale-step">{rpe}</span>
@@ -64,7 +81,7 @@ export function RpeGuide() {
             ))}
           </Card>
           <div className="list-footer">
-            A set you log takes the colour of its number, here and everywhere else —
+            A set you log takes the colour of its band, here and everywhere else —
             so a session's hard end is visible before a single figure is read.
           </div>
         </div>

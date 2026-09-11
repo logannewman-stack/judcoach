@@ -1,16 +1,18 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Screen } from '../../components/ios/Screen'
-import { CoachAvatar } from '../../components/Bits'
+import { CoachAvatar, EmptyState } from '../../components/Bits'
 import { ActionSheet } from '../../components/ios/Sheet'
+import { Button } from '../../components/ios/Controls'
 import { Icon } from '../../components/Icon'
 import { useCoach } from '../../store/coach'
 import { useStore } from '../../store/useStore'
+import { currentWeekIndex, useProgram } from '../../store/selectors'
 import { anchorKey, byTime, groupNotes, unreadFrom } from '../../domain/coach'
 import type { CoachAuthor, CoachNote, NoteGroup } from '../../domain/coach'
 import { COACH } from '../../data/seed'
-import { formatMediumDate, relativeDay, todayISO } from '../../lib/date'
-import { AnchorCard } from './anchor'
+import { relativeDay, toISODate, todayISO } from '../../lib/date'
+import { AnchorCard, otherParty } from './anchor'
 import { haptic } from '../../lib/haptics'
 import { useNav } from '../../nav/nav'
 import { Composer } from './Composer'
@@ -34,12 +36,15 @@ export function Messages() {
   const remove = useCoach((s) => s.remove)
   const markRead = useCoach((s) => s.markRead)
   const clientName = useStore((s) => s.profile.name)
+  const blockNumber = useStore((s) => s.blockNumber)
+  const program = useProgram()
+  const week = currentWeekIndex(program, todayISO())
   const scrollRef = useRef<HTMLDivElement>(null)
   const [atBottom, setAtBottom] = useState(true)
   const [acting, setActing] = useState<CoachNote | null>(null)
+  const [focusCompose, setFocusCompose] = useState(0)
 
-  const them = viewAs === 'client' ? COACH.name : (clientName.split(' ')[0] || 'your client')
-  const themFull = viewAs === 'client' ? COACH.fullName : clientName
+  const { short: them, full: themFull } = otherParty(viewAs, clientName)
 
   /* The line the newest unread sits under, frozen on entry so it does not jump
      out from under the reader the instant the screen marks itself read. */
@@ -94,6 +99,7 @@ export function Messages() {
       footer={
         <Composer
           placeholder={`Message ${them}`}
+          focusSignal={focusCompose}
           onSend={(body) => {
             send({ kind: 'thread' }, body)
             requestAnimationFrame(() => toBottom())
@@ -102,7 +108,34 @@ export function Messages() {
       }
     >
       <div className="thread">
-        <ThreadIntro name={themFull} caption={viewAs === 'client' ? COACH.responseWindow : 'Block 3 · week 5 of 8'} />
+        {/* Jud's side of this is his response window; the client's side is where
+            they are in the block. It is read from the store rather than written
+            down here — a literal said "Block 3 · week 5 of 8" to every client,
+            including one on their first week of their first block. */}
+        <ThreadIntro
+          name={themFull}
+          caption={
+            viewAs === 'client'
+              ? COACH.responseWindow
+              : `Block ${blockNumber} · week ${week} of ${program.weeks.length}`
+          }
+        />
+        {days.length === 0 && (
+          <EmptyState
+            icon="message"
+            title="No messages yet"
+            message={
+              viewAs === 'client'
+                ? `Form, a niggle, a session that felt wrong, a week you can't train — ${them} would rather hear it now than read it in Sunday's check-in.`
+                : `Nothing from ${them} yet. Open a workout, a weigh-in or a check-in to write about one, or start here.`
+            }
+            action={
+              <Button small icon="message" onPress={() => setFocusCompose((n) => n + 1)}>
+                {viewAs === 'client' ? `Write to ${them}` : 'Write the first message'}
+              </Button>
+            }
+          />
+        )}
         {days.map(({ date, groups }, di) => (
           <div key={date} style={{ display: 'contents' }}>
             <div className="thread-day">{dayLabel(date)}</div>
@@ -247,7 +280,10 @@ interface DayGroup extends NoteGroup {
 function byDay(notes: CoachNote[], viewer: CoachAuthor): { date: string; groups: DayGroup[] }[] {
   const days = new Map<string, CoachNote[]>()
   for (const note of byTime(notes)) {
-    const date = note.sentAt.slice(0, 10)
+    // The day the message was sent where the reader is, not the UTC slice of the
+    // string: `send` stamps an ISO instant, so west of Greenwich every message
+    // written after the early evening filed itself under a "Tomorrow" divider.
+    const date = toISODate(new Date(note.sentAt))
     const bucket = days.get(date)
     if (bucket) bucket.push(note)
     else days.set(date, [note])
@@ -266,7 +302,7 @@ function byDay(notes: CoachNote[], viewer: CoachAuthor): { date: string; groups:
   }))
 }
 
-function dayLabel(date: string): string {
-  const relative = relativeDay(date, todayISO())
-  return relative === date ? formatMediumDate(date) : relative
-}
+/* `relativeDay` answers in words or in a short date, never in the ISO date it
+   was handed, so the fuller "Thu, Aug 28" this used to fall back to could not be
+   reached. One wording, and it is the app's. */
+const dayLabel = (date: string): string => relativeDay(date, todayISO())

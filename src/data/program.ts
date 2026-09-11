@@ -4,10 +4,12 @@ import type {
   Program,
   SessionTemplate,
   SetPrescription,
+  Units,
   WeekTemplate,
 } from '../domain/types'
 import { getExercise } from './exercises'
-import { percentOf1RM } from '../domain/strength'
+import { lbToKg, percentOf1RM } from '../domain/strength'
+import { num } from '../lib/format'
 
 /* ============================================================================
    Jud's 8-week block, built from a compact spec.
@@ -38,7 +40,12 @@ type MainSet = {
   /** Autoregulated: work up until the RPE lands, rather than to a set load. */
   workUp?: boolean
   amrap?: boolean
-  /** Upper bound on an AMRAP, so "5+" can't read as open-ended. */
+  /**
+   * Where an AMRAP stops. The set's own note has to say it in words too,
+   * because prose is the only place the cap reaches a screen: `describeReps`
+   * prints "5+" for anything marked AMRAP and drops the bound, and the Runner
+   * counts an AMRAP as never over.
+   */
   repsMax?: number
   note?: string
 }
@@ -166,7 +173,14 @@ const WEEK_SPECS: WeekSpec[] = [
       { reps: 3, rpe: 8 },
       { reps: 3, rpe: 8.5 },
       { reps: 3, backoffPct: 88, rpe: 8 },
-      { reps: 3, backoffPct: 88, rpe: 9, amrap: true, repsMax: 6, note: 'Optional AMRAP — stop at RPE 9.' },
+      {
+        reps: 3,
+        backoffPct: 88,
+        rpe: 9,
+        amrap: true,
+        repsMax: 6,
+        note: 'Optional AMRAP — stop at RPE 9, and at six reps however it feels.',
+      },
     ],
     mainRestSec: 225,
     secondaryRpe: 8.5,
@@ -209,9 +223,17 @@ const WEEK_SPECS: WeekSpec[] = [
     secondaryRpe: 7,
     isolationRpe: 8,
     volumeScale: 0.55,
+    // The working max in this app *is* the one-rep max — every percentage is
+    // cut from it through the RPE chart, and this week's top single is
+    // prescribed at 95.5% of it. A note telling the client to knock a further
+    // 10% off ratcheted the whole of the next block down, and contradicted the
+    // Working maxes screen, which says the top single becomes the max as it
+    // stands. There is no coach console either, so nobody but the client can
+    // enter it.
     notes: {
-      lowerA: 'New training max = your top single × 0.9. I will update it after you log this.',
-      upperB: 'Finish the block, then take three full days off before block four.',
+      lowerA: 'That top single is your new working max — all of it, no ten percent haircut. '
+        + 'Every percentage next block is cut from it. Put it into Settings before week one.',
+      upperB: 'Finish the block, then take three full days off before the next one.',
     },
   },
 ]
@@ -382,6 +404,25 @@ function buildSession(skeleton: SessionSkeleton, spec: WeekSpec, weekIndex: numb
   }
 }
 
+/** What Jud sets the block against, written in the unit he writes it in. */
+const BLOCK_GAIN_LB = 20
+const WEEKLY_RATE_LB = 0.4
+
+/**
+ * The goal line, in the client's own unit.
+ *
+ * This sentence is the app's prose rather than the client's, so it follows the
+ * same rule `convertGoalLabel` applies to the generated goal label: what the app
+ * wrote, the app restates. Frozen in pounds it told a kilo client to add 20 lb
+ * on the same screen that had already restated their rate as 0.18 kg / week.
+ */
+function goalLine(units: Units): string {
+  const gain = units === 'kg' ? lbToKg(BLOCK_GAIN_LB) : BLOCK_GAIN_LB
+  const rate = units === 'kg' ? lbToKg(WEEKLY_RATE_LB) : WEEKLY_RATE_LB
+  return `Add ${num(gain, 0)} ${units} across the big three while gaining at `
+    + `${num(rate, 2)} ${units} a week — strength up, waist flat.`
+}
+
 /**
  * `blockNumber` is which block of Jud's this is for this client, and it is the
  * only thing that varies between two clients on the same template. It is stored
@@ -389,8 +430,13 @@ function buildSession(skeleton: SessionSkeleton, spec: WeekSpec, weekIndex: numb
  * the sample client is three blocks in, and someone who signed up this morning
  * is on their first. Hard-coding it read "Block 3 · week 1" to every new client
  * and went on saying Block 3 after they rolled into the next one.
+ *
+ * `units` is only read for the prose the programme carries; every load in it is
+ * a percentage of a working max the client stores in their own unit. It defaults
+ * to the unit the seed is written in so a caller that has no profile to hand
+ * still gets a sentence that matches the sample client.
  */
-export function buildProgram(startDate: string, blockNumber: number): Program {
+export function buildProgram(startDate: string, blockNumber: number, units: Units = 'lb'): Program {
   const weeks: WeekTemplate[] = WEEK_SPECS.map((spec, i) => {
     const index = i + 1
     return {
@@ -407,7 +453,7 @@ export function buildProgram(startDate: string, blockNumber: number): Program {
     id: `block-${blockNumber}-strength-hypertrophy`,
     name: `Block ${blockNumber} · Strength + Size`,
     subtitle: '8 weeks · 4 days · upper/lower',
-    goal: 'Add 20 lb across the big three while gaining at 0.4 lb a week — strength up, waist flat.',
+    goal: goalLine(units),
     coach: 'Jud',
     startDate,
     daysPerWeek: 4,
@@ -418,14 +464,15 @@ export function buildProgram(startDate: string, blockNumber: number): Program {
 const programCache = new Map<string, Program>()
 
 /**
- * Memoised so every consumer shares one programme object. Keyed on both, because
- * rolling into the next block keeps neither the date nor the number.
+ * Memoised so every consumer shares one programme object. Keyed on all three,
+ * because rolling into the next block keeps neither the date nor the number, and
+ * switching units has to hand back a programme whose goal line has changed.
  */
-export function getProgram(startDate: string, blockNumber: number): Program {
-  const key = `${startDate}|${blockNumber}`
+export function getProgram(startDate: string, blockNumber: number, units: Units = 'lb'): Program {
+  const key = `${startDate}|${blockNumber}|${units}`
   let program = programCache.get(key)
   if (!program) {
-    program = buildProgram(startDate, blockNumber)
+    program = buildProgram(startDate, blockNumber, units)
     programCache.set(key, program)
   }
   return program
