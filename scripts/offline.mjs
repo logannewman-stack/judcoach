@@ -23,8 +23,10 @@ const server = createServer(async (req, res) => {
     res.writeHead(404).end('not found')
   }
 })
-await new Promise((r) => server.listen(5196, r))
-const url = 'http://localhost:5196/'
+// Port 0 lets the OS pick a free one, so a second copy of this check running
+// beside the first does not die on EADDRINUSE.
+await new Promise((r) => server.listen(0, r))
+const url = `http://localhost:${server.address().port}/`
 
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined })
 const ctx = await browser.newContext({ viewport: { width: 393, height: 852 }, isMobile: true, hasTouch: true })

@@ -5,7 +5,10 @@ import { createServer } from 'vite'
 
 const server = await createServer({ server: { port: 5198 } })
 await server.listen()
-const url = 'http://localhost:5198/'
+// Vite falls back to another port when this one is taken, and does it silently,
+// so the address has to come back out of the server rather than be assumed —
+// six agents verifying at once would otherwise all drive the first one's app.
+const url = server.resolvedUrls?.local?.[0] ?? 'http://localhost:5198/'
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined })
 const ctx = await browser.newContext({ viewport: { width: 393, height: 852 }, isMobile: true, hasTouch: true })
 const page = await ctx.newPage()

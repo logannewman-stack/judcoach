@@ -5,7 +5,10 @@ import { createServer } from 'vite'
 
 const server = await createServer({ server: { port: 5199 } })
 await server.listen()
-const url = 'http://localhost:5199/'
+// Vite falls back to another port when this one is taken, and does it silently,
+// so the address has to come back out of the server rather than be assumed —
+// six agents verifying at once would otherwise all drive the first one's app.
+const url = server.resolvedUrls?.local?.[0] ?? 'http://localhost:5199/'
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined })
 const ctx = await browser.newContext({ viewport: { width: 393, height: 852 }, isMobile: true, hasTouch: true })
 const page = await ctx.newPage()
@@ -39,6 +42,13 @@ const afterMigrate = await page.evaluate(() => {
     photoKey: JSON.parse(localStorage.getItem('grit-photos-v1') || 'null')?.length ?? 0,
     mainBlobHasPhotos: 'photos' in (JSON.parse(localStorage.getItem('grit-store-v1')).state ?? {}),
     version: JSON.parse(localStorage.getItem('grit-store-v1')).version,
+    // Read from the store rather than written down here: a check that hard-codes
+    // the current version stops testing anything the moment the version moves,
+    // and then fails for the one reason that is never a bug.
+    expectedVersion: window.__store.persist.getOptions().version,
+    // A v1 blob with no logged sets and no working maxes is a client who had
+    // started fresh, and the block number they were being shown was a lie.
+    blockNumber: s.blockNumber,
     name: s.profile.name,
     rounding: s.profile.roundingIncrement,
     plates: Array.isArray(s.profile.availablePlates) ? s.profile.availablePlates.length : null,
@@ -51,7 +61,11 @@ const afterMigrate = await page.evaluate(() => {
 check('migrated photo reaches state', afterMigrate.photos === 1)
 check('migrated photo lives in its own key', afterMigrate.photoKey === 1)
 check('photos no longer ride the main blob', afterMigrate.mainBlobHasPhotos === false)
-check('version bumped to 2', afterMigrate.version === 2, String(afterMigrate.version))
+check('version bumped to the store\'s own',
+  afterMigrate.version === afterMigrate.expectedVersion,
+  `${afterMigrate.version} vs ${afterMigrate.expectedVersion}`)
+check('a fresh client migrates onto block one',
+  afterMigrate.blockNumber === 1, String(afterMigrate.blockNumber))
 check('persisted profile field survives', afterMigrate.name === 'Jud')
 check('missing profile field filled from defaults',
   typeof afterMigrate.rounding === 'number' && afterMigrate.plates > 0,
